@@ -249,9 +249,6 @@ int main(int argc, char **argv) {
 		job(NULL);
 		qos_chk_ok_exit(qmgr_periodic_wait(&ps));
 	}
-
-	FILE *fout = fopen("resp_times.dat", "w");
-	qos_chk_do(fout != NULL, return -1);
-
+	
 	return 0;
 }
