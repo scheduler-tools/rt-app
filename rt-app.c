@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sched.h>
+#include <libgen.h>
 
 #include "queue.h"
 
@@ -128,6 +129,9 @@ void usage() {
 int main(int argc, char **argv) {
 	qres_sid_t sid;
 	argc--;  argv++;
+	char *base, *dir;
+	char plotfile[256];
+	FILE *ploth;
 	while (argc > 0) {
 		if (strcmp(argv[0], "-P") == 0) {
 			qos_chk_exit(argc > 0);
@@ -173,6 +177,23 @@ int main(int argc, char **argv) {
 			}
 			fprintf(loghandle, "#time | avg delay ever | max delay ever"
 		  			   " | avg delay | max delay\n");
+			base = basename(argv[0]);
+			dir = dirname(argv[0]);
+			snprintf(plotfile, 256, "%s/rtapp-avg.plot", dir);
+			ploth = fopen(plotfile, "w");
+			if (!ploth)
+				printf("Cannot write gnuplot file %s\n", plotfile);
+			else
+				fprintf(ploth, "set terminal wx\n"
+					       "plot \"%s\" u 0:4 title \"Avg Delay\" w lines,"
+					       "\"%s\" u 0:2 title \"Avg Delay Ever\" w lines\n",
+					       base, base);
+
+			// basename
+			// dirname
+			//  plot "$basename" using 0:2 title "Avg Delay" w lines, "$basename" u 0:2 title "Avg Delay Ever" w lines
+			//  plot "$basename" using 0:5 title "Max Delay" w lines, "$basename" u 0:3 title "Max Delay Ever" w lines
+
 		} else {
 			fprintf(stderr, "Unknown option: %s\n", argv[0]);
 			usage();
