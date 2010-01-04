@@ -179,7 +179,7 @@ int main(int argc, char **argv) {
 		  			   " | avg delay | max delay\n");
 			base = basename(argv[0]);
 			dir = dirname(argv[0]);
-			snprintf(plotfile, 256, "%s/rtapp-avg-delay.plot", dir);
+			snprintf(plotfile, 256, "%s/rtapp-delay.plot", dir);
 			ploth = fopen(plotfile, "w");
 			if (!ploth) {
 				fprintf(stderr, "Cannot write gnuplot file %s\n", plotfile);
@@ -187,30 +187,16 @@ int main(int argc, char **argv) {
 				fprintf(ploth, 
 					"set terminal wx\n"
 					"plot \"%s\" u 0:4 title \"Avg Delay\" w lines,"
-					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines\n"
+					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines,"
+					"\"%s\" u 0:5 title \"Max Delay\" w lines\n"
 					"set terminal pdf\n"
 					"set output 'rtapp-avg-delay.pdf'\n"
 					"plot \"%s\" u 0:4 title \"Avg Delay\" w lines,"
-					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines\n",
-					base, base, base, base);
+					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines,"
+					"\"%s\" u 0:5 title \"Max Delay\" w lines\n",
+					base, base, base, base, base, base);
 				fclose(ploth);
 			}	
-			snprintf(plotfile, 256, "%s/rtapp-max-delay.plot", dir);
-			ploth = fopen(plotfile, "w");
-			if (!ploth) {
-				fprintf(stderr, "Cannot write gnuplot file %s\n", plotfile);
-			} else {
-				fprintf(ploth, 
-					"set terminal wx\n"
-					"plot \"%s\" u 0:5 title \"Max Delay\" w lines,"
-					"\"%s\" u 0:3 title \"Max Delay Ever\" w lines\n"
-					"set terminal pdf\n"
-					"set output 'rtapp-max-delay.pdf'\n"
-					"plot \"%s\" u 0:5 title \"Max Delay\" w lines,"
-					"\"%s\" u 0:3 title \"Max Delay Ever\" w lines\n",
-					base, base, base, base);
-				fclose(ploth);
-			}
 
 		} else {
 			fprintf(stderr, "Unknown option: %s\n", argv[0]);
