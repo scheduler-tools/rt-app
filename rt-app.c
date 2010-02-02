@@ -1,279 +1,355 @@
-#define QOS_DEBUG_LEVEL QOS_LEVEL_ERROR
-#include <linux/aquosa/qos_debug.h>
+#include "rt-app.h"
 
-#include <aquosa/qres_lib.h>
-#include <aquosa/qmgr_util.h>
+#define handle_error(en, msg) \
+	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
+static int errno;
 
-#include <aquosa/qosutil.h>
-
-#include <assert.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <stdlib.h>
-#include <time.h>
-
-#include <errno.h>
-#include <string.h>
-#include <sched.h>
-#include <libgen.h>
-
-#include "queue.h"
-
-queue_t q;
-
-unsigned long counted_in_period = 0;
-long first_time = 0;
-long sum_delta_time = 0;	//< Since start of program
-long max_delta_time = 0;	//< Since start of program
-long enqueued_sum_dt = 0;	//<
-long job_cnt = 0;
-FILE *loghandle;
-
-
-int frag = 4;
-
-int job(void *);
-
-#define UNASSIGNED (-1)
-
-int use_qos = 0;
-int use_rt = 0;
-int use_load = 0;
-int ratio = 25;
-int queue_size = UNASSIGNED;
-
-/************************************************************/
-
-int enqueued;		/* Number of enqueued jobs */
-
-long period_nsec = 40000000; /* Is approximated according to timer resolution */
-
-struct timespec ref_ts;
-long unsigned deadline_nsec;
-struct timeval tv;
-
-qmgr_period_spec_t ps;
-
-int job(void *ptr) {
-	
-	struct timespec ts, dl_ts;
-	unsigned long curr_time;
-	job_cnt++;
-	count(counted_in_period * ratio / 100);
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	curr_time = (ts.tv_sec - ref_ts.tv_sec) * 1000000l + 
-		(ts.tv_nsec - ref_ts.tv_nsec) / 1000l + 
-		period_nsec / 1000l;
-	qmgr_periodic_get_deadline(&ps, &dl_ts);
-	unsigned long delta_time = (ts.tv_sec - dl_ts.tv_sec) * 1000000l + 
-		(ts.tv_nsec - dl_ts.tv_nsec) / 1000l + 
-		period_nsec / 1000l;
-
-	if (delta_time > max_delta_time)
-		max_delta_time = delta_time;
-
-	int num_elems = queue_get_num_elements(&q);
-	if (num_elems == queue_size) {
-		long extracted_time = queue_extract(&q);
-		enqueued_sum_dt -= extracted_time;
-	}
-	queue_insert(&q, delta_time);
-	num_elems = queue_get_num_elements(&q);
-
-	sum_delta_time += delta_time;
-	enqueued_sum_dt += delta_time;
-
-	queue_iterator_t qit = qit = queue_begin(&q);
-	long max_qdt = queue_it_next(&qit);
-	
-	while (queue_it_has_next(&qit)) {
-		long dt = queue_it_next(&qit);
-		if (dt > max_qdt)
-			max_qdt = dt;
-	}
-
-	if (num_elems > 0 && (job_cnt % queue_size) == 0) {
-		printf( "time=%ld, avg delay ever=%ld, max delay ever=%ld, "
-			"avg delay=%ld, max delay=%ld\n", curr_time, 
-			sum_delta_time / job_cnt, max_delta_time, 
-			enqueued_sum_dt / num_elems, max_qdt);
-		fflush(stdout);
-		if (loghandle) {
-			fprintf(loghandle, "%ld\t%ld\t%ld\t%ld\t%ld\n",
-				curr_time, sum_delta_time / job_cnt, max_delta_time, 
-				enqueued_sum_dt / num_elems, max_qdt);
-		}
-		fflush(loghandle);
-	
-	}
-
-	return 0;
+static inline
+unsigned int timespec_to_msec(struct timespec *ts)
+{
+	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000000;
 }
 
-void usage() {
-	printf("\n");
-	printf("Usage: rt-app [options]\n");
-	printf("  -P <period>            Set period in microseconds.\n");
-	printf("  --rt                   Use SCHED_RR scheduling policy\n");
-	printf("  --qos                  Use AQuoSA reservation\n");
-	printf("  (--ratio|-r) <0-100>   Set workload ratio\n");
-	printf("  (--frag|-f) <1-16>     Set division factor for reservation\n");
-	printf("  -d <num>               Set number of loops to execute in each job\n");
-	printf("  -qs|--queue-size <num> Set size of history queue for response times\n");
-	printf("  -l <logfilename>	 Full path of the log file\n");
-	printf("\n");
+static inline
+struct timespec usec_to_timespec(unsigned long usec)
+{
+	struct timespec ts;
+
+	ts.tv_sec = usec / 1000000;
+	ts.tv_nsec = (usec % 1000000) * 1000;
+	
+	return ts;
 }
 
-int main(int argc, char **argv) {
-	qres_sid_t sid;
-	argc--;  argv++;
-	char *base, *dir;
-	char plotfile[256];
-	FILE *ploth;
-	while (argc > 0) {
-		if (strcmp(argv[0], "-P") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--;  argv++;
-			period_nsec = atol(argv[0]) * 1000ul;
-		} else if (strcmp(argv[0], "--qos") == 0) {
-			use_qos = 1;
-		} else if (strcmp(argv[0], "--rt") == 0) {
-			use_rt = 1;
-		} else if (strcmp(argv[0], "--load") == 0) {
-			use_load = 1;
-		} else if (strcmp(argv[0], "-r") == 0 || strcmp(argv[0], "--ratio") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--;  argv++;
-			ratio = atoi(argv[0]);
-		} else if (strcmp(argv[0], "-qs") == 0 || strcmp(argv[0], "--queue-size") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--;  argv++;
-			queue_size = atoi(argv[0]);
-			qos_chk_exit(queue_size >= 1);
-		} else if (strcmp(argv[0], "-f") == 0 || strcmp(argv[0], "--frag") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--;  argv++;
-			frag = atoi(argv[0]);
-			if (frag < 1 || frag > 16) {
-				printf("Argument to --frag option must be in the range 1..16\n");
-				exit(-1);
-			}
-		} else if (strcmp(argv[0], "--help") == 0 || strcmp(argv[0], "-h") == 0) {
-			usage();
-			exit(0);
-		} else if (strcmp(argv[0], "-d") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--;  argv++;
-			counted_in_period = atol(argv[0]);
-		} else if (strcmp(argv[0], "-l") == 0) {
-			qos_chk_exit(argc > 0);
-			argc--; argv++;
-			loghandle = fopen(argv[0], "w");
-			if (!loghandle) {
-				printf("Cannot open log file : %s\n", strerror(errno));
-				exit(-1);
-			}
-			fprintf(loghandle, "#time | avg delay ever | max delay ever"
-		  			   " | avg delay | max delay\n");
-			base = basename(argv[0]);
-			dir = dirname(argv[0]);
-			snprintf(plotfile, 256, "%s/rtapp-delay.plot", dir);
-			ploth = fopen(plotfile, "w");
-			if (!ploth) {
-				fprintf(stderr, "Cannot write gnuplot file %s\n", plotfile);
-			} else { 
-				fprintf(ploth, 
-					"set terminal wx\n"
-					"plot \"%s\" u 0:4 title \"Avg Delay\" w lines,"
-					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines,"
-					"\"%s\" u 0:5 title \"Max Delay\" w lines\n"
-					"set terminal pdf\n"
-					"set output 'rtapp-avg-delay.pdf'\n"
-					"plot \"%s\" u 0:4 title \"Avg Delay\" w lines,"
-					"\"%s\" u 0:2 title \"Avg Delay Ever\" w lines,"
-					"\"%s\" u 0:5 title \"Max Delay\" w lines\n",
-					base, base, base, base, base, base);
-				fclose(ploth);
-			}	
+static inline
+struct timespec msec_to_timespec(unsigned int msec)
+{
+	struct timespec ts;
 
-		} else {
-			fprintf(stderr, "Unknown option: %s\n", argv[0]);
-			usage();
-			exit(-1);
-		}
-		argc--;  argv++;
+	ts.tv_sec = msec / 1000;
+	ts.tv_nsec = (msec % 1000) * 1000000;
+
+	return ts;
+}
+
+static inline
+struct timespec timespec_add(struct timespec *t1, struct timespec *t2)
+{
+	struct timespec ts;
+
+	ts.tv_sec = t1->tv_sec + t2->tv_sec;
+	ts.tv_nsec = t1->tv_nsec + t2->tv_nsec;
+
+	while (ts.tv_nsec >= 1E9) {
+		ts.tv_nsec -= 1E9;
+		ts.tv_sec++;
 	}
 
-	struct sched_param sp = {
-		.sched_priority = 20
-	};
-	if (use_rt) {
-		printf("Setting RT priority...\n");
-		if (sched_setscheduler(0, SCHED_RR, &sp) < 0) {
-			fprintf(stderr, "Warning: couldn't set RT priority: %s\n", strerror(errno));
-		}
+	return ts;
+}
+
+static inline
+struct timespec timespec_sub(struct timespec *t1, struct timespec *t2)
+{
+	struct timespec ts;
+	ts.tv_sec = t1->tv_sec - t2->tv_sec;
+	ts.tv_nsec = t1->tv_nsec - t2->tv_nsec;
+
+	while (ts.tv_nsec < 0) {
+		ts.tv_nsec = 1E9 + ts.tv_nsec;
+		ts.tv_sec--;
 	}
 
-	if (counted_in_period == 0) {
-		printf("Counting for 1 period...\n");
-		counted_in_period = count_and_wait(1000000ul);
-		printf("Counted in 1 period: %lu\n", counted_in_period);
-	}
+	return ts;
 
-	if (queue_size == UNASSIGNED)
-		queue_size = 1000000000 / period_nsec;
+}
 
-	qos_chk_exit(queue_init(&q, queue_size) == OK);
+static inline
+unsigned int max_run(int min, int max)
+{
+        return min + (((double) rand()) / RAND_MAX) * (max - min);
+}
 
-	if (use_qos) {
-		if (use_rt) {
-			sp.sched_priority = 0;
-			printf("Unsetting RT priority...\n");
-			if (sched_setscheduler(0, SCHED_OTHER, &sp) < 0) {
-				fprintf(stderr, "Warning: couldn't set OTHER priority: %s\n", strerror(errno));
-			}
-		}
-		qres_params_t params = {
-			.Q_min = period_nsec / 1000 * ratio / 100 * 4 / 3 / frag,
-			.Q = period_nsec / 1000 * ratio / 100 * 4 / 3 / frag,
-			.P = period_nsec / 1000 / frag,
-			.flags = 0,
-		};
-		printf("Creating QRES Server with Q=%llu, P=%llu\n", params.Q, params.P);
-		qos_chk_ok_exit(qres_init());
-		qos_chk_ok_exit(qres_create_server(&params, &sid));
-		qos_chk_ok_exit(qres_attach_thread(sid, 0, 0));
-	}
+void run(int ind, struct timespec *min, struct timespec *max)
+{
+	int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
+	struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
 
-	if (use_load) {
-		printf("Computing and sleeping ...\n");
-		int i;
-		for (i = 0; i < 10; i++) {
-			count(counted_in_period);
-			unsigned long ns = (unsigned long) (1.0e9 / 25 * (rand() / (RAND_MAX + 1.0)));
-			printf("%d: %lu\n", i, ns);
-			struct timespec ts = {
-				.tv_sec = 0lu,
-				.tv_nsec = ns
-			};
-			nanosleep(&ts, NULL);
-		}
-	}
-
-	printf("Starting periodic task (using ratio: %d%%)...\n", ratio);
-	struct timespec ts = {
-		.tv_sec = period_nsec / 1000000000L,
-		.tv_nsec = period_nsec % 1000000000L
-	};
-	qos_chk_ok_exit(qmgr_periodic_start(&ps, &ts));
-	qmgr_periodic_get_deadline(&ps, &ref_ts);
+	/* get the start time */
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
+	/* compute finish time for CPUTIME_ID clock */
+	t_exec = timespec_add(&t_start, &t_exec);
 
 	while (1) {
-		job(NULL);
-		qos_chk_ok_exit(qmgr_periodic_wait(&ps));
+		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_step);
+		if (timespec_to_msec(&t_step) >= timespec_to_msec(&t_exec))
+			break;
 	}
-	
-	return 0;
 }
+
+void *thread_body(void *arg)
+{
+	struct thread_data *data = (struct thread_data*) arg;
+	struct sched_param param;
+	struct timespec t, t_next;
+	int ret, i = 0;
+
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	printf("\tThread %d started running at %u\n",
+	       data->ind, timespec_to_msec(&t));
+	
+	switch (data->sched_policy)
+	{
+		case SCHED_RR:
+		case SCHED_FIFO:
+		case SCHED_BATCH:
+			printf("Setting POSIX scheduling class:\n");
+			param.sched_priority = data->sched_prio;
+			ret = pthread_setschedparam(pthread_self(), 
+						    data->sched_policy, 
+						    &param);
+			if (ret != 0)
+				handle_error(ret, "pthread_setschedparam");
+			break;
+		case SCHED_OTHER:
+			printf("Using SCHED_OTHER policy");
+			break;
+#ifdef AQUOSA			
+		case QOS:
+			/* TODO: create server. */
+			printf("Creating AQuoSA reservation\n");
+			break;
+#endif
+		default:
+			printf("Unknown scheduling policy %d\n", data->sched_policy);
+			exit(EXIT_FAILURE);
+	}
+		
+	t_next = t;
+	while (1) {
+		struct timespec t_start, t_end, t_diff;
+
+		clock_gettime(CLOCK_MONOTONIC, &t_start);
+		run(data->ind, &data->min_et, &data->max_et);
+		clock_gettime(CLOCK_MONOTONIC, &t_end);
+		
+		t_diff = timespec_sub(&t_end, &t_start);
+		
+		t_next = timespec_add(&t_next, &data->period);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
+		
+		i++;
+	}
+
+	pthread_exit(NULL);
+}
+
+void
+usage (const char* msg)
+{
+	printf("usage: rt-app -p <PERIOD> -e <EXEC_TIME> [ options... ]\n");
+	printf("-h, --help\t:\tshow this help\n");
+	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
+	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
+	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
+	printf("-p, --period\t:\ttask period in usec (mandatory)\n");
+	printf("-e, --exec\t:\ttask execution time\n");
+	printf("-d, --deadline\t:\tdeadline (slack relative to period"
+				   "default=0)\n");
+	printf("-n, --nthreads\t:\tnumber of threads to start (default=1)\n");
+	printf("-s, --spacing\t:\tusec to wait beetween thread starts\n");
+	printf("-l, --logdir\t:\tsave logs to different directory\n");
+	
+#ifdef AQUOSA
+	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
+	printf("-g, --frag\t:\tfragment for the reservation\n");
+#endif
+
+	if (msg != NULL)
+		printf("\n%s\n", msg);
+	exit(0);
+}
+
+
+int main(int argc, char* argv[])
+{
+	char ch;
+	int longopt_idx;
+	char tmp[PATH_LENGTH];
+	int i;
+
+	struct thread_data *tdata;
+	pthread_t *threads;
+
+	int nthreads,policy;
+	unsigned long deadline,period,exec,spacing;
+	char *logdir = NULL;
+
+	struct stat dirstat;
+
+	struct timespec t_curr, t_next;
+#ifdef AQUOSA
+	int fragment;
+#endif
+	
+	static struct option long_options[] = {
+	                   {"help", 0, 0, 'h'},
+			   {"fifo", 0, 0, 'f'},
+			   {"rr", 0, 0, 'r'},
+	                   {"batch", 0, 0, 'b'},
+	                   {"period",1, 0, 'p'},
+	                   {"exec",1, 0, 'e'},
+			   {"deadline", 1, 0, 'd'},
+			   {"nthreads", 1, 0, 'n'},
+			   {"spacing", 1, 0, 's'},
+			   {"logdir", 1, 0, 'l'},
+#ifdef AQUOSA
+			   {"qos", 0, 0, 'q'},
+			   {"frag",1, 0, 'g'},
+#endif
+	                   {0, 0, 0, 0}
+	               };
+
+	// set defaults.
+	nthreads = 1;
+	spacing = 0;
+	period = exec = deadline = policy = -1;
+
+#ifdef AQUOSA
+	fragment = 1;
+	
+	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:qg:", 
+				  long_options, &longopt_idx)) != -1)
+#else
+	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:", 
+				  long_options, &longopt_idx)) != -1)
+#endif	
+	{
+		switch (ch)
+		{
+			case 'h':
+				usage(NULL);
+				break;
+			case 'f':
+				if (policy != -1)
+					usage("Cannot set multiple policies");
+				policy = SCHED_FIFO;
+				break;
+			case 'r':
+				if (policy != -1)
+					usage("Cannot set multiple policies");
+				policy = SCHED_RR;
+				break;
+			case 'b':
+				if (policy != -1)
+					usage("Cannot set multiple policies");
+				policy = SCHED_BATCH;
+				break;
+			case 'p':
+				period = strtol(optarg, NULL, 10);
+				if (period <= 0)
+					usage("Cannot set negative period.");
+				break;
+			case 'e':
+				exec = strtol(optarg, NULL, 10);
+				if (exec >= period)
+					usage("Exec time cannot be greater than"
+					      " period.");
+				if (exec <= 0 )
+					usage("Cannot set negative exec time");
+				
+				break;
+			case 'd':
+				deadline = strtol(optarg, NULL, 10);
+				if (deadline < exec)
+					usage ("Deadline cannot be less than "
+						"execution time");
+				if (deadline > period)
+					usage ("Deadline cannot be greater than "
+						"period");
+				if (deadline <= 0 )
+					usage ("Cannot set negative deadline");
+				break;
+			case 'n':
+				nthreads = strtol(optarg, NULL, 0);
+				if (nthreads < 1 || nthreads > 16)
+					usage ("Thread number must be between 0 and 1");
+				break;
+			case 's':
+				spacing  = strtol(optarg, NULL, 0);
+				if (spacing < 0)
+					usage("Cannot set negative spacing");
+				break;
+			case 'l':
+				logdir = strdup(optarg);	
+				lstat(logdir, &dirstat);
+				if (! S_ISDIR(dirstat.st_mode))
+					usage("Cannot stat log directory");
+				break;
+#ifdef AQUOSA				
+			case 'q':
+				if (policy != -1)
+					usage("Cannot set multiple policies");
+				policy = QOS;
+				break;
+			case 'g':
+				fragment = strtol(optarg, NULL, 10);
+				if (fragment < 1 || fragment > 16)
+					usage("Fragment divisor must be between 1 and 16");
+				break;
+#endif
+			default:
+				usage(NULL);
+		}
+	}
+	if (period == -1 || exec == -1)
+		usage("Period and execution time are mandatory");
+	if (deadline == -1)
+		deadline = period;
+	if (!logdir)
+		logdir = dirname(argv[0]);
+	if (policy == -1)
+		policy = SCHED_OTHER;
+	
+	threads = malloc(nthreads * sizeof(pthread_t));
+
+	for (i = 0; i<nthreads; i++)
+	{
+		tdata = malloc(sizeof(struct thread_data));
+		tdata->ind = i;
+		tdata->sched_policy = policy;
+		tdata->period = usec_to_timespec(period) ;
+		tdata->deadline = usec_to_timespec(deadline);
+		tdata->sched_prio = 10; // FIXME
+		tdata->min_et = usec_to_timespec(exec);
+		tdata->max_et = usec_to_timespec(exec);
+		snprintf(tmp, PATH_LENGTH, "%s/rt-app-t%d.log",
+			 logdir,i);
+		tdata->log_handler = fopen(tmp, "w");
+		if (!tdata->log_handler){
+			printf("Cannot open logfile %s\n", tmp);
+			exit(EXIT_FAILURE);
+		}
+		
+		if (pthread_create(&threads[i], NULL, thread_body, (void*) tdata))
+			goto exit_err;
+		if (spacing > 0) {
+			clock_gettime(CLOCK_MONOTONIC, &t_curr);
+			t_next = msec_to_timespec((long) spacing / 1000.0);
+			t_next = timespec_add(&t_curr, &t_next);
+			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next,
+					NULL);
+		}
+	}
+	for (i = 0; i < nthreads; i++)
+	{
+		pthread_join(threads[i], NULL);
+	}
+	exit(EXIT_SUCCESS);
+
+exit_err:
+	exit(EXIT_FAILURE);
+}
+
+
+
