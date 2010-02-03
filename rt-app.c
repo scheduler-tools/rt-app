@@ -483,13 +483,35 @@ int main(int argc, char* argv[])
 	
 	if (logdir && gnuplot)
 	{
-		snprintf(tmp, PATH_LENGTH, "%s/rt-app.plot", logdir);
+		snprintf(tmp, PATH_LENGTH, "%s/rt-app-duration.plot", logdir);
 		gnuplot_script = fopen(tmp, "w+");
+		fprintf(gnuplot_script, ""
+			"set grid\n"
+			"set title \"Duration per period\"\n"
+			"set xlabel \"Cycles\"\n"
+			"set ylabel \"usec\"\n"
+			"plot ");
 		for (i=0; i<nthreads; i++)
 		{
-			if (i == 0)
-				fprintf(gnuplot_script, "plot ");
-			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 7 w l"
+			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 8 w l"
+						" title \"thread%d\"", i, i);
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+		fclose(gnuplot_script);
+		snprintf(tmp, PATH_LENGTH, "%s/rt-app-slack.plot", logdir);
+		gnuplot_script = fopen(tmp, "w+");
+		fprintf(gnuplot_script, ""
+			"set grid\n"
+			"set title \"Slack. (negative = tardiness)\"\n"
+			"set xlabel \"Cycles\"\n"
+			"set ylabel \"usec\"\n"
+			"plot ");
+		for (i=0; i<nthreads; i++)
+		{
+			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 8 w l"
 						" title \"thread%d\"", i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
