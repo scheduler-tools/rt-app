@@ -15,6 +15,12 @@ unsigned int timespec_to_msec(struct timespec *ts)
 }
 
 static inline
+long timespec_to_lusec(struct timespec *ts)
+{
+	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
+}
+
+static inline
 unsigned long timespec_to_usec(struct timespec *ts)
 {
 	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
@@ -158,6 +164,10 @@ void *thread_body(void *arg)
 	}
 		
 	t_next = t;
+	data->deadline = timespec_add(&t, &data->deadline);
+
+	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\tstart\t\tend"
+				   "\t\tdur.\tslack\n");
 	while (exit_cycle) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
@@ -166,11 +176,13 @@ void *thread_body(void *arg)
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 		
 		t_diff = timespec_sub(&t_end, &t_start);
+		t_slack = timespec_sub(&data->deadline, &t_end);
+
+		data->deadline = timespec_add(&data->deadline, &data->period);
 		t_next = timespec_add(&t_next, &data->period);
-		t_slack = timespec_sub(&t_next, &t_end);
 
 		fprintf(data->log_handler, 
-			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
 			data->ind,
 			timespec_to_usec(&data->period),
 			timespec_to_usec(&data->min_et),
@@ -178,7 +190,7 @@ void *thread_body(void *arg)
 			timespec_to_usec(&t_start),
 			timespec_to_usec(&t_end),
 			timespec_to_usec(&t_diff),
-			timespec_to_usec(&t_slack)
+			timespec_to_lusec(&t_slack)
 		);
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);	
 		i++;
