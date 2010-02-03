@@ -216,6 +216,7 @@ usage (const char* msg)
 	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
 	printf("-s, --spacing\t:\tusec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
+	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -303,17 +304,19 @@ int main(int argc, char* argv[])
 	char ch;
 	int longopt_idx;
 	char tmp[PATH_LENGTH];
-	int i;
+	int i,j,gnuplot;
 
 	struct thread_data *threads_data, *tdata;
 
 	policy_t policy = other;
 	unsigned long spacing;
 	char *logdir = NULL;
+	FILE *gnuplot_script = NULL;
 
 	struct stat dirstat;
 
 	struct timespec t_curr, t_next;
+
 #ifdef AQUOSA
 	int fragment;
 #endif
@@ -326,6 +329,7 @@ int main(int argc, char* argv[])
 			   {"thread", 1, 0, 't'},
 			   {"spacing", 1, 0, 's'},
 			   {"logdir", 1, 0, 'l'},
+			   {"gnuplot", 1, 0, 'G'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
@@ -336,16 +340,17 @@ int main(int argc, char* argv[])
 	// set defaults.
 	nthreads = 0;
 	spacing = 0;
+	gnuplot = 0;
 	threads = malloc( sizeof(pthread_t));
 	threads_data = malloc( sizeof(struct thread_data));
 
 #ifdef AQUOSA
 	fragment = 1;
 	
-	while (( ch = getopt_long(argc,argv,"hfrbs:l:qg:t:", 
+	while (( ch = getopt_long(argc,argv,"Ghfrbs:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"hfrbs:l:t:", 
+	while (( ch = getopt_long(argc,argv,"Ghfrbs:l:t:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -389,6 +394,9 @@ int main(int argc, char* argv[])
 				parse_thread_args(optarg, 
 						  &threads_data[nthreads]);
 				nthreads++;
+				break;
+			case 'G':
+				gnuplot = 1;
 				break;
 #ifdef AQUOSA				
 			case 'q':
@@ -454,6 +462,25 @@ int main(int argc, char* argv[])
 					NULL);
 		}
 	}
+	
+	if (logdir && gnuplot)
+	{
+		snprintf(tmp, PATH_LENGTH, "%s/rt-app.plot", logdir);
+		gnuplot_script = fopen(tmp, "w+");
+		for (i=0; i<nthreads; i++)
+		{
+			if (i == 0)
+				fprintf(gnuplot_script, "plot ");
+			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 7 w l"
+						" title \"thread%d\"", i, i);
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+		fclose(gnuplot_script);
+	}
+
 	for (i = 0; i < nthreads; i++)
 	{
 		pthread_join(threads[i], NULL);
