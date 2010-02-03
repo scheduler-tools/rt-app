@@ -235,6 +235,7 @@ usage (const char* msg)
 	printf("-s, --spacing\t:\tusec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
+	printf("-D, --duration\t:\ttime (in msec) before stopping threads\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -334,6 +335,7 @@ int main(int argc, char* argv[])
 	struct stat dirstat;
 
 	struct timespec t_curr, t_next;
+	int duration;
 
 #ifdef AQUOSA
 	int fragment;
@@ -348,6 +350,7 @@ int main(int argc, char* argv[])
 			   {"spacing", 1, 0, 's'},
 			   {"logdir", 1, 0, 'l'},
 			   {"gnuplot", 1, 0, 'G'},
+			   {"duration", 1, 0, 'D'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
@@ -359,16 +362,17 @@ int main(int argc, char* argv[])
 	nthreads = 0;
 	spacing = 0;
 	gnuplot = 0;
+	duration = -1;
 	threads = malloc( sizeof(pthread_t));
 	threads_data = malloc( sizeof(struct thread_data));
 
 #ifdef AQUOSA
 	fragment = 1;
 	
-	while (( ch = getopt_long(argc,argv,"Ghfrbs:l:qg:t:", 
+	while (( ch = getopt_long(argc,argv,"D:Ghfrbs:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"Ghfrbs:l:t:", 
+	while (( ch = getopt_long(argc,argv,"D:Ghfrbs:l:t:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -415,6 +419,11 @@ int main(int argc, char* argv[])
 				break;
 			case 'G':
 				gnuplot = 1;
+				break;
+			case 'D':
+				duration = strtol(optarg, NULL, 10);
+				if (duration < 0)
+					usage("Cannot set negative duration");
 				break;
 #ifdef AQUOSA				
 			case 'q':
@@ -520,12 +529,21 @@ int main(int argc, char* argv[])
 		}
 		fclose(gnuplot_script);
 	}
-
-	for (i = 0; i < nthreads; i++)
+	
+	if (duration > 0)
 	{
+		clock_gettime(CLOCK_MONOTONIC, &t_curr);
+		t_next = msec_to_timespec(duration);
+		t_next = timespec_add(&t_curr, &t_next);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
+		shutdown(SIGTERM);
+	}
+	
+	for (i = 0; i < nthreads; i++) 	{
 		pthread_join(threads[i], NULL);
 	}
 	exit(EXIT_SUCCESS);
+
 
 exit_err:
 	exit(EXIT_FAILURE);
