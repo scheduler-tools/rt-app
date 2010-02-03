@@ -17,13 +17,13 @@ unsigned int timespec_to_msec(struct timespec *ts)
 static inline
 long timespec_to_lusec(struct timespec *ts)
 {
-	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
+	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
 static inline
 unsigned long timespec_to_usec(struct timespec *ts)
 {
-	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
+	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
 static inline
@@ -68,16 +68,32 @@ static inline
 struct timespec timespec_sub(struct timespec *t1, struct timespec *t2)
 {
 	struct timespec ts;
-	ts.tv_sec = t1->tv_sec - t2->tv_sec;
-	ts.tv_nsec = t1->tv_nsec - t2->tv_nsec;
-
-	while (ts.tv_nsec < 0) {
-		ts.tv_nsec = 1E9 + ts.tv_nsec;
-		ts.tv_sec--;
+	
+	if (t1->tv_nsec < t2->tv_nsec) {
+		ts.tv_sec = t1->tv_sec - t2->tv_sec -1;
+		ts.tv_nsec = t1->tv_nsec  + 1000000000 - t2->tv_nsec; 
+	} else {
+		ts.tv_sec = t1->tv_sec - t2->tv_sec;
+		ts.tv_nsec = t1->tv_nsec - t2->tv_nsec; 
 	}
 
 	return ts;
 
+}
+
+static inline
+int timespec_lower(struct timespec *what, struct timespec *than)
+{
+	if (what->tv_sec > than->tv_sec)
+		return 0;
+
+	if (what->tv_sec < than->tv_sec)
+		return 1;
+
+	if (what->tv_nsec < than->tv_nsec)
+		return 1;
+
+	return 0;
 }
 
 static inline
@@ -88,8 +104,9 @@ unsigned int max_run(int min, int max)
 
 void run(int ind, struct timespec *min, struct timespec *max)
 {
-	int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
-	struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
+	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
+	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
+	struct timespec t_start, t_step, t_exec = *max;
 
 	/* get the start time */
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
@@ -98,7 +115,7 @@ void run(int ind, struct timespec *min, struct timespec *max)
 
 	while (1) {
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_step);
-		if (timespec_to_msec(&t_step) >= timespec_to_msec(&t_exec))
+		if (!timespec_lower(&t_step, &t_exec))
 			break;
 	}
 }
@@ -172,7 +189,7 @@ void *thread_body(void *arg)
 	data->deadline = timespec_add(&t, &data->deadline);
 
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\tstart\t\tend"
-				   "\t\tdur.\tslack\n");
+				   "\tdeadline\t\tdur.\tslack\n");
 	while (exit_cycle) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
@@ -183,20 +200,21 @@ void *thread_body(void *arg)
 		t_diff = timespec_sub(&t_end, &t_start);
 		t_slack = timespec_sub(&data->deadline, &t_end);
 
-		data->deadline = timespec_add(&data->deadline, &data->period);
-		t_next = timespec_add(&t_next, &data->period);
-
 		fprintf(data->log_handler, 
-			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
+			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
 			data->ind,
 			timespec_to_usec(&data->period),
 			timespec_to_usec(&data->min_et),
 			timespec_to_usec(&data->max_et),
 			timespec_to_usec(&t_start),
 			timespec_to_usec(&t_end),
+			timespec_to_usec(&data->deadline),
 			timespec_to_usec(&t_diff),
 			timespec_to_lusec(&t_slack)
 		);
+
+		t_next = timespec_add(&t_next, &data->period);
+		data->deadline = timespec_add(&data->deadline, &data->period);
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);	
 		i++;
 	}

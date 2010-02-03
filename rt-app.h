@@ -12,6 +12,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <signal.h>
+#include <math.h>
 
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>

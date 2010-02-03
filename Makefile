@@ -4,7 +4,7 @@ HEADERS = rt-app.h
 
 OBJS = $(SOURCES:.c=.o)
 
-LIBS += -lrt -lpthread
+LIBS += -lrt -lpthread -lm
 OBJOPT += -D_GNU_SOURCE -D_XOPEN_SOURCE=600
 
 LDFLAGS += $(LIBS)
