@@ -43,6 +43,8 @@ struct thread_data {
 
 #ifdef AQUOSA
 	int fragment;
+	int sid;
+	qres_params_t params;
 #endif
 };
 

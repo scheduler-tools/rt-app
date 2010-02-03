@@ -15,6 +15,12 @@ unsigned int timespec_to_msec(struct timespec *ts)
 }
 
 static inline
+unsigned int timespec_to_usec(struct timespec *ts)
+{
+	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
+}
+
+static inline
 struct timespec usec_to_timespec(unsigned long usec)
 {
 	struct timespec ts;
@@ -133,8 +139,17 @@ void *thread_body(void *arg)
 			break;
 #ifdef AQUOSA			
 		case aquosa:
-			/* TODO: create server. */
-			printf("Creating AQuoSA reservation\n");
+			data->params.Q_min = timespec_to_usec(&data->min_et) / data->fragment;
+			data->params.Q = timespec_to_usec(&data->max_et) / data->fragment;
+			data->params.P = timespec_to_usec(&data->period) / data->fragment;
+			data->params.flags = 0;
+			printf("Creating QRES Server with Q=%ld, P=%ld\n",
+				data->params.Q, data->params.P);
+			qos_chk_ok_exit(qres_init());
+			qos_chk_ok_exit(qres_create_server(&data->params, 
+							   &data->sid));
+			qos_chk_ok_exit(qres_attach_thread(data->sid, 0, 0));
+
 			break;
 #endif
 		default:
@@ -352,6 +367,9 @@ int main(int argc, char* argv[])
 		tdata->sched_prio = priority; 
 		tdata->min_et = usec_to_timespec(exec);
 		tdata->max_et = usec_to_timespec(exec);
+#ifdef AQUOSA
+		tdata->fragment = fragment;
+#endif
 		if (logdir) {
 			snprintf(tmp, PATH_LENGTH, "%s/rt-app-t%d.log",
 				 logdir,i);
