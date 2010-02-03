@@ -2,7 +2,11 @@
 
 #define handle_error(en, msg) \
 	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
+
 static int errno;
+static int exit_cycle;
+static pthread_t *threads;
+static int nthreads;
 
 static inline
 unsigned int timespec_to_msec(struct timespec *ts)
@@ -87,6 +91,19 @@ void run(int ind, struct timespec *min, struct timespec *max)
 	}
 }
 
+static void
+shutdown(int sig)
+{
+	int i;
+	// notify threads, join them, then exit
+	exit_cycle = 0;
+	for (i = 0; i < nthreads; i++)
+	{
+		pthread_join(threads[i], NULL);
+	}
+	exit(EXIT_SUCCESS);
+}
+
 void *thread_body(void *arg)
 {
 	struct thread_data *data = (struct thread_data*) arg;
@@ -100,9 +117,9 @@ void *thread_body(void *arg)
 	
 	switch (data->sched_policy)
 	{
-		case SCHED_RR:
-		case SCHED_FIFO:
-		case SCHED_BATCH:
+		case rr:
+		case fifo:
+		case batch:
 			printf("Setting POSIX scheduling class:\n");
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
@@ -111,11 +128,11 @@ void *thread_body(void *arg)
 			if (ret != 0)
 				handle_error(ret, "pthread_setschedparam");
 			break;
-		case SCHED_OTHER:
-			printf("Using SCHED_OTHER policy");
+		case other:
+			printf("[%d] Using SCHED_OTHER policy\n", data->ind);
 			break;
 #ifdef AQUOSA			
-		case QOS:
+		case aquosa:
 			/* TODO: create server. */
 			printf("Creating AQuoSA reservation\n");
 			break;
@@ -126,7 +143,7 @@ void *thread_body(void *arg)
 	}
 		
 	t_next = t;
-	while (1) {
+	while (exit_cycle) {
 		struct timespec t_start, t_end, t_diff;
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -140,6 +157,9 @@ void *thread_body(void *arg)
 		
 		i++;
 	}
+	printf("[%d] Exiting.\n", data->ind);
+	fclose(data->log_handler);
+	free(data);
 
 	pthread_exit(NULL);
 }
@@ -152,6 +172,7 @@ usage (const char* msg)
 	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
 	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
 	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
+	printf("-P, --priority\t:\tset scheduling priority\n");
 	printf("-p, --period\t:\ttask period in usec (mandatory)\n");
 	printf("-e, --exec\t:\ttask execution time\n");
 	printf("-d, --deadline\t:\tdeadline (slack relative to period"
@@ -179,9 +200,9 @@ int main(int argc, char* argv[])
 	int i;
 
 	struct thread_data *tdata;
-	pthread_t *threads;
 
-	int nthreads,policy;
+	policy_t policy = other;
+	int priority = DEFAULT_THREAD_PRIORITY;
 	unsigned long deadline,period,exec,spacing;
 	char *logdir = NULL;
 
@@ -197,6 +218,7 @@ int main(int argc, char* argv[])
 			   {"fifo", 0, 0, 'f'},
 			   {"rr", 0, 0, 'r'},
 	                   {"batch", 0, 0, 'b'},
+			   {"priority", 1, 0, 'P'},
 	                   {"period",1, 0, 'p'},
 	                   {"exec",1, 0, 'e'},
 			   {"deadline", 1, 0, 'd'},
@@ -213,15 +235,15 @@ int main(int argc, char* argv[])
 	// set defaults.
 	nthreads = 1;
 	spacing = 0;
-	period = exec = deadline = policy = -1;
+	period = exec = deadline = -1; 
 
 #ifdef AQUOSA
 	fragment = 1;
 	
-	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:qg:", 
+	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:qg:P:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:", 
+	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:P:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -231,19 +253,23 @@ int main(int argc, char* argv[])
 				usage(NULL);
 				break;
 			case 'f':
-				if (policy != -1)
+				if (policy != other)
 					usage("Cannot set multiple policies");
-				policy = SCHED_FIFO;
+				policy = fifo;
 				break;
 			case 'r':
-				if (policy != -1)
+				if (policy != other)
 					usage("Cannot set multiple policies");
-				policy = SCHED_RR;
+				policy = rr;
 				break;
 			case 'b':
-				if (policy != -1)
+				if (policy != other)
 					usage("Cannot set multiple policies");
-				policy = SCHED_BATCH;
+				policy = batch;
+				break;
+			case 'P':
+				priority = strtol(optarg, NULL, 10);
+				// don't check, will fail on pthread_setschedparam
 				break;
 			case 'p':
 				period = strtol(optarg, NULL, 10);
@@ -288,9 +314,9 @@ int main(int argc, char* argv[])
 				break;
 #ifdef AQUOSA				
 			case 'q':
-				if (policy != -1)
+				if (policy != other)
 					usage("Cannot set multiple policies");
-				policy = QOS;
+				policy = aquosa;
 				break;
 			case 'g':
 				fragment = strtol(optarg, NULL, 10);
@@ -306,12 +332,15 @@ int main(int argc, char* argv[])
 		usage("Period and execution time are mandatory");
 	if (deadline == -1)
 		deadline = period;
-	if (!logdir)
-		logdir = dirname(argv[0]);
-	if (policy == -1)
-		policy = SCHED_OTHER;
-	
+
+	// install a signal handler for proper shutdown.
+	signal(SIGQUIT, shutdown);
+	signal(SIGTERM, shutdown);
+	signal(SIGHUP, shutdown);
+	signal(SIGINT, shutdown);
+
 	threads = malloc(nthreads * sizeof(pthread_t));
+	exit_cycle = 1;
 
 	for (i = 0; i<nthreads; i++)
 	{
@@ -320,20 +349,27 @@ int main(int argc, char* argv[])
 		tdata->sched_policy = policy;
 		tdata->period = usec_to_timespec(period) ;
 		tdata->deadline = usec_to_timespec(deadline);
-		tdata->sched_prio = 10; // FIXME
+		tdata->sched_prio = priority; 
 		tdata->min_et = usec_to_timespec(exec);
 		tdata->max_et = usec_to_timespec(exec);
-		snprintf(tmp, PATH_LENGTH, "%s/rt-app-t%d.log",
-			 logdir,i);
-		tdata->log_handler = fopen(tmp, "w");
-		if (!tdata->log_handler){
-			printf("Cannot open logfile %s\n", tmp);
-			exit(EXIT_FAILURE);
+		if (logdir) {
+			snprintf(tmp, PATH_LENGTH, "%s/rt-app-t%d.log",
+				 logdir,i);
+			tdata->log_handler = fopen(tmp, "w");
+			if (!tdata->log_handler){
+				printf("Cannot open logfile %s\n", tmp);
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			tdata->log_handler = stdout;
 		}
 		
 		if (pthread_create(&threads[i], NULL, thread_body, (void*) tdata))
 			goto exit_err;
+
 		if (spacing > 0) {
+			printf("Waiting %ld usec before starting next thread\n",
+				spacing);
 			clock_gettime(CLOCK_MONOTONIC, &t_curr);
 			t_next = msec_to_timespec((long) spacing / 1000.0);
 			t_next = timespec_add(&t_curr, &t_next);

@@ -11,14 +11,23 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <libgen.h>
+#include <signal.h>
 
 #ifdef AQUOSA
-#define QOS 1000
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
 #define PATH_LENGTH 256
+#define DEFAULT_THREAD_PRIORITY 10
 
+typedef enum policy_t 
+{ 
+	other = SCHED_OTHER, 
+	rr = SCHED_RR, 
+	fifo = SCHED_FIFO, 
+	batch = SCHED_BATCH,
+	aquosa 
+} policy_t;
 
 void *thread_body(void *arg);
 
@@ -28,12 +37,12 @@ struct thread_data {
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
     
-    FILE *log_handler;
-    int sched_policy;
+	FILE *log_handler;
+	policy_t sched_policy;
 	int sched_prio;
 
 #ifdef AQUOSA
-    int fragment;
+	int fragment;
 #endif
 };
 
