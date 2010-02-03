@@ -122,11 +122,16 @@ void *thread_body(void *arg)
 	struct sched_param param;
 	struct timespec t, t_next;
 	int ret, i = 0;
+	printf("Thread %d started with period: %ld, exec: %ld,"
+	       "deadline: %ld, priority: %d\n",
+		data->ind, 
+		timespec_to_usec(&data->period), 
+		timespec_to_usec(&data->min_et),
+		timespec_to_usec(&data->deadline),
+		data->sched_prio
+	);
 
 	clock_gettime(CLOCK_MONOTONIC, &t);
-	printf("\tThread %d started running at %u\n",
-	       data->ind, timespec_to_msec(&t));
-	
 	switch (data->sched_policy)
 	{
 		case rr:
@@ -197,7 +202,6 @@ void *thread_body(void *arg)
 	}
 	printf("[%d] Exiting.\n", data->ind);
 	fclose(data->log_handler);
-	free(data);
 
 	pthread_exit(NULL);
 }
@@ -205,17 +209,11 @@ void *thread_body(void *arg)
 void
 usage (const char* msg)
 {
-	printf("usage: rt-app -p <PERIOD> -e <EXEC_TIME> [ options... ]\n");
+	printf("usage: rt-app [options] <period>:<exec>[:<deadline>[:prio]] ...\n");
 	printf("-h, --help\t:\tshow this help\n");
 	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
 	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
 	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
-	printf("-P, --priority\t:\tset scheduling priority\n");
-	printf("-p, --period\t:\ttask period in usec (mandatory)\n");
-	printf("-e, --exec\t:\ttask execution time\n");
-	printf("-d, --deadline\t:\tdeadline (slack relative to period"
-				   "default=0)\n");
-	printf("-n, --nthreads\t:\tnumber of threads to start (default=1)\n");
 	printf("-s, --spacing\t:\tusec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
 	
@@ -229,6 +227,76 @@ usage (const char* msg)
 	exit(0);
 }
 
+/* parse a thread token in the form  $period:$exec:$deadline:$prio and
+ * fills the thread_data structure
+ */
+void
+parse_thread_args(char *arg, struct thread_data *tdata)
+{
+	char *str = strdup(arg);
+	char *token;
+	long period, exec, deadline;
+	int i = 0;
+	token = strtok(str, ":");
+	while ( token != NULL)
+	{
+		switch(i) {
+		case 0:
+			period = strtol(token, NULL, 10);
+			if (period <= 0 )
+				usage("Cannot set negative period.");
+			tdata->period = usec_to_timespec(period);
+			i++;
+			break;
+
+		case 1:
+			exec = strtol(token,NULL, 10);
+			//TODO: add support for max_et somehow
+			if (exec >= period)
+				usage("Exec time cannot be greater than"
+				      " period.");
+			if (exec <= 0 )
+				usage("Cannot set negative exec time");
+			tdata->min_et = usec_to_timespec(exec);
+			tdata->max_et = usec_to_timespec(exec);
+			i++;
+			break;
+
+		case 2:
+			deadline = strtol(token, NULL, 10);
+			if (deadline < exec)
+				usage ("Deadline cannot be less than "
+						"execution time");
+			if (deadline > period)
+				usage ("Deadline cannot be greater than "
+						"period");
+			if (deadline <= 0 )
+				usage ("Cannot set negative deadline");
+			tdata->deadline = usec_to_timespec(deadline);
+			i++;
+			break;
+		case 3:
+			tdata->sched_prio = strtol(token, NULL, 10);
+			// do not check, will fail in pthread_setschedparam
+			i++;
+			break;
+		}
+		token = strtok(NULL, ":");
+
+	}
+	if ( i < 2 ) {
+		printf("Period and exec time are mandatory\n");
+		exit(EXIT_FAILURE);
+	}
+	if ( i < 3 ) 
+		tdata->deadline = usec_to_timespec(period); 
+	
+	if ( i < 4 ) 
+		tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
+
+	free(str);
+
+}
 
 int main(int argc, char* argv[])
 {
@@ -237,11 +305,10 @@ int main(int argc, char* argv[])
 	char tmp[PATH_LENGTH];
 	int i;
 
-	struct thread_data *tdata;
+	struct thread_data *threads_data, *tdata;
 
 	policy_t policy = other;
-	int priority = DEFAULT_THREAD_PRIORITY;
-	unsigned long deadline,period,exec,spacing;
+	unsigned long spacing;
 	char *logdir = NULL;
 
 	struct stat dirstat;
@@ -256,11 +323,7 @@ int main(int argc, char* argv[])
 			   {"fifo", 0, 0, 'f'},
 			   {"rr", 0, 0, 'r'},
 	                   {"batch", 0, 0, 'b'},
-			   {"priority", 1, 0, 'P'},
-	                   {"period",1, 0, 'p'},
-	                   {"exec",1, 0, 'e'},
-			   {"deadline", 1, 0, 'd'},
-			   {"nthreads", 1, 0, 'n'},
+			   {"thread", 1, 0, 't'},
 			   {"spacing", 1, 0, 's'},
 			   {"logdir", 1, 0, 'l'},
 #ifdef AQUOSA
@@ -271,17 +334,18 @@ int main(int argc, char* argv[])
 	               };
 
 	// set defaults.
-	nthreads = 1;
+	nthreads = 0;
 	spacing = 0;
-	period = exec = deadline = -1; 
+	threads = malloc( sizeof(pthread_t));
+	threads_data = malloc( sizeof(struct thread_data));
 
 #ifdef AQUOSA
 	fragment = 1;
 	
-	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:qg:P:", 
+	while (( ch = getopt_long(argc,argv,"hfrbs:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"hfrbp:e:d:n:s:l:P:", 
+	while (( ch = getopt_long(argc,argv,"hfrbs:l:t:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -305,40 +369,6 @@ int main(int argc, char* argv[])
 					usage("Cannot set multiple policies");
 				policy = batch;
 				break;
-			case 'P':
-				priority = strtol(optarg, NULL, 10);
-				// don't check, will fail on pthread_setschedparam
-				break;
-			case 'p':
-				period = strtol(optarg, NULL, 10);
-				if (period <= 0)
-					usage("Cannot set negative period.");
-				break;
-			case 'e':
-				exec = strtol(optarg, NULL, 10);
-				if (exec >= period)
-					usage("Exec time cannot be greater than"
-					      " period.");
-				if (exec <= 0 )
-					usage("Cannot set negative exec time");
-				
-				break;
-			case 'd':
-				deadline = strtol(optarg, NULL, 10);
-				if (deadline < exec)
-					usage ("Deadline cannot be less than "
-						"execution time");
-				if (deadline > period)
-					usage ("Deadline cannot be greater than "
-						"period");
-				if (deadline <= 0 )
-					usage ("Cannot set negative deadline");
-				break;
-			case 'n':
-				nthreads = strtol(optarg, NULL, 0);
-				if (nthreads < 1 || nthreads > 16)
-					usage ("Thread number must be between 0 and 1");
-				break;
 			case 's':
 				spacing  = strtol(optarg, NULL, 0);
 				if (spacing < 0)
@@ -349,6 +379,16 @@ int main(int argc, char* argv[])
 				lstat(logdir, &dirstat);
 				if (! S_ISDIR(dirstat.st_mode))
 					usage("Cannot stat log directory");
+				break;
+			case 't':
+				if (nthreads > 0)
+				{
+					threads = realloc(threads, (nthreads+1) * sizeof(pthread_t));
+					threads_data = realloc(threads_data, (nthreads+1) * sizeof(struct thread_data));
+				}
+				parse_thread_args(optarg, 
+						  &threads_data[nthreads]);
+				nthreads++;
 				break;
 #ifdef AQUOSA				
 			case 'q':
@@ -361,35 +401,31 @@ int main(int argc, char* argv[])
 				if (fragment < 1 || fragment > 16)
 					usage("Fragment divisor must be between 1 and 16");
 				break;
+
 #endif
 			default:
+				printf("Invalid option %c\n", ch);
 				usage(NULL);
+
 		}
 	}
-	if (period == -1 || exec == -1)
-		usage("Period and execution time are mandatory");
-	if (deadline == -1)
-		deadline = period;
 
+	if ( nthreads < 1)
+		usage("You have to set parameters for at least one thread");
+	
 	// install a signal handler for proper shutdown.
 	signal(SIGQUIT, shutdown);
 	signal(SIGTERM, shutdown);
 	signal(SIGHUP, shutdown);
 	signal(SIGINT, shutdown);
 
-	threads = malloc(nthreads * sizeof(pthread_t));
 	exit_cycle = 1;
 
-	for (i = 0; i<nthreads; i++)
+	for (i = 0; i < nthreads; i++)
 	{
-		tdata = malloc(sizeof(struct thread_data));
+		tdata = &threads_data[i];
 		tdata->ind = i;
 		tdata->sched_policy = policy;
-		tdata->period = usec_to_timespec(period) ;
-		tdata->deadline = usec_to_timespec(deadline);
-		tdata->sched_prio = priority; 
-		tdata->min_et = usec_to_timespec(exec);
-		tdata->max_et = usec_to_timespec(exec);
 #ifdef AQUOSA
 		tdata->fragment = fragment;
 #endif
