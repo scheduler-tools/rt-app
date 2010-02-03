@@ -167,9 +167,9 @@ void *thread_body(void *arg)
 			break;
 #ifdef AQUOSA			
 		case aquosa:
-			data->params.Q_min = timespec_to_usec(&data->min_et) / data->fragment;
-			data->params.Q = timespec_to_usec(&data->max_et) / data->fragment;
-			data->params.P = timespec_to_usec(&data->period) / data->fragment;
+			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + BUDGET_PERC_INCR ) / 100)) / (data->fragment * 1.0)); 
+			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + BUDGET_PERC_INCR ) / 100)) / (data->fragment * 1.0));
+			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
 			printf("Creating QRES Server with Q=%ld, P=%ld\n",
 				data->params.Q, data->params.P);

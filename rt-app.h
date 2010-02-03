@@ -16,6 +16,7 @@
 
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>
+#define BUDGET_PERC_INCR 10 // percent
 #endif /* AQUOSA */
 
 #define PATH_LENGTH 256
