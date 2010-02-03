@@ -15,7 +15,7 @@ unsigned int timespec_to_msec(struct timespec *ts)
 }
 
 static inline
-unsigned int timespec_to_usec(struct timespec *ts)
+unsigned long timespec_to_usec(struct timespec *ts)
 {
 	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000;
 }
@@ -159,17 +159,28 @@ void *thread_body(void *arg)
 		
 	t_next = t;
 	while (exit_cycle) {
-		struct timespec t_start, t_end, t_diff;
+		struct timespec t_start, t_end, t_diff, t_slack;
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
 		run(data->ind, &data->min_et, &data->max_et);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 		
 		t_diff = timespec_sub(&t_end, &t_start);
-		
 		t_next = timespec_add(&t_next, &data->period);
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
-		
+		t_slack = timespec_sub(&t_next, &t_end);
+
+		fprintf(data->log_handler, 
+			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+			data->ind,
+			timespec_to_usec(&data->period),
+			timespec_to_usec(&data->min_et),
+			timespec_to_usec(&data->max_et),
+			timespec_to_usec(&t_start),
+			timespec_to_usec(&t_end),
+			timespec_to_usec(&t_diff),
+			timespec_to_usec(&t_slack)
+		);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);	
 		i++;
 	}
 	printf("[%d] Exiting.\n", data->ind);
