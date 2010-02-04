@@ -4,7 +4,7 @@
 	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
 
 static int errno;
-static int exit_cycle;
+static int continue_running;
 static pthread_t *threads;
 static int nthreads;
 
@@ -125,7 +125,7 @@ shutdown(int sig)
 {
 	int i;
 	// notify threads, join them, then exit
-	exit_cycle = 0;
+	continue_running = 0;
 	for (i = 0; i < nthreads; i++)
 	{
 		pthread_join(threads[i], NULL);
@@ -191,7 +191,7 @@ void *thread_body(void *arg)
 
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart\t\tend"
 				   "\t\tdeadline\tdur.\tslack\n");
-	while (exit_cycle) {
+	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -458,7 +458,7 @@ int main(int argc, char* argv[])
 	signal(SIGHUP, shutdown);
 	signal(SIGINT, shutdown);
 
-	exit_cycle = 1;
+	continue_running = 1;
 
 	// Take the beginning time for everything 
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
