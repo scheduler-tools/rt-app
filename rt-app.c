@@ -182,15 +182,16 @@ void *thread_body(void *arg)
 			break;
 #endif
 		default:
-			printf("Unknown scheduling policy %d\n", data->sched_policy);
+			printf("Unknown scheduling policy %d\n",
+				data->sched_policy);
 			exit(EXIT_FAILURE);
 	}
 		
 	t_next = t;
 	data->deadline = timespec_add(&t, &data->deadline);
 
-	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart\t\tend"
-				   "\t\tdeadline\tdur.\tslack\n");
+	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
+				   "\t\tend\t\tdeadline\tdur.\tslack\n");
 	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
@@ -219,7 +220,7 @@ void *thread_body(void *arg)
 
 		t_next = timespec_add(&t_next, &data->period);
 		data->deadline = timespec_add(&data->deadline, &data->period);
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);	
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
 	printf("[%d] Exiting.\n", data->ind);
@@ -438,7 +439,8 @@ int main(int argc, char* argv[])
 			case 'g':
 				fragment = strtol(optarg, NULL, 10);
 				if (fragment < 1 || fragment > 16)
-					usage("Fragment divisor must be between 1 and 16");
+					usage("Fragment divisor must be between"
+					      "1 and 16");
 				break;
 
 #endif
@@ -484,16 +486,20 @@ int main(int argc, char* argv[])
 			tdata->log_handler = stdout;
 		}
 		
-		if (pthread_create(&threads[i], NULL, thread_body, (void*) tdata))
+		if (pthread_create(&threads[i],
+				  NULL, 
+				  thread_body, 
+				  (void*) tdata))
 			goto exit_err;
 
 		if (spacing > 0) {
-			printf("Waiting %ld usec before starting next thread\n",
-				spacing);
+			printf("Waiting %ld usecs... \n", spacing);
 			clock_gettime(CLOCK_MONOTONIC, &t_curr);
 			t_next = msec_to_timespec(spacing);
 			t_next = timespec_add(&t_curr, &t_next);
-			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next,
+			clock_nanosleep(CLOCK_MONOTONIC, 
+					TIMER_ABSTIME, 
+					&t_next,
 					NULL);
 		}
 	}
@@ -502,7 +508,7 @@ int main(int argc, char* argv[])
 	{
 		snprintf(tmp, PATH_LENGTH, "%s/rt-app-duration.plot", logdir);
 		gnuplot_script = fopen(tmp, "w+");
-		fprintf(gnuplot_script, ""
+		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
 			"set title \"Duration per period\"\n"
@@ -511,8 +517,9 @@ int main(int argc, char* argv[])
 			"plot ");
 		for (i=0; i<nthreads; i++)
 		{
-			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u ($5/1000):9 w l"
-						" title \"thread%d\"", i, i);
+			fprintf(gnuplot_script, 
+				"\"rt-app-t%d.log\" u ($5/1000):9 w l"
+				" title \"thread%d\"", i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
 			else
@@ -521,7 +528,7 @@ int main(int argc, char* argv[])
 		fclose(gnuplot_script);
 		snprintf(tmp, PATH_LENGTH, "%s/rt-app-slack.plot", logdir);
 		gnuplot_script = fopen(tmp, "w+");
-		fprintf(gnuplot_script, ""
+		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
 			"set title \"Slack. (negative = tardiness)\"\n"
@@ -530,8 +537,9 @@ int main(int argc, char* argv[])
 			"plot ");
 		for (i=0; i<nthreads; i++)
 		{
-			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u ($5/1000):10 w l"
-						" title \"thread%d\"", i, i);
+			fprintf(gnuplot_script, 
+				"\"rt-app-t%d.log\" u ($5/1000):10 w l"
+				" title \"thread%d\"", i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
 			else
