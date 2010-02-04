@@ -331,6 +331,7 @@ int main(int argc, char* argv[])
 	char ch;
 	int longopt_idx;
 	char tmp[PATH_LENGTH];
+	char policy_descr[64];
 	int i,j,gnuplot;
 
 	struct thread_data *threads_data, *tdata;
@@ -511,16 +512,33 @@ int main(int argc, char* argv[])
 	
 	if (logdir && gnuplot)
 	{
+		switch(policy)
+		{
+			case rr:
+				sprintf(policy_descr, "SCHED_RR");
+				break;
+			case fifo:
+				sprintf(policy_descr, "SCHED_FIFO");
+				break;
+			case other:
+				sprintf(policy_descr, "SCHED_OTHER");
+				break;
+#ifdef AQUOSA
+			case aquosa:
+				sprintf(policy_descr, "AQuoSA");
+				break;
+#endif
+		}
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
 			 logdir, logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Duration per period\"\n"
-			"set xlabel \"Cycle start time\"\n"
-			"set ylabel \"usec\"\n"
-			"plot ");
+			"set title \"Measured exec time per period (using %s)\"\n"
+			"set xlabel \"Cycle start time [usec]\"\n"
+			"set ylabel \"Exec Time [usec]\"\n"
+			"plot ", policy_descr);
 		for (i=0; i<nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
@@ -538,10 +556,10 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Slack. (negative = tardiness)\"\n"
-			"set xlabel \"Cycle start time\"\n"
-			"set ylabel \"usec\"\n"
-			"plot ");
+			"set title \"Slack (negative = tardiness, using %s)\"\n"
+			"set xlabel \"Cycle start time [msec]\"\n"
+			"set ylabel \"Slack/Tardiness [usec]\"\n"
+			"plot ", policy_descr);
 		for (i=0; i<nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
