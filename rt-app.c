@@ -138,6 +138,7 @@ void *thread_body(void *arg)
 	struct thread_data *data = (struct thread_data*) arg;
 	struct sched_param param;
 	struct timespec t, t_next;
+	unsigned long t_start_usec;
 	int ret, i = 0;
 	printf("Thread %d started with period: %ld, exec: %ld,"
 	       "deadline: %ld, priority: %d\n",
@@ -188,8 +189,8 @@ void *thread_body(void *arg)
 	t_next = t;
 	data->deadline = timespec_add(&t, &data->deadline);
 
-	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\tstart\t\tend"
-				   "\tdeadline\t\tdur.\tslack\n");
+	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart\t\tend"
+				   "\t\tdeadline\tdur.\tslack\n");
 	while (exit_cycle) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
@@ -200,13 +201,16 @@ void *thread_body(void *arg)
 		t_diff = timespec_sub(&t_end, &t_start);
 		t_slack = timespec_sub(&data->deadline, &t_end);
 
+		t_start_usec = timespec_to_usec(&t_start); 
+			
 		fprintf(data->log_handler, 
-			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
+			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
 			data->ind,
 			timespec_to_usec(&data->period),
 			timespec_to_usec(&data->min_et),
 			timespec_to_usec(&data->max_et),
-			timespec_to_usec(&t_start),
+			t_start_usec - timespec_to_usec(&data->main_app_start),
+			t_start_usec,
 			timespec_to_usec(&t_end),
 			timespec_to_usec(&data->deadline),
 			timespec_to_usec(&t_diff),
@@ -232,10 +236,10 @@ usage (const char* msg)
 	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
 	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
 	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
-	printf("-s, --spacing\t:\tusec to wait beetween thread starts\n");
+	printf("-s, --spacing\t:\tmsec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
-	printf("-D, --duration\t:\ttime (in msec) before stopping threads\n");
+	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -334,7 +338,7 @@ int main(int argc, char* argv[])
 
 	struct stat dirstat;
 
-	struct timespec t_curr, t_next;
+	struct timespec t_curr, t_next, t_start;
 	int duration;
 
 #ifdef AQUOSA
@@ -456,11 +460,15 @@ int main(int argc, char* argv[])
 
 	exit_cycle = 1;
 
+	// Take the beginning time for everything 
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
 	for (i = 0; i < nthreads; i++)
 	{
 		tdata = &threads_data[i];
 		tdata->ind = i;
 		tdata->sched_policy = policy;
+		tdata->main_app_start = t_start;
 #ifdef AQUOSA
 		tdata->fragment = fragment;
 #endif
@@ -483,7 +491,7 @@ int main(int argc, char* argv[])
 			printf("Waiting %ld usec before starting next thread\n",
 				spacing);
 			clock_gettime(CLOCK_MONOTONIC, &t_curr);
-			t_next = msec_to_timespec((long) spacing / 1000.0);
+			t_next = msec_to_timespec(spacing);
 			t_next = timespec_add(&t_curr, &t_next);
 			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next,
 					NULL);
@@ -496,13 +504,14 @@ int main(int argc, char* argv[])
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script, ""
 			"set grid\n"
+			"set key outside right\n"
 			"set title \"Duration per period\"\n"
-			"set xlabel \"Cycles\"\n"
+			"set xlabel \"Cycle start time\"\n"
 			"set ylabel \"usec\"\n"
 			"plot ");
 		for (i=0; i<nthreads; i++)
 		{
-			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 8 w l"
+			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u ($5/1000):9 w l"
 						" title \"thread%d\"", i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -514,13 +523,14 @@ int main(int argc, char* argv[])
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script, ""
 			"set grid\n"
+			"set key outside right\n"
 			"set title \"Slack. (negative = tardiness)\"\n"
-			"set xlabel \"Cycles\"\n"
+			"set xlabel \"Cycle start time\"\n"
 			"set ylabel \"usec\"\n"
 			"plot ");
 		for (i=0; i<nthreads; i++)
 		{
-			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u 8 w l"
+			fprintf(gnuplot_script, "\"rt-app-t%d.log\" u ($5/1000):10 w l"
 						" title \"thread%d\"", i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -532,10 +542,7 @@ int main(int argc, char* argv[])
 	
 	if (duration > 0)
 	{
-		clock_gettime(CLOCK_MONOTONIC, &t_curr);
-		t_next = msec_to_timespec(duration);
-		t_next = timespec_add(&t_curr, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
+		sleep(duration);
 		shutdown(SIGTERM);
 	}
 	

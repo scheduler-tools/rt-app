@@ -38,6 +38,7 @@ struct thread_data {
 
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
+	struct timespec main_app_start;
     
 	FILE *log_handler;
 	policy_t sched_policy;
