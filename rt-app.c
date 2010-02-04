@@ -153,9 +153,12 @@ void *thread_body(void *arg)
 	switch (data->sched_policy)
 	{
 		case rr:
+			printf("Setting POSIX scheduling class: SCHED_RR");
+			goto posixrtcommon;
 		case fifo:
-		case batch:
-			printf("Setting POSIX scheduling class:\n");
+			printf("Setting POSIX scheduling class: SCHED_FIFO");
+posixrtcommon:			
+			printf(" prio: %d\n", data->sched_prio);
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
 						    data->sched_policy, 
@@ -236,9 +239,9 @@ usage (const char* msg)
 	printf("-h, --help\t:\tshow this help\n");
 	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
 	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
-	printf("-b, --batch\t:\tuse SCHED_BATCH policy\n");
 	printf("-s, --spacing\t:\tmsec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
+	printf("-b, --baselog\t:\tbasename for logs (implies -l . if not set)\n");
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	
@@ -335,6 +338,7 @@ int main(int argc, char* argv[])
 	policy_t policy = other;
 	unsigned long spacing;
 	char *logdir = NULL;
+	char *logbasename = NULL;
 	FILE *gnuplot_script = NULL;
 
 	struct stat dirstat;
@@ -350,10 +354,10 @@ int main(int argc, char* argv[])
 	                   {"help", 0, 0, 'h'},
 			   {"fifo", 0, 0, 'f'},
 			   {"rr", 0, 0, 'r'},
-	                   {"batch", 0, 0, 'b'},
 			   {"thread", 1, 0, 't'},
 			   {"spacing", 1, 0, 's'},
 			   {"logdir", 1, 0, 'l'},
+	                   {"baselog", 1, 0, 'b'},
 			   {"gnuplot", 1, 0, 'G'},
 			   {"duration", 1, 0, 'D'},
 #ifdef AQUOSA
@@ -368,16 +372,17 @@ int main(int argc, char* argv[])
 	spacing = 0;
 	gnuplot = 0;
 	duration = -1;
+	logbasename = strdup("rt-app");
 	threads = malloc( sizeof(pthread_t));
 	threads_data = malloc( sizeof(struct thread_data));
 
 #ifdef AQUOSA
 	fragment = 1;
 	
-	while (( ch = getopt_long(argc,argv,"D:Ghfrbs:l:qg:t:", 
+	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:Ghfrbs:l:t:", 
+	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:t:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -397,9 +402,9 @@ int main(int argc, char* argv[])
 				policy = rr;
 				break;
 			case 'b':
-				if (policy != other)
-					usage("Cannot set multiple policies");
-				policy = batch;
+				if (!logdir)	
+					logdir = strdup(".");
+				logbasename = strdup(optarg);
 				break;
 			case 's':
 				spacing  = strtol(optarg, NULL, 0);
@@ -475,8 +480,8 @@ int main(int argc, char* argv[])
 		tdata->fragment = fragment;
 #endif
 		if (logdir) {
-			snprintf(tmp, PATH_LENGTH, "%s/rt-app-t%d.log",
-				 logdir,i);
+			snprintf(tmp, PATH_LENGTH, "%s/%s-t%d.log",
+				 logdir,logbasename,i);
 			tdata->log_handler = fopen(tmp, "w");
 			if (!tdata->log_handler){
 				printf("Cannot open logfile %s\n", tmp);
@@ -506,7 +511,8 @@ int main(int argc, char* argv[])
 	
 	if (logdir && gnuplot)
 	{
-		snprintf(tmp, PATH_LENGTH, "%s/rt-app-duration.plot", logdir);
+		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
+			 logdir, logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script,
 			"set grid\n"
@@ -518,15 +524,16 @@ int main(int argc, char* argv[])
 		for (i=0; i<nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
-				"\"rt-app-t%d.log\" u ($5/1000):9 w l"
-				" title \"thread%d\"", i, i);
+				"\"%s-t%d.log\" u ($5/1000):9 w l"
+				" title \"thread%d\"", logbasename, i, i);
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
 			else
 				fprintf(gnuplot_script, ", ");
 		}
 		fclose(gnuplot_script);
-		snprintf(tmp, PATH_LENGTH, "%s/rt-app-slack.plot", logdir);
+		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot", 
+		 	 logdir,logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script,
 			"set grid\n"
@@ -538,8 +545,8 @@ int main(int argc, char* argv[])
 		for (i=0; i<nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
-				"\"rt-app-t%d.log\" u ($5/1000):10 w l"
-				" title \"thread%d\"", i, i);
+				"\"%s-t%d.log\" u ($5/1000):10 w l"
+				" title \"thread%d\"", logbasename, i, i);
 			if ( i == nthreads-1) 
 				fprintf(gnuplot_script, ", 0 notitle\n");
 			else

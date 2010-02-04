@@ -27,7 +27,6 @@ typedef enum policy_t
 	other = SCHED_OTHER, 
 	rr = SCHED_RR, 
 	fifo = SCHED_FIFO, 
-	batch = SCHED_BATCH,
 	aquosa 
 } policy_t;
 
