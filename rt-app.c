@@ -540,8 +540,8 @@ int main(int argc, char* argv[])
 			fprintf(gnuplot_script, 
 				"\"rt-app-t%d.log\" u ($5/1000):10 w l"
 				" title \"thread%d\"", i, i);
-			if ( i == nthreads-1)
-				fprintf(gnuplot_script, "\n");
+			if ( i == nthreads-1) 
+				fprintf(gnuplot_script, ", 0 notitle\n");
 			else
 				fprintf(gnuplot_script, ", ");
 		}
