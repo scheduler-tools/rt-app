@@ -543,6 +543,8 @@ int main(int argc, char* argv[])
 	
 	if (logdir && gnuplot)
 	{
+		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
+			 logdir, logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script,
 			"set grid\n"
