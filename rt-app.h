@@ -41,6 +41,7 @@ struct thread_data {
     
 	FILE *log_handler;
 	policy_t sched_policy;
+    char sched_policy_descr[16];
 	int sched_prio;
 
 #ifdef AQUOSA

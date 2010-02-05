@@ -259,7 +259,7 @@ usage (const char* msg)
  * fills the thread_data structure
  */
 void
-parse_thread_args(char *arg, struct thread_data *tdata)
+parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 {
 	char *str = strdup(arg);
 	char *token;
@@ -308,9 +308,22 @@ parse_thread_args(char *arg, struct thread_data *tdata)
 			// do not check, will fail in pthread_setschedparam
 			i++;
 			break;
+		case 4:
+			if (strcmp(token,"q") == 0)
+				tdata->sched_policy = aquosa;
+			else if (strcmp(token,"f") == 0)
+				tdata->sched_policy = fifo;
+			else if (strcmp(token,"r") == 0)
+				tdata->sched_policy = rr ;
+			else if (strcmp(token,"o") == 0)
+				tdata->sched_policy = other;
+			else 
+				tdata->sched_policy = def_policy;
+
+			i++;
+			break;
 		}
 		token = strtok(NULL, ":");
-
 	}
 	if ( i < 2 ) {
 		printf("Period and exec time are mandatory\n");
@@ -322,6 +335,25 @@ parse_thread_args(char *arg, struct thread_data *tdata)
 	if ( i < 4 ) 
 		tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
 
+	// descriptive name for policy
+	switch(tdata->sched_policy)
+	{
+		case rr:
+			sprintf(tdata->sched_policy_descr, "SCHED_RR");
+			break;
+		case fifo:
+			sprintf(tdata->sched_policy_descr, "SCHED_FIFO");
+			break;
+		case other:
+			sprintf(tdata->sched_policy_descr, "SCHED_OTHER");
+			break;
+#ifdef AQUOSA
+		case aquosa:
+			sprintf(tdata->sched_policy_descr, "AQuoSA");
+			break;
+#endif
+	}
+
 	free(str);
 
 }
@@ -331,7 +363,6 @@ int main(int argc, char* argv[])
 	char ch;
 	int longopt_idx;
 	char tmp[PATH_LENGTH];
-	char policy_descr[64];
 	int i,j,gnuplot;
 
 	struct thread_data *threads_data, *tdata;
@@ -425,7 +456,8 @@ int main(int argc, char* argv[])
 					threads_data = realloc(threads_data, (nthreads+1) * sizeof(struct thread_data));
 				}
 				parse_thread_args(optarg, 
-						  &threads_data[nthreads]);
+						  &threads_data[nthreads],
+						  policy);
 				nthreads++;
 				break;
 			case 'G':
@@ -475,7 +507,6 @@ int main(int argc, char* argv[])
 	{
 		tdata = &threads_data[i];
 		tdata->ind = i;
-		tdata->sched_policy = policy;
 		tdata->main_app_start = t_start;
 #ifdef AQUOSA
 		tdata->fragment = fragment;
@@ -512,38 +543,26 @@ int main(int argc, char* argv[])
 	
 	if (logdir && gnuplot)
 	{
-		switch(policy)
-		{
-			case rr:
-				sprintf(policy_descr, "SCHED_RR");
-				break;
-			case fifo:
-				sprintf(policy_descr, "SCHED_FIFO");
-				break;
-			case other:
-				sprintf(policy_descr, "SCHED_OTHER");
-				break;
-#ifdef AQUOSA
-			case aquosa:
-				sprintf(policy_descr, "AQuoSA");
-				break;
-#endif
-		}
-		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
-			 logdir, logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Measured exec time per period (using %s)\"\n"
+			"set title \"Measured exec time per period\"\n"
 			"set xlabel \"Cycle start time [usec]\"\n"
 			"set ylabel \"Exec Time [usec]\"\n"
-			"plot ", policy_descr);
+			"plot ");
+
 		for (i=0; i<nthreads; i++)
 		{
+			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
+				 logdir, logbasename);
+
 			fprintf(gnuplot_script, 
 				"\"%s-t%d.log\" u ($5/1000):9 w l"
-				" title \"thread%d\"", logbasename, i, i);
+				" title \"thread%d (%s)\"", 
+				logbasename, i, i, 
+				threads_data[i].sched_policy_descr);
+
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
 			else
@@ -556,19 +575,24 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script,
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Slack (negative = tardiness, using %s)\"\n"
+			"set title \"Slack (negative = tardiness)\"\n"
 			"set xlabel \"Cycle start time [msec]\"\n"
 			"set ylabel \"Slack/Tardiness [usec]\"\n"
-			"plot ", policy_descr);
+			"plot ");
+
 		for (i=0; i<nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
 				"\"%s-t%d.log\" u ($5/1000):10 w l"
-				" title \"thread%d\"", logbasename, i, i);
+				" title \"thread%d (%s)\"", 
+				logbasename, i, i,
+				threads_data[i].sched_policy_descr);
+
 			if ( i == nthreads-1) 
 				fprintf(gnuplot_script, ", 0 notitle\n");
 			else
 				fprintf(gnuplot_script, ", ");
+
 		}
 		fclose(gnuplot_script);
 	}
