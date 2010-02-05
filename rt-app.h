@@ -27,7 +27,7 @@ typedef enum policy_t
 	other = SCHED_OTHER, 
 	rr = SCHED_RR, 
 	fifo = SCHED_FIFO, 
-	aquosa 
+	aquosa = 1000 
 } policy_t;
 
 void *thread_body(void *arg);
