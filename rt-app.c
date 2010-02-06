@@ -255,7 +255,7 @@ usage (const char* msg)
 	exit(0);
 }
 
-/* parse a thread token in the form  $period:$exec:$deadline:$prio and
+/* parse a thread token in the form  $period:$exec:$deadline:$policy:$prio and
  * fills the thread_data structure
  */
 void
@@ -264,8 +264,11 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 	char *str = strdup(arg);
 	char *token;
 	long period, exec, deadline;
+	char tmp[256];
 	int i = 0;
 	token = strtok(str, ":");
+	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
+	tdata->sched_policy = def_policy;
 	while ( token != NULL)
 	{
 		switch(i) {
@@ -280,7 +283,7 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 		case 1:
 			exec = strtol(token,NULL, 10);
 			//TODO: add support for max_et somehow
-			if (exec >= period)
+			if (exec > period)
 				usage("Exec time cannot be greater than"
 				      " period.");
 			if (exec <= 0 )
@@ -304,11 +307,6 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			i++;
 			break;
 		case 3:
-			tdata->sched_prio = strtol(token, NULL, 10);
-			// do not check, will fail in pthread_setschedparam
-			i++;
-			break;
-		case 4:
 			if (strcmp(token,"q") == 0)
 				tdata->sched_policy = aquosa;
 			else if (strcmp(token,"f") == 0)
@@ -317,9 +315,18 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 				tdata->sched_policy = rr ;
 			else if (strcmp(token,"o") == 0)
 				tdata->sched_policy = other;
-			else 
-				tdata->sched_policy = def_policy;
+			else {
+				snprintf(tmp, 256, 
+					"Invalid scheduling policy %s in %s",
+					token, arg);
+				usage(tmp);
+			}
 
+			i++;
+			break;
+		case 4:
+			tdata->sched_prio = strtol(token, NULL, 10);
+			// do not check, will fail in pthread_setschedparam
 			i++;
 			break;
 		}
