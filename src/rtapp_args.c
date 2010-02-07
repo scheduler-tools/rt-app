@@ -3,7 +3,7 @@
 void
 usage (const char* msg)
 {
-	printf("usage: rt-app [options] <period>:<exec>[:<deadline>[:$POLICY[:prio]]] ...\n\n");
+	printf("usage: rt-app [options] -t <period>:<exec>[:$POLICY[:deadline[:prio]]] -t ...\n\n");
 	printf("-h, --help\t:\tshow this help\n");
 	printf("-f, --fifo\t:\tset default policy for threads to SCHED_FIFO\n");
 	printf("-r, --rr\t:\tset default policy fior threads to SCHED_RR\n");
@@ -18,7 +18,7 @@ usage (const char* msg)
 	printf("-g, --frag\t:\tfragment for the reservation\n\n");
 	printf("POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA\n");
 	printf("when using AQuoSA scheduling, priority is used as"
-		"percent increment \nfor budget over exec time\n");
+		" percent increment \nfor budget over exec time\n");
 #else
 	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER\n");
 #endif
@@ -65,19 +65,6 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			break;
 
 		case 2:
-			deadline = strtol(token, NULL, 10);
-			if (deadline < exec)
-				usage ("Deadline cannot be less than "
-						"execution time");
-			if (deadline > period)
-				usage ("Deadline cannot be greater than "
-						"period");
-			if (deadline <= 0 )
-				usage ("Cannot set negative deadline");
-			tdata->deadline = usec_to_timespec(deadline);
-			i++;
-			break;
-		case 3:
 #ifdef AQUOSA
 			if (strcmp(token,"q") == 0)
 				tdata->sched_policy = aquosa;
@@ -98,6 +85,19 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 
 			i++;
 			break;
+		case 3:
+			deadline = strtol(token, NULL, 10);
+			if (deadline < exec)
+				usage ("Deadline cannot be less than "
+						"execution time");
+			if (deadline > period)
+				usage ("Deadline cannot be greater than "
+						"period");
+			if (deadline <= 0 )
+				usage ("Cannot set negative deadline");
+			tdata->deadline = usec_to_timespec(deadline);
+			i++;
+			break;
 		case 4:
 			tdata->sched_prio = strtol(token, NULL, 10);
 			// do not check, will fail in pthread_setschedparam
@@ -110,11 +110,14 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 		printf("Period and exec time are mandatory\n");
 		exit(EXIT_FAILURE);
 	}
-	if ( i < 3 ) 
-		tdata->deadline = usec_to_timespec(period); 
+	if ( i < 3 )
+		tdata->sched_policy = other;
 	
 	if ( i < 4 ) 
 		tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
+
+	if ( i < 5 ) 
+		tdata->deadline = usec_to_timespec(period); 
 
 	// descriptive name for policy
 	switch(tdata->sched_policy)
