@@ -50,25 +50,15 @@ void *thread_body(void *arg)
 	struct timespec t, t_next;
 	unsigned long t_start_usec;
 	int ret, i = 0;
-	printf("Thread %d started with period: %lu, exec: %lu,"
-	       "deadline: %lu, priority: %d\n",
-		data->ind, 
-		timespec_to_usec(&data->period), 
-		timespec_to_usec(&data->min_et),
-		timespec_to_usec(&data->deadline),
-		data->sched_prio
-	);
-
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	switch (data->sched_policy)
 	{
 		case rr:
-			printf("Setting POSIX scheduling class: SCHED_RR");
+			printf("[%d] Using SCHED_RR policy:\n", data->ind);
 			goto posixrtcommon;
 		case fifo:
-			printf("Setting POSIX scheduling class: SCHED_FIFO");
+			printf("[%d] Using SCHED_FIFO policy:\n", data->ind);
 posixrtcommon:			
-			printf(" prio: %d\n", data->sched_prio);
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
 						    data->sched_policy, 
@@ -78,9 +68,25 @@ posixrtcommon:
 				perror("pthread_setschedparam"); 
 				exit(EXIT_FAILURE);
 			}
+			printf("[%d] starting thread with period: %lu, exec: %lu,"
+			       "deadline: %lu, priority: %d\n",
+			       	data->ind,
+				timespec_to_usec(&data->period), 
+				timespec_to_usec(&data->min_et),
+				timespec_to_usec(&data->deadline),
+				data->sched_prio
+			);
 			break;
+
 		case other:
-			printf("[%d] Using SCHED_OTHER policy\n", data->ind);
+			printf("[%d] Using SCHED_OTHER policy:\n", data->ind);
+			printf("[%d] starting thread with period: %lu, exec: %lu,"
+			       "deadline: %lu\n",
+			       	data->ind,
+				timespec_to_usec(&data->period), 
+				timespec_to_usec(&data->min_et),
+				timespec_to_usec(&data->deadline)
+			);
 			break;
 #ifdef AQUOSA			
 		case aquosa:
@@ -88,11 +94,18 @@ posixrtcommon:
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
-			printf("Creating QRES Server with Q=%ld, P=%ld\n",
-				data->params.Q, data->params.P);
+			printf("[%d] Creating QRES Server with Q=%ld, P=%ld\n",
+				data->ind,data->params.Q, data->params.P);
+			
 			qos_chk_ok_exit(qres_init());
 			qos_chk_ok_exit(qres_create_server(&data->params, 
 							   &data->sid));
+			printf("[%d] AQuoSA server ID: %d\n", data->ind, data->sid);
+			printf("[%d] attaching thread (deadline: %lu) to server %d\n",
+				data->ind,
+				timespec_to_usec(&data->deadline),
+				data->sid
+			);
 			qos_chk_ok_exit(qres_attach_thread(data->sid, 0, 0));
 
 			break;
@@ -320,7 +333,7 @@ int main(int argc, char* argv[])
 				  (void*) tdata))
 			goto exit_err;
 
-		if (spacing > 0) {
+		if (spacing > 0 && i != nthreads-1) {
 			printf("Waiting %ld usecs... \n", spacing);
 			clock_gettime(CLOCK_MONOTONIC, &t_curr);
 			t_next = msec_to_timespec(spacing);
