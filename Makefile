@@ -1,8 +1,11 @@
 PROGR = rt-app
-SOURCES = timespec_utils.c rtapp_args.c rt-app.c 
-HEADERS = rt-app.h
+SOURCES = src/timespec_utils.c src/rtapp_args.c src/rt-app.c 
+HEADERS = src/rt-app.h
 
-OBJS = $(SOURCES:.c=.o)
+BUILDDIR=build
+
+OBJNAMES = $(SOURCES:.c=.o)
+OBJS = $(patsubst src/%.c,build/%.o,$(SOURCES))
 
 LIBS += -lrt -lpthread -lm
 OBJOPT += -D_GNU_SOURCE -D_XOPEN_SOURCE=600
@@ -31,12 +34,12 @@ else
 endif
 
 
-%.o: %.c $(HEADERS)
+build/%.o: src/%.c $(HEADERS)
 ifeq ($(VERBOSE), 1)
-	$(CC) $(IPATH) $(OBJOPT) $(CFLAGS) -c $< 
+	$(CC) $(IPATH) $(OBJOPT) $(CFLAGS) -c $< -o $(<:src/%.c=build/%.o)
 else
 	@exec echo -n "=> Compiling $<: ";
-	@$(CC) $(IPATH) $(OBJOPT) $(CFLAGS) -c $< 
+	@$(CC) $(IPATH) $(OBJOPT) $(CFLAGS) -c $< -o $(<:src/%.c=build/%.o) 
 	@exec echo "  [OK]"
 endif
 
