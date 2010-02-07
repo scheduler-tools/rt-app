@@ -3,10 +3,10 @@
 void
 usage (const char* msg)
 {
-	printf("usage: rt-app [options] <period>:<exec>[:<deadline>[:prio]] ...\n");
+	printf("usage: rt-app [options] <period>:<exec>[:<deadline>[:$POLICY[:prio]]] ...\n\n");
 	printf("-h, --help\t:\tshow this help\n");
-	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
-	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
+	printf("-f, --fifo\t:\tset default policy for threads to SCHED_FIFO\n");
+	printf("-r, --rr\t:\tset default policy fior threads to SCHED_RR\n");
 	printf("-s, --spacing\t:\tmsec to wait beetween thread starts\n");
 	printf("-l, --logdir\t:\tsave logs to different directory\n");
 	printf("-b, --baselog\t:\tbasename for logs (implies -l . if not set)\n");
@@ -15,7 +15,12 @@ usage (const char* msg)
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
-	printf("-g, --frag\t:\tfragment for the reservation\n");
+	printf("-g, --frag\t:\tfragment for the reservation\n\n");
+	printf("POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA\n");
+	printf("when using AQuoSA scheduling, priority is used as"
+		"percent increment \nfor budget over exec time\n");
+#else
+	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER\n");
 #endif
 
 	if (msg != NULL)
