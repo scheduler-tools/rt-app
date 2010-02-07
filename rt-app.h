@@ -13,6 +13,7 @@
 #include <libgen.h>
 #include <signal.h>
 #include <math.h>
+#include <unistd.h>
 
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>
@@ -26,8 +27,10 @@ typedef enum policy_t
 { 
 	other = SCHED_OTHER, 
 	rr = SCHED_RR, 
-	fifo = SCHED_FIFO, 
-	aquosa = 1000 
+	fifo = SCHED_FIFO
+#ifdef AQUOSA
+	, aquosa = 1000 
+#endif
 } policy_t;
 
 void *thread_body(void *arg);

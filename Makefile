@@ -1,5 +1,5 @@
 PROGR = rt-app
-SOURCES = rt-app.c
+SOURCES = timespec_utils.c rtapp_args.c rt-app.c 
 HEADERS = rt-app.h
 
 OBJS = $(SOURCES:.c=.o)

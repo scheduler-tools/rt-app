@@ -1,100 +1,10 @@
 #include "rt-app.h"
-
-#define handle_error(en, msg) \
-	do { errno = en; perror(msg); exit(EXIT_FAILURE); } while (0)
+#include "timespec_utils.h"
 
 static int errno;
 static int continue_running;
 static pthread_t *threads;
 static int nthreads;
-
-static inline
-unsigned int timespec_to_msec(struct timespec *ts)
-{
-	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000000;
-}
-
-static inline
-long timespec_to_lusec(struct timespec *ts)
-{
-	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
-}
-
-static inline
-unsigned long timespec_to_usec(struct timespec *ts)
-{
-	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
-}
-
-static inline
-struct timespec usec_to_timespec(unsigned long usec)
-{
-	struct timespec ts;
-
-	ts.tv_sec = usec / 1000000;
-	ts.tv_nsec = (usec % 1000000) * 1000;
-	
-	return ts;
-}
-
-static inline
-struct timespec msec_to_timespec(unsigned int msec)
-{
-	struct timespec ts;
-
-	ts.tv_sec = msec / 1000;
-	ts.tv_nsec = (msec % 1000) * 1000000;
-
-	return ts;
-}
-
-static inline
-struct timespec timespec_add(struct timespec *t1, struct timespec *t2)
-{
-	struct timespec ts;
-
-	ts.tv_sec = t1->tv_sec + t2->tv_sec;
-	ts.tv_nsec = t1->tv_nsec + t2->tv_nsec;
-
-	while (ts.tv_nsec >= 1E9) {
-		ts.tv_nsec -= 1E9;
-		ts.tv_sec++;
-	}
-
-	return ts;
-}
-
-static inline
-struct timespec timespec_sub(struct timespec *t1, struct timespec *t2)
-{
-	struct timespec ts;
-	
-	if (t1->tv_nsec < t2->tv_nsec) {
-		ts.tv_sec = t1->tv_sec - t2->tv_sec -1;
-		ts.tv_nsec = t1->tv_nsec  + 1000000000 - t2->tv_nsec; 
-	} else {
-		ts.tv_sec = t1->tv_sec - t2->tv_sec;
-		ts.tv_nsec = t1->tv_nsec - t2->tv_nsec; 
-	}
-
-	return ts;
-
-}
-
-static inline
-int timespec_lower(struct timespec *what, struct timespec *than)
-{
-	if (what->tv_sec > than->tv_sec)
-		return 0;
-
-	if (what->tv_sec < than->tv_sec)
-		return 1;
-
-	if (what->tv_nsec < than->tv_nsec)
-		return 1;
-
-	return 0;
-}
 
 static inline
 unsigned int max_run(int min, int max)
@@ -140,8 +50,8 @@ void *thread_body(void *arg)
 	struct timespec t, t_next;
 	unsigned long t_start_usec;
 	int ret, i = 0;
-	printf("Thread %d started with period: %ld, exec: %ld,"
-	       "deadline: %ld, priority: %d\n",
+	printf("Thread %d started with period: %lu, exec: %lu,"
+	       "deadline: %lu, priority: %d\n",
 		data->ind, 
 		timespec_to_usec(&data->period), 
 		timespec_to_usec(&data->min_et),
@@ -163,8 +73,11 @@ posixrtcommon:
 			ret = pthread_setschedparam(pthread_self(), 
 						    data->sched_policy, 
 						    &param);
-			if (ret != 0)
-				handle_error(ret, "pthread_setschedparam");
+			if (ret != 0) {
+				errno = ret; 
+				perror("pthread_setschedparam"); 
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case other:
 			printf("[%d] Using SCHED_OTHER policy\n", data->ind);
@@ -232,145 +145,16 @@ posixrtcommon:
 	pthread_exit(NULL);
 }
 
-void
-usage (const char* msg)
-{
-	printf("usage: rt-app [options] <period>:<exec>[:<deadline>[:prio]] ...\n");
-	printf("-h, --help\t:\tshow this help\n");
-	printf("-f, --fifo\t:\trun with SCHED_FIFO policy\n");
-	printf("-r, --rr\t:\tuse SCHED_RR policy\n");
-	printf("-s, --spacing\t:\tmsec to wait beetween thread starts\n");
-	printf("-l, --logdir\t:\tsave logs to different directory\n");
-	printf("-b, --baselog\t:\tbasename for logs (implies -l . if not set)\n");
-	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
-	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
-	
-#ifdef AQUOSA
-	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
-	printf("-g, --frag\t:\tfragment for the reservation\n");
-#endif
-
-	if (msg != NULL)
-		printf("\n%s\n", msg);
-	exit(0);
-}
-
 /* parse a thread token in the form  $period:$exec:$deadline:$policy:$prio and
  * fills the thread_data structure
  */
-void
-parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
-{
-	char *str = strdup(arg);
-	char *token;
-	long period, exec, deadline;
-	char tmp[256];
-	int i = 0;
-	token = strtok(str, ":");
-	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
-	tdata->sched_policy = def_policy;
-	while ( token != NULL)
-	{
-		switch(i) {
-		case 0:
-			period = strtol(token, NULL, 10);
-			if (period <= 0 )
-				usage("Cannot set negative period.");
-			tdata->period = usec_to_timespec(period);
-			i++;
-			break;
-
-		case 1:
-			exec = strtol(token,NULL, 10);
-			//TODO: add support for max_et somehow
-			if (exec > period)
-				usage("Exec time cannot be greater than"
-				      " period.");
-			if (exec <= 0 )
-				usage("Cannot set negative exec time");
-			tdata->min_et = usec_to_timespec(exec);
-			tdata->max_et = usec_to_timespec(exec);
-			i++;
-			break;
-
-		case 2:
-			deadline = strtol(token, NULL, 10);
-			if (deadline < exec)
-				usage ("Deadline cannot be less than "
-						"execution time");
-			if (deadline > period)
-				usage ("Deadline cannot be greater than "
-						"period");
-			if (deadline <= 0 )
-				usage ("Cannot set negative deadline");
-			tdata->deadline = usec_to_timespec(deadline);
-			i++;
-			break;
-		case 3:
-			if (strcmp(token,"q") == 0)
-				tdata->sched_policy = aquosa;
-			else if (strcmp(token,"f") == 0)
-				tdata->sched_policy = fifo;
-			else if (strcmp(token,"r") == 0)
-				tdata->sched_policy = rr ;
-			else if (strcmp(token,"o") == 0)
-				tdata->sched_policy = other;
-			else {
-				snprintf(tmp, 256, 
-					"Invalid scheduling policy %s in %s",
-					token, arg);
-				usage(tmp);
-			}
-
-			i++;
-			break;
-		case 4:
-			tdata->sched_prio = strtol(token, NULL, 10);
-			// do not check, will fail in pthread_setschedparam
-			i++;
-			break;
-		}
-		token = strtok(NULL, ":");
-	}
-	if ( i < 2 ) {
-		printf("Period and exec time are mandatory\n");
-		exit(EXIT_FAILURE);
-	}
-	if ( i < 3 ) 
-		tdata->deadline = usec_to_timespec(period); 
-	
-	if ( i < 4 ) 
-		tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
-
-	// descriptive name for policy
-	switch(tdata->sched_policy)
-	{
-		case rr:
-			sprintf(tdata->sched_policy_descr, "SCHED_RR");
-			break;
-		case fifo:
-			sprintf(tdata->sched_policy_descr, "SCHED_FIFO");
-			break;
-		case other:
-			sprintf(tdata->sched_policy_descr, "SCHED_OTHER");
-			break;
-#ifdef AQUOSA
-		case aquosa:
-			sprintf(tdata->sched_policy_descr, "AQuoSA");
-			break;
-#endif
-	}
-
-	free(str);
-
-}
 
 int main(int argc, char* argv[])
 {
 	char ch;
 	int longopt_idx;
 	char tmp[PATH_LENGTH];
-	int i,j,gnuplot;
+	int i,gnuplot;
 
 	struct thread_data *threads_data, *tdata;
 
