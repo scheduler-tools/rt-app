@@ -51,6 +51,7 @@ void *thread_body(void *arg)
 	unsigned long t_start_usec;
 	int ret, i = 0;
 	clock_gettime(CLOCK_MONOTONIC, &t);
+	/* set scheduling policy and print pretty info on stdout */
 	switch (data->sched_policy)
 	{
 		case rr:
@@ -211,10 +212,11 @@ int main(int argc, char* argv[])
 	logbasename = strdup("rt-app");
 	threads = malloc( sizeof(pthread_t));
 	threads_data = malloc( sizeof(struct thread_data));
-
+	
+	/* parse args */
 #ifdef AQUOSA
 	fragment = 1;
-	
+		
 	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
@@ -296,7 +298,7 @@ int main(int argc, char* argv[])
 	if ( nthreads < 1)
 		usage("You have to set parameters for at least one thread");
 	
-	// install a signal handler for proper shutdown.
+	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
 	signal(SIGTERM, shutdown);
 	signal(SIGHUP, shutdown);
@@ -304,9 +306,10 @@ int main(int argc, char* argv[])
 
 	continue_running = 1;
 
-	// Take the beginning time for everything 
+	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
+	/* start threads */
 	for (i = 0; i < nthreads; i++)
 	{
 		tdata = &threads_data[i];
@@ -344,7 +347,8 @@ int main(int argc, char* argv[])
 					NULL);
 		}
 	}
-	
+
+	/* print gnuplot files */ 
 	if (logdir && gnuplot)
 	{
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
