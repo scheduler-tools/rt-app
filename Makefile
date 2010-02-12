@@ -22,6 +22,10 @@ LIBS += -lqreslib
 OBJOPT += -D AQUOSA=1
 endif
 
+ifeq ($(LOCKMEM), 1)
+OBJOPT += -D LOCKMEM=1
+endif
+
 all: $(PROGR)
 
 $(PROGR): $(OBJS)

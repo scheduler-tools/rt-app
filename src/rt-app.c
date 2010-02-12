@@ -69,6 +69,15 @@ posixrtcommon:
 				perror("pthread_setschedparam"); 
 				exit(EXIT_FAILURE);
 			}
+#ifdef LOCKMEM
+			printf("[%d] Locking pages in memory\n", data->ind);
+			ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+			if (ret < 0) {
+				errno = ret;
+				perror("mlockall");
+				exit(EXIT_FAILURE);
+			}
+#endif
 			printf("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d\n",
 			       	data->ind,

@@ -18,6 +18,10 @@
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
+#ifdef LOCKMEM
+#include <sys/mman.h>
+#endif
+
 #define PATH_LENGTH 256
 
 void *thread_body(void *arg);
