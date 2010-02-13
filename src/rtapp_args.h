@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "timespec_utils.h"
+#include "rtapp_utils.h"
 #include "rtapp_types.h"
 
 #define DEFAULT_THREAD_PRIORITY 10

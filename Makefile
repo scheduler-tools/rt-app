@@ -1,5 +1,5 @@
 PROGR = rt-app
-SOURCES = src/timespec_utils.c src/rtapp_args.c src/rt-app.c 
+SOURCES = src/rtapp_utils.c src/rtapp_args.c src/rt-app.c 
 HEADERS = src/rt-app.h
 
 BUILDDIR=build
