@@ -321,6 +321,16 @@ int main(int argc, char* argv[])
 	/* start threads */
 	for (i = 0; i < nthreads; i++)
 	{
+		if (spacing > 0 ) {
+			printf("Waiting %ld usecs... \n", spacing);
+			clock_gettime(CLOCK_MONOTONIC, &t_curr);
+			t_next = msec_to_timespec(spacing);
+			t_next = timespec_add(&t_curr, &t_next);
+			clock_nanosleep(CLOCK_MONOTONIC, 
+					TIMER_ABSTIME, 
+					&t_next,
+					NULL);
+		}
 		tdata = &threads_data[i];
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
@@ -344,17 +354,6 @@ int main(int argc, char* argv[])
 				  thread_body, 
 				  (void*) tdata))
 			goto exit_err;
-
-		if (spacing > 0 && i != nthreads-1) {
-			printf("Waiting %ld usecs... \n", spacing);
-			clock_gettime(CLOCK_MONOTONIC, &t_curr);
-			t_next = msec_to_timespec(spacing);
-			t_next = timespec_add(&t_curr, &t_next);
-			clock_nanosleep(CLOCK_MONOTONIC, 
-					TIMER_ABSTIME, 
-					&t_next,
-					NULL);
-		}
 	}
 
 	/* print gnuplot files */ 
