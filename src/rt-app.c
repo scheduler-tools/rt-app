@@ -55,10 +55,10 @@ void *thread_body(void *arg)
 	switch (data->sched_policy)
 	{
 		case rr:
-			printf("[%d] Using SCHED_RR policy:\n", data->ind);
+			log_info("[%d] Using SCHED_RR policy:", data->ind);
 			goto posixrtcommon;
 		case fifo:
-			printf("[%d] Using SCHED_FIFO policy:\n", data->ind);
+			log_info("[%d] Using SCHED_FIFO policy:", data->ind);
 posixrtcommon:			
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
@@ -70,7 +70,7 @@ posixrtcommon:
 				exit(EXIT_FAILURE);
 			}
 #ifdef LOCKMEM
-			printf("[%d] Locking pages in memory\n", data->ind);
+			log_info("[%d] Locking pages in memory", data->ind);
 			ret = mlockall(MCL_CURRENT | MCL_FUTURE);
 			if (ret < 0) {
 				errno = ret;
@@ -78,8 +78,8 @@ posixrtcommon:
 				exit(EXIT_FAILURE);
 			}
 #endif
-			printf("[%d] starting thread with period: %lu, exec: %lu,"
-			       "deadline: %lu, priority: %d\n",
+			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			       "deadline: %lu, priority: %d",
 			       	data->ind,
 				timespec_to_usec(&data->period), 
 				timespec_to_usec(&data->min_et),
@@ -89,9 +89,9 @@ posixrtcommon:
 			break;
 
 		case other:
-			printf("[%d] Using SCHED_OTHER policy:\n", data->ind);
-			printf("[%d] starting thread with period: %lu, exec: %lu,"
-			       "deadline: %lu\n",
+			log_info("[%d] Using SCHED_OTHER policy:", data->ind);
+			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			       "deadline: %lu",
 			       	data->ind,
 				timespec_to_usec(&data->period), 
 				timespec_to_usec(&data->min_et),
@@ -104,14 +104,14 @@ posixrtcommon:
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
-			printf("[%d] Creating QRES Server with Q=%ld, P=%ld\n",
+			log_info("[%d] Creating QRES Server with Q=%ld, P=%ld",
 				data->ind,data->params.Q, data->params.P);
 			
 			qos_chk_ok_exit(qres_init());
 			qos_chk_ok_exit(qres_create_server(&data->params, 
 							   &data->sid));
-			printf("[%d] AQuoSA server ID: %d\n", data->ind, data->sid);
-			printf("[%d] attaching thread (deadline: %lu) to server %d\n",
+			log_info("[%d] AQuoSA server ID: %d", data->ind, data->sid);
+			log_info("[%d] attaching thread (deadline: %lu) to server %d",
 				data->ind,
 				timespec_to_usec(&data->deadline),
 				data->sid
@@ -121,7 +121,7 @@ posixrtcommon:
 			break;
 #endif
 		default:
-			printf("Unknown scheduling policy %d\n",
+			log_error("Unknown scheduling policy %d",
 				data->sched_policy);
 			exit(EXIT_FAILURE);
 	}
@@ -162,7 +162,7 @@ posixrtcommon:
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
-	printf("[%d] Exiting.\n", data->ind);
+	log_info("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
 
 	pthread_exit(NULL);
@@ -298,7 +298,7 @@ int main(int argc, char* argv[])
 
 #endif
 			default:
-				printf("Invalid option %c\n", ch);
+				log_error("Invalid option %c", ch);
 				usage(NULL);
 
 		}
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
 	for (i = 0; i < nthreads; i++)
 	{
 		if (spacing > 0 ) {
-			printf("Waiting %ld usecs... \n", spacing);
+			log_info("Waiting %ld usecs... ", spacing);
 			clock_gettime(CLOCK_MONOTONIC, &t_curr);
 			t_next = msec_to_timespec(spacing);
 			t_next = timespec_add(&t_curr, &t_next);
@@ -342,7 +342,7 @@ int main(int argc, char* argv[])
 				 logdir,logbasename,i);
 			tdata->log_handler = fopen(tmp, "w");
 			if (!tdata->log_handler){
-				printf("Cannot open logfile %s\n", tmp);
+				log_error("Cannot open logfile %s", tmp);
 				exit(EXIT_FAILURE);
 			}
 		} else {
