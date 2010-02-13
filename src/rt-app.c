@@ -362,13 +362,17 @@ int main(int argc, char* argv[])
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
 			 logdir, logbasename);
 		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.eps",
+			logdir, logbasename);
 		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
 			"set grid\n"
 			"set key outside right\n"
 			"set title \"Measured exec time per period\"\n"
 			"set xlabel \"Cycle start time [usec]\"\n"
 			"set ylabel \"Exec Time [usec]\"\n"
-			"plot ");
+			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++)
 		{
@@ -386,17 +390,24 @@ int main(int argc, char* argv[])
 			else
 				fprintf(gnuplot_script, ", ");
 		}
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
+
 		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot", 
 		 	 logdir,logbasename);
 		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.eps", 
+		 	 logdir,logbasename);
+
 		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
 			"set grid\n"
 			"set key outside right\n"
 			"set title \"Slack (negative = tardiness)\"\n"
 			"set xlabel \"Cycle start time [msec]\"\n"
 			"set ylabel \"Slack/Tardiness [usec]\"\n"
-			"plot ");
+			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++)
 		{
@@ -412,6 +423,7 @@ int main(int argc, char* argv[])
 				fprintf(gnuplot_script, ", ");
 
 		}
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 	}
 	
