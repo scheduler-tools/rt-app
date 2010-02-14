@@ -164,7 +164,8 @@ posixrtcommon:
 	data->deadline = timespec_add(&t, &data->deadline);
 
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
-				   "\t\tend\t\tdeadline\tdur.\tslack\n");
+				   "\t\tend\t\tdeadline\tdur.\tslack"
+				   "Budget\tUsed Budget\n");
 	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
