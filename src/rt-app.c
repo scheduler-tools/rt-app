@@ -141,7 +141,11 @@ posixrtcommon:
 				TIMER_ABSTIME, 
 				&t_next,
 				NULL);
+		log_info("[%d] Starting...", data->ind);
 	}
+	/* if we know the duration we can calculate how many periods we will
+	 * do at most, and the log to memory, instead of logging to file.
+	 */
 	timings = NULL;
 	if (data->duration > 0) {
 		my_duration_usec = (data->duration * 10e6) - 
