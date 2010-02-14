@@ -4,6 +4,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdio.h>
+#include "rtapp_types.h"
 
 #ifndef LOG_PREFIX
 #define LOG_PREFIX "[rt-app] "
@@ -71,6 +72,9 @@ timespec_sub(struct timespec *t1, struct timespec *t2);
 
 int 
 timespec_lower(struct timespec *what, struct timespec *than);
+
+void
+log_timing(FILE *handler, timing_point_t *t);
 
 #endif // _TIMESPEC_UTILS_H_ 
 

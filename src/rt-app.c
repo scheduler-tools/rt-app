@@ -49,7 +49,13 @@ void *thread_body(void *arg)
 	struct sched_param param;
 	struct timespec t, t_next;
 	unsigned long t_start_usec;
+	unsigned long my_duration_usec;
+	int nperiods;
+	timing_point_t *timings;
+	timing_point_t tmp_timing;
+	timing_point_t *curr_timing;
 	int ret, i = 0;
+	int j;
 	/* set scheduling policy and print pretty info on stdout */
 	switch (data->sched_policy)
 	{
@@ -136,6 +142,14 @@ posixrtcommon:
 				&t_next,
 				NULL);
 	}
+	timings = NULL;
+	if (data->duration > 0) {
+		my_duration_usec = (data->duration * 10e6) - 
+				   (data->wait_before_start * 1000);
+		nperiods = (int) ceil( my_duration_usec / 
+				      (double) timespec_to_usec(&data->period));
+		timings = malloc ( nperiods * sizeof(timing_point_t));
+	}
 
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	t_next = t;
@@ -154,26 +168,45 @@ posixrtcommon:
 		t_slack = timespec_sub(&data->deadline, &t_end);
 
 		t_start_usec = timespec_to_usec(&t_start); 
-			
-		fprintf(data->log_handler, 
-			"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\n",
-			data->ind,
-			timespec_to_usec(&data->period),
-			timespec_to_usec(&data->min_et),
-			timespec_to_usec(&data->max_et),
-			t_start_usec - timespec_to_usec(&data->main_app_start),
-			t_start_usec,
-			timespec_to_usec(&t_end),
-			timespec_to_usec(&data->deadline),
-			timespec_to_usec(&t_diff),
-			timespec_to_lusec(&t_slack)
-		);
+		if (timings)
+			curr_timing = &timings[i];
+		else
+			curr_timing = &tmp_timing;
+		curr_timing->ind = data->ind;
+		curr_timing->period = timespec_to_usec(&data->period);
+		curr_timing->min_et = timespec_to_usec(&data->min_et);
+		curr_timing->max_et = timespec_to_usec(&data->max_et);
+		curr_timing->rel_start_time = 
+			t_start_usec - timespec_to_usec(&data->main_app_start);
+		curr_timing->abs_start_time = t_start_usec;
+		curr_timing->end_time = timespec_to_usec(&t_end);
+		curr_timing->deadline = timespec_to_usec(&data->deadline);
+		curr_timing->duration = timespec_to_usec(&t_diff);
+		curr_timing->slack =  timespec_to_lusec(&t_slack);
+#ifdef AQUOSA
+		if (data->sched_policy == aquosa) {
+			curr_timing->budget = data->params.Q;
+			qres_get_exec_time(data->sid, 
+					   &curr_timing->used_budget, 
+					   NULL); 
+		} else {
+			curr_timing->budget = 0;
+			curr_timing->used_budget = 0;
+		}
+#endif
+		if (!timings)
+			log_timing(data->log_handler, curr_timing);
 
 		t_next = timespec_add(&t_next, &data->period);
 		data->deadline = timespec_add(&data->deadline, &data->period);
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
+
+	if (timings)
+		for (j=0; j < i; j++)
+			log_timing(data->log_handler, &timings[j]);
+
 	log_info("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
 
@@ -343,6 +376,7 @@ int main(int argc, char* argv[])
 		} else {
 			tdata->wait_before_start = 0;
 		}
+		tdata->duration = duration;
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
 #ifdef AQUOSA

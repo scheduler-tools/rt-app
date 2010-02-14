@@ -39,20 +39,21 @@ struct thread_data {
 #endif
 };
 
-typedef struct _timing_point {
+typedef struct _timing_point_t {
+	int ind;
 	unsigned long period;
 	unsigned long min_et;
-	unsigned long max_ex;
+	unsigned long max_et;
 	unsigned long rel_start_time;
 	unsigned long abs_start_time;
 	unsigned long end_time;
 	unsigned long deadline;
 	unsigned long duration;
-	unsigned long slack;
+	long slack;
 #ifdef AQUOSA
 	qres_time_t budget;
 	qres_time_t used_budget;
 #endif
-} timing_point;
+} timing_point_t;
 
 #endif // _RTAPP_TYPES_H_ 

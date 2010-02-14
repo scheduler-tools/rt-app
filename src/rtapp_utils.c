@@ -88,3 +88,29 @@ timespec_lower(struct timespec *what, struct timespec *than)
 	return 0;
 }
 
+void
+log_timing(FILE *handler, timing_point_t *t)
+{
+	fprintf(handler, 
+		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld",
+		t->ind,
+		t->period,
+		t->min_et,
+		t->max_et,
+		t->rel_start_time,
+		t->abs_start_time,
+		t->end_time,
+		t->deadline,
+		t->duration,
+		t->slack
+	);
+#ifdef AQUOSA
+	fprintf(handler,
+		"\t" QRES_TIME_FMT "\t" QRES_TIME_FMT,
+		t->budget, 
+		t->used_budget
+	);
+#endif
+	fprintf(handler, "\n");
+}
+
