@@ -54,6 +54,10 @@ void *thread_body(void *arg)
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
 	timing_point_t *curr_timing;
+#ifdef AQUOSA
+	qres_time_t prev_abs_used_budget = 0;
+	qres_time_t abs_used_budget;
+#endif
 	int ret, i = 0;
 	int j;
 	/* set scheduling policy and print pretty info on stdout */
@@ -191,8 +195,12 @@ posixrtcommon:
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
 			qres_get_exec_time(data->sid, 
-					   &curr_timing->used_budget, 
-					   NULL); 
+					   &abs_used_budget, 
+					   NULL);
+			curr_timing->used_budget = 
+				abs_used_budget - prev_abs_used_budget;
+			prev_abs_used_budget = abs_used_budget;
+
 		} else {
 			curr_timing->budget = 0;
 			curr_timing->used_budget = 0;
