@@ -219,10 +219,14 @@ posixrtcommon:
 	if (timings)
 		for (j=0; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
-
+	
 	log_info("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
 
+	if (data->sched_policy == aquosa) {
+		qres_destroy_server(data->sid);
+		qres_cleanup();
+	}
 	pthread_exit(NULL);
 }
 
