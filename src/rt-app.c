@@ -50,7 +50,6 @@ void *thread_body(void *arg)
 	struct timespec t, t_next;
 	unsigned long t_start_usec;
 	int ret, i = 0;
-	clock_gettime(CLOCK_MONOTONIC, &t);
 	/* set scheduling policy and print pretty info on stdout */
 	switch (data->sched_policy)
 	{
@@ -125,7 +124,20 @@ posixrtcommon:
 				data->sched_policy);
 			exit(EXIT_FAILURE);
 	}
-		
+
+	if (data->wait_before_start > 0) {
+		log_info("[%d] Waiting %ld usecs... ", data->ind, 
+			 data->wait_before_start);
+		clock_gettime(CLOCK_MONOTONIC, &t);
+		t_next = msec_to_timespec(data->wait_before_start);
+		t_next = timespec_add(&t, &t_next);
+		clock_nanosleep(CLOCK_MONOTONIC, 
+				TIMER_ABSTIME, 
+				&t_next,
+				NULL);
+	}
+
+	clock_gettime(CLOCK_MONOTONIC, &t);
 	t_next = t;
 	data->deadline = timespec_add(&t, &data->deadline);
 
@@ -321,17 +333,16 @@ int main(int argc, char* argv[])
 	/* start threads */
 	for (i = 0; i < nthreads; i++)
 	{
-		if (spacing > 0 ) {
-			log_info("Waiting %ld usecs... ", spacing);
-			clock_gettime(CLOCK_MONOTONIC, &t_curr);
-			t_next = msec_to_timespec(spacing);
-			t_next = timespec_add(&t_curr, &t_next);
-			clock_nanosleep(CLOCK_MONOTONIC, 
-					TIMER_ABSTIME, 
-					&t_next,
-					NULL);
-		}
 		tdata = &threads_data[i];
+		if (spacing > 0 ) {
+			/* start the thread, then it will sleep accordingly
+			 * to its position. We don't sleep here anymore as 
+			 * this would mean that 
+			 * duration = spacing * nthreads + duration */
+			tdata->wait_before_start = spacing * (i+1);	
+		} else {
+			tdata->wait_before_start = 0;
+		}
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
 #ifdef AQUOSA

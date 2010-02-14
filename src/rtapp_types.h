@@ -21,13 +21,15 @@ typedef enum policy_t
 struct thread_data {
 	int ind;
 
+	int duration;
+	unsigned long wait_before_start;
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
 	struct timespec main_app_start;
     
 	FILE *log_handler;
 	policy_t sched_policy;
-    char sched_policy_descr[16];
+	char sched_policy_descr[16];
 	int sched_prio;
 
 #ifdef AQUOSA
@@ -36,5 +38,21 @@ struct thread_data {
 	qres_params_t params;
 #endif
 };
+
+typedef struct _timing_point {
+	unsigned long period;
+	unsigned long min_et;
+	unsigned long max_ex;
+	unsigned long rel_start_time;
+	unsigned long abs_start_time;
+	unsigned long end_time;
+	unsigned long deadline;
+	unsigned long duration;
+	unsigned long slack;
+#ifdef AQUOSA
+	qres_time_t budget;
+	qres_time_t used_budget;
+#endif
+} timing_point;
 
 #endif // _RTAPP_TYPES_H_ 
