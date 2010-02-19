@@ -222,11 +222,12 @@ posixrtcommon:
 	
 	log_info("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
-
+#ifdef AQUOSA
 	if (data->sched_policy == aquosa) {
 		qres_destroy_server(data->sid);
 		qres_cleanup();
 	}
+#endif
 	pthread_exit(NULL);
 }
 
