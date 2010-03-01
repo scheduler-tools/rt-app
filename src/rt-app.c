@@ -54,7 +54,7 @@ void *thread_body(void *arg)
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
 	timing_point_t *curr_timing;
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	qres_time_t prev_abs_used_budget = 0;
 	qres_time_t abs_used_budget;
 #endif
@@ -107,7 +107,7 @@ posixrtcommon:
 				timespec_to_usec(&data->deadline)
 			);
 			break;
-#ifdef AQUOSA			
+#ifdef HAVE_LIBQRESLIB			
 		case aquosa:
 			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0)); 
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
@@ -192,7 +192,7 @@ posixrtcommon:
 		curr_timing->deadline = timespec_to_usec(&data->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
 			qres_get_exec_time(data->sid, 
@@ -222,7 +222,7 @@ posixrtcommon:
 	
 	log_info("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	if (data->sched_policy == aquosa) {
 		qres_destroy_server(data->sid);
 		qres_cleanup();
@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
 	struct timespec t_curr, t_next, t_start;
 	int duration;
 
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	int fragment;
 #endif
 	
@@ -269,7 +269,7 @@ int main(int argc, char* argv[])
 	                   {"baselog", 1, 0, 'b'},
 			   {"gnuplot", 1, 0, 'G'},
 			   {"duration", 1, 0, 'D'},
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
 #endif
@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
 	threads_data = malloc( sizeof(struct thread_data));
 	
 	/* parse args */
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	fragment = 1;
 		
 	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:qg:t:", 
@@ -346,7 +346,7 @@ int main(int argc, char* argv[])
 				if (duration < 0)
 					usage("Cannot set negative duration");
 				break;
-#ifdef AQUOSA				
+#ifdef HAVE_LIBQRESLIB				
 			case 'q':
 				if (policy != other)
 					usage("Cannot set multiple policies");
@@ -397,7 +397,7 @@ int main(int argc, char* argv[])
 		tdata->duration = duration;
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 		tdata->fragment = fragment;
 #endif
 		if (logdir) {

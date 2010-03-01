@@ -4,16 +4,17 @@
 #include <sched.h>
 #include <time.h>
 #include <stdio.h>
-#ifdef AQUOSA
+#include "config.h"
+#ifdef HAVE_LIBQRESLIB
 #include <aquosa/qres_lib.h>
-#endif /* AQUOSA */
+#endif /* HAVE_LIBQRESLIB */
 
 typedef enum policy_t 
 { 
 	other = SCHED_OTHER, 
 	rr = SCHED_RR, 
 	fifo = SCHED_FIFO
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	, aquosa = 1000 
 #endif
 } policy_t;
@@ -32,7 +33,7 @@ struct thread_data {
 	char sched_policy_descr[16];
 	int sched_prio;
 
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	int fragment;
 	int sid;
 	qres_params_t params;
@@ -50,7 +51,7 @@ typedef struct _timing_point_t {
 	unsigned long deadline;
 	unsigned long duration;
 	long slack;
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 	qres_time_t budget;
 	qres_time_t used_budget;
 #endif

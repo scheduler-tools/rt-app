@@ -13,10 +13,11 @@
 #include <signal.h>
 #include "rtapp_types.h"
 #include "rtapp_args.h"
+#include "config.h"
 
-#ifdef AQUOSA
+#ifdef HAVE_LIBQRESLIB
 #include <aquosa/qres_lib.h>
-#endif /* AQUOSA */
+#endif /* HAVE_LIBQRESLIB */
 
 #ifdef LOCKMEM
 #include <sys/mman.h>
