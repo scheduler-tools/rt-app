@@ -1,0 +1,52 @@
+These are usage instructions for rt-app
+
+Usage:
+------
+
+$ rt-app 
+usage: rt-app [options] -t <period>:<exec>[:$POLICY[:deadline[:prio]]] -t ...
+
+-h, --help	:	show this help
+-f, --fifo	:	set default policy for threads to SCHED_FIFO
+-r, --rr	:	set default policy fior threads to SCHED_RR
+-s, --spacing	:	msec to wait beetween thread starts
+-l, --logdir	:	save logs to different directory
+-b, --baselog	:	basename for logs (implies -l . if not set)
+-G, --gnuplot	:	generate gnuplot script (needs -l)
+-D, --duration	:	time (in seconds) before stopping threads
+-q, --qos	:	create AQuoSA reservation
+-g, --frag	:	fragment for the reservation
+
+POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA
+when using AQuoSA scheduling, priority is used as percent increment 
+for budget over exec time
+
+options:
+
+* --fifo,--rr and --qos sets the default scheduling policy for all threads.
+	--qos is available only when compiled with AQuoSA support enabled.
+
+* --logdir and --baselog control log output (rt-app creates one log for each
+	thread).  If --logdir is not present, rt-app logs everything to stdout.
+	When logging to file and -D (see below) is present, the file is written
+	at the end of execution, during which all logging data is kept in
+	memory.
+
+* --gnuplot if it is present then rt-app outputs sample gnuplot scripts to 
+	$logdir (which must be passed too
+
+* --spacing and --duration control the spacing between threads and their
+	duration of execution,  i.e. each thread is started every $spacing ms
+	and the total runtime is $duration.
+
+* --frag (AQuoSA only): fragments the reservation period by $fragmentation, i.e.
+	reservation period is $frag times smaller than thread's period.
+	
+Each thread is specified by --thread <period>:<exec>[:$POLICY[:deadline[:prio]]]:
+
+period   : thread period in microseconds
+exec     : thread WCET in microseconds
+policy   : one of f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA (if enabled!)
+deadline : deadline in microseconds (used ONLY for plotting!)
+prio     : thread priority in SCHED_FIFO/SCHED_RR/SCHED_OTHER, percentile increment
+	   for AQuoSA reservation budget w.r.t. WCET.

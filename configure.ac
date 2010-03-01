@@ -21,6 +21,6 @@ AS_IF([test "x$enable_aquosa" = "xyes"], [
 ])
 
 AC_CONFIG_HEADERS([src/config.h])
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile README INSTALL])
 AC_OUTPUT
 

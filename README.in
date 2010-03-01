@@ -1,0 +1,21 @@
+In this file:
+-------------
+	* General Introduction
+	* Requirements
+	* Documentation
+
+General Introduction:
+---------------------
+This is rt-app @VERSION@.
+rt-app is a test application that starts multiple periodic threads in order to 
+simulate a real-time periodic load. It supports SCHED_OTHER, SCHED_FIFO, 
+SCHED_RR as well as the AQuoSA framework and SCHED_DEADLINE.
+
+Please report any bugs you find in launchpad at the url 
+https://bugs.launchpad.net/rt-app
+
+Read the file INSTALL for instructions on how to install rt-app.
+Read the file USAGE for instructions on how to run rt-app
+Read the file LICENSE for license terms on using, modifying and redistributing rt-app
+
+
