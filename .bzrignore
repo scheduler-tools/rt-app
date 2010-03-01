@@ -21,3 +21,5 @@ src/config.h
 src/config.h.in
 src/stamp-h1
 src/rt-app
+./INSTALL
+./README
