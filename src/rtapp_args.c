@@ -13,7 +13,7 @@ usage (const char* msg)
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	
-#ifdef HAVE_LIBQRESLIB
+#ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
 	printf("-g, --frag\t:\tfragment for the reservation\n\n");
 	printf("POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA\n");
@@ -65,7 +65,7 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			break;
 
 		case 2:
-#ifdef HAVE_LIBQRESLIB
+#ifdef AQUOSA
 			if (strcmp(token,"q") == 0)
 				tdata->sched_policy = aquosa;
 			else 
@@ -131,7 +131,7 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 		case other:
 			sprintf(tdata->sched_policy_descr, "SCHED_OTHER");
 			break;
-#ifdef HAVE_LIBQRESLIB
+#ifdef AQUOSA
 		case aquosa:
 			sprintf(tdata->sched_policy_descr, "AQuoSA");
 			break;

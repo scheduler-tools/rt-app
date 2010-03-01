@@ -15,9 +15,9 @@
 #include "rtapp_args.h"
 #include "config.h"
 
-#ifdef HAVE_LIBQRESLIB
+#ifdef AQUOSA
 #include <aquosa/qres_lib.h>
-#endif /* HAVE_LIBQRESLIB */
+#endif /* AQUOSA */
 
 #ifdef LOCKMEM
 #include <sys/mman.h>

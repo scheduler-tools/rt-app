@@ -17,6 +17,7 @@ AS_IF([test "x$enable_lockmem" = "xyes"], [
 ])
 AS_IF([test "x$enable_aquosa" = "xyes"], [
 	AC_CHECK_LIB([qreslib], [qres_init])
+	AC_DEFINE([AQUOSA],[], [AQuoSA framework support])
 ])
 
 AC_CONFIG_HEADERS([src/config.h])

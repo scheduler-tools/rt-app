@@ -104,7 +104,7 @@ log_timing(FILE *handler, timing_point_t *t)
 		t->duration,
 		t->slack
 	);
-#ifdef HAVE_LIBQRESLIB
+#ifdef AQUOSA
 	fprintf(handler,
 		"\t" QRES_TIME_FMT "\t" QRES_TIME_FMT,
 		t->budget, 
