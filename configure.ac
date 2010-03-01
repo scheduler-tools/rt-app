@@ -10,7 +10,15 @@ AC_HEADER_STDC
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
 AC_CHECK_LIB([rt], [clock_gettime])
-AC_CHECK_LIB([qreslib], [qres_init])
+AC_ARG_ENABLE([lockmem], AS_HELP_STRING([--enable-lockmem],[lock all memory to avoid it being swapped out]))
+AC_ARG_ENABLE([aquosa], AS_HELP_STRING([--enable-aquosa], [Add support for the AQuoSA framework]))
+AS_IF([test "x$enable_lockmem" = "xyes"], [
+	AC_DEFINE([LOCKMEM], [], [lock all memory to avoid it being swapout])
+])
+AS_IF([test "x$enable_aquosa" = "xyes"], [
+	AC_CHECK_LIB([qreslib], [qres_init])
+])
+
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
