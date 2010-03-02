@@ -17,7 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */ 
 
-#include "rtapp_utils.h"
+#include "rt-app_utils.h"
 
 unsigned int 
 timespec_to_msec(struct timespec *ts)

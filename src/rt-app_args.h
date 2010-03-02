@@ -23,8 +23,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "rtapp_utils.h"
-#include "rtapp_types.h"
+#include "rt-app_utils.h"
+#include "rt-app_types.h"
 
 #define DEFAULT_THREAD_PRIORITY 10
 

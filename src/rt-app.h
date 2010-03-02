@@ -30,8 +30,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
-#include "rtapp_types.h"
-#include "rtapp_args.h"
+#include "rt-app_types.h"
+#include "rt-app_args.h"
 #include "config.h"
 
 #ifdef AQUOSA

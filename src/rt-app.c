@@ -18,7 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */ 
 
 #include "rt-app.h"
-#include "rtapp_utils.h"
+#include "rt-app_utils.h"
 
 static int errno;
 static int continue_running;
