@@ -1,0 +1,16 @@
+Code repository:
+----------------
+
+Code is currently maintained on launchpad, using the bzr SCM.
+https://launchpad.net/rt-app
+
+To download code you need bzr-2.0 or greater, then run:
+$ bzr branch lp:rt-app
+
+Once branched, you need to reconfigure the build system by issuing:
+$ autoreconf --install 
+
+You need autoconf, automake and libtool.
+
+Then use instructions in INSTALL to compile the program.
+
