@@ -29,6 +29,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
+#ifdef DEADLINE
+#include "dl_syscalls.h"
+#endif
+
 typedef enum policy_t 
 { 
 	other = SCHED_OTHER, 
@@ -36,6 +40,9 @@ typedef enum policy_t
 	fifo = SCHED_FIFO
 #ifdef AQUOSA
 	, aquosa = 1000 
+#endif
+#ifdef DEADLINE
+	, deadline = SCHED_DEADLINE
 #endif
 } policy_t;
 
@@ -54,11 +61,15 @@ struct thread_data {
 	policy_t sched_policy;
 	char sched_policy_descr[16];
 	int sched_prio;
-
+	
 #ifdef AQUOSA
 	int fragment;
 	int sid;
 	qres_params_t params;
+#endif
+
+#ifdef DEADLINE
+	struct sched_param_ex dl_params;
 #endif
 };
 
