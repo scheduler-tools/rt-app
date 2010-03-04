@@ -24,3 +24,4 @@ src/rt-app
 ./INSTALL
 ./README
 rt-app-**.tar.**
+dist
