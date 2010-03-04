@@ -19,10 +19,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #ifndef _RTAPP_ARGS_H_
 #define _RTAPP_ARGS_H_
+/* for CPU_SET macro */
+#define _GNU_SOURCE
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sched.h>
 #include "rt-app_utils.h"
 #include "rt-app_types.h"
 

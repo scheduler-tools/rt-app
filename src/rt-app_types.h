@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sched.h>
 #include <time.h>
 #include <stdio.h>
+#include <sched.h>
 #include "config.h"
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>
@@ -42,6 +43,8 @@ struct thread_data {
 	int ind;
 	int lock_pages;
 	int duration;
+	cpu_set_t *cpuset;
+	char *cpuset_str;
 	unsigned long wait_before_start;
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;

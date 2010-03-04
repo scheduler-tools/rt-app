@@ -157,6 +157,19 @@ posixrtcommon:
 			exit(EXIT_FAILURE);
 		}
 	}
+	/* set thread affinity */
+	if (data->cpuset != NULL)
+	{
+		log_info("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
+			 data->cpuset_str);
+		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+						data->cpuset);
+		if (ret < 0) {
+			errno = ret;
+			perror("pthread_setaffinity_np");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	if (data->wait_before_start > 0) {
 		log_info("[%d] Waiting %ld usecs... ", data->ind, 

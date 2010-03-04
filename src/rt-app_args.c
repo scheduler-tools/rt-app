@@ -22,7 +22,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 void
 usage (const char* msg)
 {
-	printf("usage: rt-app [options] -t <period>:<exec>[:$POLICY[:deadline[:prio]]] -t ...\n\n");
+	printf("usage: rt-app [options] -t <period>:<exec>[:cpu affinity"
+		"[:policy[:deadline[:prio]]]] -t ...\n\n");
 	printf("-h, --help\t:\tshow this help\n");
 	printf("-f, --fifo\t:\tset default policy for threads to SCHED_FIFO\n");
 	printf("-r, --rr\t:\tset default policy fior threads to SCHED_RR\n");
@@ -42,6 +43,8 @@ usage (const char* msg)
 #else
 	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER\n");
 #endif
+	printf("AFFINITY: comma-separated cpu index (starting from 0)");
+	printf(" i.e. 0,2,3 for first, third and fourth CPU\n");
 
 	if (msg != NULL)
 		printf("\n%s\n", msg);
@@ -57,9 +60,15 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 	long period, exec, deadline;
 	char tmp[256];
 	int i = 0;
+	int cpu;
+	deadline = 0;
+
 	token = strtok(str, ":");
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
 	tdata->sched_policy = def_policy;
+	tdata->cpuset = NULL;
+	tdata->cpuset_str = NULL;
+
 	while ( token != NULL)
 	{
 		switch(i) {
@@ -106,6 +115,20 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			i++;
 			break;
 		case 3:
+			if (strcmp(token, "-") == 0)
+				tdata->cpuset = NULL;
+			else {
+				tdata->cpuset = malloc (sizeof(cpu_set_t));
+				tdata->cpuset_str = strdup(token);
+			}
+			i++;
+			break;
+		case 4:
+			tdata->sched_prio = strtol(token, NULL, 10);
+			// do not check, will fail in pthread_setschedparam
+			i++;
+			break;
+		case 5:
 			deadline = strtol(token, NULL, 10);
 			if (deadline < exec)
 				usage ("Deadline cannot be less than "
@@ -118,11 +141,6 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			tdata->deadline = usec_to_timespec(deadline);
 			i++;
 			break;
-		case 4:
-			tdata->sched_prio = strtol(token, NULL, 10);
-			// do not check, will fail in pthread_setschedparam
-			i++;
-			break;
 		}
 		token = strtok(NULL, ":");
 	}
@@ -130,15 +148,24 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 		printf("Period and exec time are mandatory\n");
 		exit(EXIT_FAILURE);
 	}
-	if ( i < 3 )
-		tdata->sched_policy = other;
+
+	if (deadline == 0)
+		tdata->deadline = tdata->period;
 	
-	if ( i < 4 ) 
-		tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
-
-	if ( i < 5 ) 
-		tdata->deadline = usec_to_timespec(period); 
-
+	/* set cpu affinity mask */
+	if (tdata->cpuset_str)
+	{
+		snprintf(tmp, 256, "%s", tdata->cpuset_str);
+		token = strtok(tmp, ",");
+		while (token != NULL && i < 1000) {
+			cpu = strtol(token, NULL, 10);
+			CPU_SET(cpu, tdata->cpuset);
+			strtok(NULL, ",");
+			i++;
+		}
+	} else 
+		tdata->cpuset_str = strdup("-");
+	
 	// descriptive name for policy
 	switch(tdata->sched_policy)
 	{
