@@ -31,6 +31,7 @@ usage (const char* msg)
 	printf("-b, --baselog\t:\tbasename for logs (implies -l . if not set)\n");
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
+	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");

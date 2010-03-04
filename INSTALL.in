@@ -17,10 +17,8 @@ Last step is optional, rt-app is generated in the src/ directory.
 
 Optional support:
 ================
-$ ./configure --enable-aquosa 
+$ ./configure --with-aquosa 
 	adds support for the AQuoSA framework
-$ ./configure --enable-lockmem
-	locks all memory to avoid it being swapped out to disk.
 
 see ./configure --help for additional options.
 

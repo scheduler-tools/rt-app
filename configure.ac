@@ -10,11 +10,6 @@ AC_HEADER_STDC
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
 AC_CHECK_LIB([rt], [clock_gettime])
-AC_ARG_WITH([lockmem], AS_HELP_STRING([--enable-lockmem],[lock all memory to avoid it being swapped out]))
-AS_IF([test "x$enable_lockmem" = "xyes"], [
-	AC_DEFINE([LOCKMEM], [], [lock all memory to avoid it being swapout])
-])
-
 AC_ARG_WITH([aquosa],
 	[AS_HELP_STRING([--enable-aquosa], 
          [Add support for the AQuoSA framework])],

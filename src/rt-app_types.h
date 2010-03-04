@@ -40,7 +40,7 @@ typedef enum policy_t
 
 struct thread_data {
 	int ind;
-
+	int lock_pages;
 	int duration;
 	unsigned long wait_before_start;
 	struct timespec min_et, max_et;

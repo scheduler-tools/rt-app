@@ -97,15 +97,7 @@ posixrtcommon:
 				perror("pthread_setschedparam"); 
 				exit(EXIT_FAILURE);
 			}
-#ifdef LOCKMEM
-			log_info("[%d] Locking pages in memory", data->ind);
-			ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-			if (ret < 0) {
-				errno = ret;
-				perror("mlockall");
-				exit(EXIT_FAILURE);
-			}
-#endif
+
 			log_info("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d",
 			       	data->ind,
@@ -125,6 +117,7 @@ posixrtcommon:
 				timespec_to_usec(&data->min_et),
 				timespec_to_usec(&data->deadline)
 			);
+			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
 #ifdef AQUOSA			
 		case aquosa:
@@ -152,6 +145,17 @@ posixrtcommon:
 			log_error("Unknown scheduling policy %d",
 				data->sched_policy);
 			exit(EXIT_FAILURE);
+	}
+	
+	if (data->lock_pages == 1)
+	{
+		log_info("[%d] Locking pages in memory", data->ind);
+		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (ret < 0) {
+			errno = ret;
+			perror("mlockall");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	if (data->wait_before_start > 0) {
@@ -259,7 +263,7 @@ int main(int argc, char* argv[])
 	char ch;
 	int longopt_idx;
 	char tmp[PATH_LENGTH];
-	int i,gnuplot;
+	int i,gnuplot, lock_pages;
 
 	struct thread_data *threads_data, *tdata;
 
@@ -299,6 +303,7 @@ int main(int argc, char* argv[])
 	nthreads = 0;
 	spacing = 0;
 	gnuplot = 0;
+	lock_pages = 1;
 	duration = -1;
 	logbasename = strdup("rt-app");
 	threads = malloc( sizeof(pthread_t));
@@ -308,10 +313,10 @@ int main(int argc, char* argv[])
 #ifdef AQUOSA
 	fragment = 1;
 		
-	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:qg:t:", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:Ghfrb:s:l:t:", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:", 
 				  long_options, &longopt_idx)) != -1)
 #endif	
 	{
@@ -365,6 +370,9 @@ int main(int argc, char* argv[])
 				if (duration < 0)
 					usage("Cannot set negative duration");
 				break;
+			case 'K':
+				lock_pages = 0;
+				break;
 #ifdef AQUOSA				
 			case 'q':
 				if (policy != other)
@@ -416,6 +424,7 @@ int main(int argc, char* argv[])
 		tdata->duration = duration;
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
+		tdata->lock_pages = lock_pages;
 #ifdef AQUOSA
 		tdata->fragment = fragment;
 #endif

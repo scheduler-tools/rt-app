@@ -30,6 +30,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/mman.h>  /* for memlock */
 #include "rt-app_types.h"
 #include "rt-app_args.h"
 #include "config.h"
@@ -38,9 +39,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
-#ifdef LOCKMEM
-#include <sys/mman.h>
-#endif
 
 #define PATH_LENGTH 256
 
