@@ -25,3 +25,6 @@ src/rt-app
 ./README
 rt-app-**.tar.**
 dist
+./libdl/.deps
+libdl/Makefile
+libdl/Makefile.in

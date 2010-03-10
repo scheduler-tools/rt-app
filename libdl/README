@@ -1,0 +1,54 @@
+Libdl
+Copyright (C) 2009-2010 Dario Faggioli
+Release under GPL, version 2 (see COPYING)
+Use at your own risk.
+
+ABOUT
+-----
+
+Libdl provides what is needed to use the SCHED_DEADLINE scheduling
+policy and all its features from an userspace program.
+This is needed since the new system calls, flags, etc. that make
+it possible are not (yet? :-P) included in the standard library.
+
+
+PREREQUISITES
+-------------
+
+The new interface is only implemented by kernels patched to support
+the SCHED_DEADLINE schedulign policy.
+
+Instructions on how to download and compile such a kernel are available
+on the development Website of the project:
+
+ http://gitorious.org/sched_deadline/pages/Home
+
+
+USAGE
+-----
+
+To compile the library as a static or shared object:
+
+$> make static or $> make shared or just $> make
+
+To install in the default path (/usr/local/lib):
+
+#> make install
+
+To customize the install path change DESTPREFIX and DESTDIR
+in the Makefile.
+
+To statically include the files in your project:
+ - copy dl_syscalls.h and dl_syscalls.c in your header and
+   source folder;
+ - edit your Makefile so that targets where the new interface
+   is used depends on dl_syscall.c;
+ - compile and install it as usual.
+
+
+CONTACT
+-------
+
+For bug reporting, as well as for any other comment, feel free to
+contact me at raistlin@linux.it.
+
