@@ -95,6 +95,9 @@ timespec_lower(struct timespec *what, struct timespec *than);
 void
 log_timing(FILE *handler, timing_point_t *t);
 
+pid_t 
+gettid(void);
+
 #endif // _TIMESPEC_UTILS_H_ 
 
 /* vim: set ts=8 noexpandtab shiftwidth=8: */

@@ -37,14 +37,21 @@ usage (const char* msg)
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
 	printf("-g, --frag\t:\tfragment for the reservation\n\n");
-	printf("POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA\n");
+#else
+#endif
+	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER");
+#ifdef DLSCHED
+	printf(", d=SCHED_DEADLINE");
+#endif
+#ifdef AQUOSA
+	printf(", q=AQuoSA\n");
 	printf("when using AQuoSA scheduling, priority is used as"
 		" percent increment \nfor budget over exec time\n");
 #else
-	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER\n");
+	printf("\n");
 #endif
-	printf("AFFINITY: comma-separated cpu index (starting from 0)");
-	printf(" i.e. 0,2,3 for first, third and fourth CPU\n");
+	printf("AFFINITY: comma-separated cpu index (starting from 0)\n");
+	printf("\ti.e. 0,2,3 for first, third and fourth CPU\n");
 
 	if (msg != NULL)
 		printf("\n%s\n", msg);
@@ -57,11 +64,11 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 {
 	char *str = strdup(arg);
 	char *token;
-	long period, exec, deadline;
+	long period, exec, dline;
 	char tmp[256];
 	int i = 0;
 	int cpu;
-	deadline = 0;
+	dline = 0;
 
 	token = strtok(str, ":");
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
@@ -99,6 +106,11 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 				tdata->sched_policy = aquosa;
 			else 
 #endif
+#ifdef DLSCHED
+			if (strcmp(token,"d") == 0)
+				tdata->sched_policy = deadline;
+			else
+#endif
 			if (strcmp(token,"f") == 0)
 				tdata->sched_policy = fifo;
 			else if (strcmp(token,"r") == 0)
@@ -129,16 +141,16 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 			i++;
 			break;
 		case 5:
-			deadline = strtol(token, NULL, 10);
-			if (deadline < exec)
+			dline = strtol(token, NULL, 10);
+			if (dline < exec)
 				usage ("Deadline cannot be less than "
 						"execution time");
-			if (deadline > period)
+			if (dline > period)
 				usage ("Deadline cannot be greater than "
 						"period");
-			if (deadline <= 0 )
+			if (dline <= 0 )
 				usage ("Cannot set negative deadline");
-			tdata->deadline = usec_to_timespec(deadline);
+			tdata->deadline = usec_to_timespec(dline);
 			i++;
 			break;
 		}
@@ -149,7 +161,7 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 		exit(EXIT_FAILURE);
 	}
 
-	if (deadline == 0)
+	if (dline == 0)
 		tdata->deadline = tdata->period;
 	
 	/* set cpu affinity mask */
@@ -166,7 +178,7 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 	} else 
 		tdata->cpuset_str = strdup("-");
 	
-	// descriptive name for policy
+	/* descriptive name for policy */
 	switch(tdata->sched_policy)
 	{
 		case rr:
@@ -181,6 +193,11 @@ parse_thread_args(char *arg, struct thread_data *tdata, policy_t def_policy)
 #ifdef AQUOSA
 		case aquosa:
 			sprintf(tdata->sched_policy_descr, "AQuoSA");
+			break;
+#endif
+#ifdef DLSCHED
+		case deadline:
+			sprintf(tdata->sched_policy_descr, "SCHED_DEADLINE");
 			break;
 #endif
 	}

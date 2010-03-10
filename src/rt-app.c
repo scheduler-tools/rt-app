@@ -77,6 +77,9 @@ void *thread_body(void *arg)
 	qres_time_t prev_abs_used_budget = 0;
 	qres_time_t abs_used_budget;
 #endif
+#ifdef DLSCHED
+	pid_t tid;
+#endif
 	int ret, i = 0;
 	int j;
 	/* set scheduling policy and print pretty info on stdout */
@@ -141,6 +144,37 @@ posixrtcommon:
 
 			break;
 #endif
+#ifdef DLSCHED
+		case deadline:
+			tid = gettid();
+			log_info("[%d] using %s policy for tid %d", data->ind, 
+				 data->sched_policy_descr, tid);
+			data->dl_params.sched_priority = data->sched_prio;
+			data->dl_params.sched_runtime = data->max_et;
+			data->dl_params.sched_deadline = data->period;
+			data->dl_params.sched_period = data->period;
+			data->dl_params.sched_flags = SCHED_BWRECL_RT;
+
+			ret = sched_setscheduler_ex(tid, SCHED_DEADLINE, 
+						    sizeof(struct sched_param_ex),
+						    &data->dl_params);
+			if (ret != 0) {
+				log_critical("[%d] sched_setscheduler_ex"
+					     "returned %d", data->ind, ret);
+				exit(EXIT_FAILURE);
+			}
+				
+			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			       "deadline: %lu, priority: %d",
+			       	data->ind,
+				timespec_to_usec(&data->period), 
+				timespec_to_usec(&data->min_et),
+				timespec_to_usec(&data->deadline),
+				data->sched_prio
+			);
+			break;
+#endif
+			
 		default:
 			log_error("Unknown scheduling policy %d",
 				data->sched_policy);

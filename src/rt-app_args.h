@@ -28,6 +28,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sched.h>
 #include "rt-app_types.h"
 #include "rt-app_utils.h"
+#ifdef DLSCHED
+#include "dl_syscalls.h"
+#endif
 
 #define DEFAULT_THREAD_PRIORITY 10
 

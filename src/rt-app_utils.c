@@ -133,3 +133,9 @@ log_timing(FILE *handler, timing_point_t *t)
 	fprintf(handler, "\n");
 }
 
+pid_t
+gettid(void)
+{
+	return syscall(__NR_gettid);
+}
+
