@@ -25,4 +25,3 @@ src/rt-app
 ./README
 rt-app-**.tar.**
 dist
-./libdl

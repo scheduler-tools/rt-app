@@ -29,15 +29,15 @@ AC_ARG_WITH([aquosa],
               [-lqreslib])])
 
 AC_ARG_WITH([deadline],
-	[AS_HELP_STRING([--enable-deadline], 
+	[AS_HELP_STRING([--with-deadline], 
          [Add support for SCHED_DEADLINE])],
 	[],
 	[with_deadline=no])
 LIBQRESLIB=
 AS_IF([test "x$with_deadline" != xno],
-	[AC_DEFINE([DEADLINE], [1], [Define if you have SCHED_DEADLINE support])
+	[AC_DEFINE([DLSCHED], [1], [Define if you have SCHED_DEADLINE support])
      ])
 
 AC_CONFIG_HEADERS([src/config.h])
-AC_CONFIG_FILES([Makefile src/Makefile README:README.in INSTALL:INSTALL.in])
+AC_CONFIG_FILES([Makefile src/Makefile libdl/Makefile README:README.in INSTALL:INSTALL.in])
 AC_OUTPUT

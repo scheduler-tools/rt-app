@@ -26,8 +26,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include <string.h>
 #include <sched.h>
-#include "rt-app_utils.h"
 #include "rt-app_types.h"
+#include "rt-app_utils.h"
 
 #define DEFAULT_THREAD_PRIORITY 10
 

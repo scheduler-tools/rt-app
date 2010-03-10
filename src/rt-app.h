@@ -31,9 +31,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 #include <signal.h>
 #include <sys/mman.h>  /* for memlock */
+#include "config.h"
 #include "rt-app_types.h"
 #include "rt-app_args.h"
-#include "config.h"
 
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>
