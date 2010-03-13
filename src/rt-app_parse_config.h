@@ -17,8 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */ 
 
-#ifndef _RTAPP_ARGS_H_
-#define _RTAPP_ARGS_H_
+#ifndef _RTAPP_PARSE_CONFIG_H
+#define _RTAPP_PARSE_CONFIG_H 
 /* for CPU_SET macro */
 #define _GNU_SOURCE
 
@@ -26,29 +26,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include <string.h>
 #include <sched.h>
-#include <getopt.h>
-#include <sys/stat.h>
 #include <string.h>
 #include "rt-app_types.h"
 #include "rt-app_utils.h"
 #ifdef DLSCHED
 #include "dl_syscalls.h"
 #endif
-
-#ifdef YAML
-#include "rt-app_parse_config.h"
-#endif
+#include <yaml.h>
 
 #define DEFAULT_THREAD_PRIORITY 10
 #define PATH_LENGTH 256
 
 void
-usage (const char* msg);
+parse_config(const char *filename, rtapp_options_t *opts);
 
-void
-parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy);
-
-void
-parse_command_line(int argc, char **argv, rtapp_options_t *opts);
-
-#endif // _RTAPP_ARGS_H_
+#endif // _RTAPP_PARSE_CONFIG_H
