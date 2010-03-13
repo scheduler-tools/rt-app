@@ -26,6 +26,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include <string.h>
 #include <sched.h>
+#include <getopt.h>
+#include <sys/stat.h>
+#include <string.h>
 #include "rt-app_types.h"
 #include "rt-app_utils.h"
 #ifdef DLSCHED
@@ -33,11 +36,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 
 #define DEFAULT_THREAD_PRIORITY 10
+#define PATH_LENGTH 256
 
 void
 usage (const char* msg);
 
 void
 parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy);
+
+void
+parse_command_line(int argc, char **argv, rtapp_options_t *opts);
 
 #endif // _RTAPP_ARGS_H_

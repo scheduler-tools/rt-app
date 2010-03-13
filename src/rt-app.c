@@ -307,142 +307,17 @@ posixrtcommon:
 
 int main(int argc, char* argv[])
 {
-	char ch;
-	int longopt_idx;
-	char tmp[PATH_LENGTH];
-	int i,gnuplot, lock_pages;
-
-	thread_data_t *threads_data, *tdata;
-
-	policy_t policy = other;
-	unsigned long spacing;
-	char *logdir = NULL;
-	char *logbasename = NULL;
-	FILE *gnuplot_script = NULL;
-
-	struct stat dirstat;
-
 	struct timespec t_curr, t_next, t_start;
-	int duration;
+	FILE *gnuplot_script = NULL;
+	int i;
+	thread_data_t *tdata;
+	char tmp[PATH_LENGTH];
 
-#ifdef AQUOSA
-	int fragment;
-#endif
-	
-	static struct option long_options[] = {
-	                   {"help", 0, 0, 'h'},
-			   {"fifo", 0, 0, 'f'},
-			   {"rr", 0, 0, 'r'},
-			   {"thread", 1, 0, 't'},
-			   {"spacing", 1, 0, 's'},
-			   {"logdir", 1, 0, 'l'},
-	                   {"baselog", 1, 0, 'b'},
-			   {"gnuplot", 1, 0, 'G'},
-			   {"duration", 1, 0, 'D'},
-#ifdef AQUOSA
-			   {"qos", 0, 0, 'q'},
-			   {"frag",1, 0, 'g'},
-#endif
-	                   {0, 0, 0, 0}
-	               };
+	rtapp_options_t opts;
+	parse_command_line(argc, argv, &opts);
 
-	// set defaults.
-	nthreads = 0;
-	spacing = 0;
-	gnuplot = 0;
-	lock_pages = 1;
-	duration = -1;
-	logbasename = strdup("rt-app");
-	threads = malloc( sizeof(pthread_t));
-	threads_data = malloc( sizeof(thread_data_t));
-	
-	/* parse args */
-#ifdef AQUOSA
-	fragment = 1;
-		
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:", 
-				  long_options, &longopt_idx)) != -1)
-#else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:", 
-				  long_options, &longopt_idx)) != -1)
-#endif	
-	{
-		switch (ch)
-		{
-			case 'h':
-				usage(NULL);
-				break;
-			case 'f':
-				if (policy != other)
-					usage("Cannot set multiple policies");
-				policy = fifo;
-				break;
-			case 'r':
-				if (policy != other)
-					usage("Cannot set multiple policies");
-				policy = rr;
-				break;
-			case 'b':
-				if (!logdir)	
-					logdir = strdup(".");
-				logbasename = strdup(optarg);
-				break;
-			case 's':
-				spacing  = strtol(optarg, NULL, 0);
-				if (spacing < 0)
-					usage("Cannot set negative spacing");
-				break;
-			case 'l':
-				logdir = strdup(optarg);	
-				lstat(logdir, &dirstat);
-				if (! S_ISDIR(dirstat.st_mode))
-					usage("Cannot stat log directory");
-				break;
-			case 't':
-				if (nthreads > 0)
-				{
-					threads = realloc(threads, (nthreads+1) * sizeof(pthread_t));
-					threads_data = realloc(threads_data, (nthreads+1) * sizeof(thread_data_t));
-				}
-				parse_thread_args(optarg, 
-						  &threads_data[nthreads],
-						  policy);
-				nthreads++;
-				break;
-			case 'G':
-				gnuplot = 1;
-				break;
-			case 'D':
-				duration = strtol(optarg, NULL, 10);
-				if (duration < 0)
-					usage("Cannot set negative duration");
-				break;
-			case 'K':
-				lock_pages = 0;
-				break;
-#ifdef AQUOSA				
-			case 'q':
-				if (policy != other)
-					usage("Cannot set multiple policies");
-				policy = aquosa;
-				break;
-			case 'g':
-				fragment = strtol(optarg, NULL, 10);
-				if (fragment < 1 || fragment > 16)
-					usage("Fragment divisor must be between"
-					      "1 and 16");
-				break;
-
-#endif
-			default:
-				log_error("Invalid option %c", ch);
-				usage(NULL);
-
-		}
-	}
-
-	if ( nthreads < 1)
-		usage("You have to set parameters for at least one thread");
+	nthreads = opts.nthreads;
+	threads = malloc(nthreads * sizeof(pthread_t));
 	
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
@@ -458,26 +333,28 @@ int main(int argc, char* argv[])
 	/* start threads */
 	for (i = 0; i < nthreads; i++)
 	{
-		tdata = &threads_data[i];
-		if (spacing > 0 ) {
+		tdata = &opts.threads_data[i];
+		if (opts.spacing > 0 ) {
 			/* start the thread, then it will sleep accordingly
 			 * to its position. We don't sleep here anymore as 
 			 * this would mean that 
 			 * duration = spacing * nthreads + duration */
-			tdata->wait_before_start = spacing * (i+1);	
+			tdata->wait_before_start = opts.spacing * (i+1);
 		} else {
 			tdata->wait_before_start = 0;
 		}
-		tdata->duration = duration;
+		tdata->duration = opts.duration;
 		tdata->ind = i;
 		tdata->main_app_start = t_start;
-		tdata->lock_pages = lock_pages;
+		tdata->lock_pages = opts.lock_pages;
 #ifdef AQUOSA
-		tdata->fragment = fragment;
+		tdata->fragment = opts.fragment;
 #endif
-		if (logdir) {
+		if (opts.logdir) {
 			snprintf(tmp, PATH_LENGTH, "%s/%s-t%d.log",
-				 logdir,logbasename,i);
+				 opts.logdir,
+				 opts.logbasename,
+				 i);
 			tdata->log_handler = fopen(tmp, "w");
 			if (!tdata->log_handler){
 				log_error("Cannot open logfile %s", tmp);
@@ -495,13 +372,13 @@ int main(int argc, char* argv[])
 	}
 
 	/* print gnuplot files */ 
-	if (logdir && gnuplot)
+	if (opts.logdir && opts.gnuplot)
 	{
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
-			 logdir, logbasename);
+			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.eps",
-			logdir, logbasename);
+			opts.logdir, opts.logbasename);
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
 			"set output '%s'\n"
@@ -515,13 +392,13 @@ int main(int argc, char* argv[])
 		for (i=0; i<nthreads; i++)
 		{
 			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
-				 logdir, logbasename);
+				 opts.logdir, opts.logbasename);
 
 			fprintf(gnuplot_script, 
 				"\"%s-t%d.log\" u ($5/1000):9 w l"
 				" title \"thread%d (%s)\"", 
-				logbasename, i, i, 
-				threads_data[i].sched_policy_descr);
+				opts.logbasename, i, i, 
+				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -532,10 +409,10 @@ int main(int argc, char* argv[])
 		fclose(gnuplot_script);
 
 		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot", 
-		 	 logdir,logbasename);
+		 	 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.eps", 
-		 	 logdir,logbasename);
+		 	 opts.logdir, opts.logbasename);
 
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
@@ -547,13 +424,13 @@ int main(int argc, char* argv[])
 			"set ylabel \"Slack/Tardiness [usec]\"\n"
 			"plot ", tmp);
 
-		for (i=0; i<nthreads; i++)
+		for (i=0; i < nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
 				"\"%s-t%d.log\" u ($5/1000):10 w l"
 				" title \"thread%d (%s)\"", 
-				logbasename, i, i,
-				threads_data[i].sched_policy_descr);
+				opts.logbasename, i, i,
+				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1) 
 				fprintf(gnuplot_script, ", 0 notitle\n");
@@ -565,9 +442,9 @@ int main(int argc, char* argv[])
 		fclose(gnuplot_script);
 	}
 	
-	if (duration > 0)
+	if (opts.duration > 0)
 	{
-		sleep(duration);
+		sleep(opts.duration);
 		shutdown(SIGTERM);
 	}
 	

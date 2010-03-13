@@ -26,9 +26,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <time.h>
 #include <sched.h>
 #include <pthread.h>
-#include <getopt.h>
-#include <sys/stat.h>
-#include <string.h>
 #include <signal.h>
 #include <sys/mman.h>  /* for memlock */
 #include "config.h"
@@ -39,11 +36,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
-
-#define PATH_LENGTH 256
-
 void *thread_body(void *arg);
-
 
 #endif /* _RT_APP_H_ */
 

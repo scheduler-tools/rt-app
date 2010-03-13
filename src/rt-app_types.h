@@ -73,6 +73,25 @@ typedef struct _thread_data_t {
 #endif
 } thread_data_t;
 
+typedef struct _rtapp_options_t {
+    int lock_pages;
+
+    thread_data_t *threads_data;
+    int nthreads;
+
+    policy_t policy;
+    int duration;
+    unsigned long spacing;
+
+    char *logdir;
+    char *logbasename;
+    int gnuplot;
+
+#ifdef AQUOSA
+    int fragment;
+#endif
+} rtapp_options_t;
+
 typedef struct _timing_point_t {
 	int ind;
 	unsigned long period;
@@ -89,10 +108,5 @@ typedef struct _timing_point_t {
 	qres_time_t used_budget;
 #endif
 } timing_point_t;
-
-typedef struct _rtapp_options_t {
-   int gnuplot;
-   int lock_pages;
-} rtapp_options_t;
 
 #endif // _RTAPP_TYPES_H_ 

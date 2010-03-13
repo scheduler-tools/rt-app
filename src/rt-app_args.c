@@ -205,4 +205,131 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 	free(str);
 }
 
+void
+parse_command_line(int argc, char **argv, rtapp_options_t *opts)
+{
+	char tmp[PATH_LENGTH];
+	char ch;
+	int longopt_idx;
+	int i;
+
+	struct stat dirstat;
+
+	/* set defaults */
+	opts->spacing = 0;
+	opts->gnuplot = 0;
+	opts->lock_pages = 1;
+	opts->duration = -1;
+	opts->logbasename = strdup("rt-app");
+	opts->logdir = NULL;
+	opts->nthreads = 0;
+	opts->policy = other;
+	opts->threads_data = malloc(sizeof(thread_data_t));
+#ifdef AQUOSA
+	opts->fragment = 1;
+#endif
+	static struct option long_options[] = {
+	                   {"help", 0, 0, 'h'},
+			   {"fifo", 0, 0, 'f'},
+			   {"rr", 0, 0, 'r'},
+			   {"thread", 1, 0, 't'},
+			   {"spacing", 1, 0, 's'},
+			   {"logdir", 1, 0, 'l'},
+	                   {"baselog", 1, 0, 'b'},
+			   {"gnuplot", 1, 0, 'G'},
+			   {"duration", 1, 0, 'D'},
+#ifdef AQUOSA
+			   {"qos", 0, 0, 'q'},
+			   {"frag",1, 0, 'g'},
+#endif
+	                   {0, 0, 0, 0}
+	               };
+#ifdef AQUOSA
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:", 
+				  long_options, &longopt_idx)) != -1)
+#else
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:", 
+				  long_options, &longopt_idx)) != -1)
+#endif
+	{
+		switch (ch)
+		{
+			case 'h':
+				usage(NULL);
+				break;
+			case 'f':
+				if (opts->policy != other)
+					usage("Cannot set multiple policies");
+				opts->policy = fifo;
+				break;
+			case 'r':
+				if (opts->policy != other)
+					usage("Cannot set multiple policies");
+				opts->policy = rr;
+				break;
+			case 'b':
+				if (!opts->logdir)	
+					opts->logdir = strdup(".");
+				opts->logbasename = strdup(optarg);
+				break;
+			case 's':
+				opts->spacing  = strtol(optarg, NULL, 0);
+				if (opts->spacing < 0)
+					usage("Cannot set negative spacing");
+				break;
+			case 'l':
+				opts->logdir = strdup(optarg);	
+				lstat(opts->logdir, &dirstat);
+				if (! S_ISDIR(dirstat.st_mode))
+					usage("Cannot stat log directory");
+				break;
+			case 't':
+				if (opts->nthreads > 0)
+				{
+					opts->threads_data = realloc(
+						opts->threads_data, 
+						(opts->nthreads+1) * \
+							sizeof(thread_data_t));
+				}
+				parse_thread_args(optarg,  
+					&opts->threads_data[opts->nthreads],
+					opts->policy);
+				opts->nthreads++;
+				break;
+			case 'G':
+				opts->gnuplot = 1;
+				break;
+			case 'D':
+				opts->duration = strtol(optarg, NULL, 10);
+				if (opts->duration < 0)
+					usage("Cannot set negative duration");
+				break;
+			case 'K':
+				opts->lock_pages = 0;
+				break;
+#ifdef AQUOSA				
+			case 'q':
+				if (opts->policy != other)
+					usage("Cannot set multiple policies");
+				opts->policy = aquosa;
+				break;
+			case 'g':
+				opts->fragment = strtol(optarg, NULL, 10);
+				if (opts->fragment < 1 || opts->fragment > 16)
+					usage("Fragment divisor must be between"
+					      "1 and 16");
+				break;
+#endif
+			default:
+				log_error("Invalid option %c", ch);
+				usage(NULL);
+
+		}
+
+	}
+	if ( opts->nthreads < 1)
+		usage("You have to set parameters for at least one thread");
+	
+}
+
 
