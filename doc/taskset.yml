@@ -1,0 +1,53 @@
+# maybe useless to pre-define resources here.
+resources:
+        - m0
+        - m1
+        - m2
+        - m3
+
+tasks:
+        # task name can be "A", "t0", etc. It will only be used in log names
+        # and in graphs.
+        t0:
+                - exec: 10000                           # usec, mandatory
+                  period: 10000                         # usec, mandatory
+                  deadline: 8000                        # usec, optional, default = $period
+                  cpu: 0,1                              # optional, default = - (all)
+                  policy: FIFO                          # optional, default = $global.default_policy
+                  lock: m1
+                  resources:
+                        - m1:
+                                - duration : 1000
+        t1:
+                - exec: 50000
+                  period: 100000      
+                  cpu: 1
+                  policy: DEADLINE
+                  lock: m0,m3,m2                        # optional. direct lock order
+                  resources:
+                        - m0: 
+                                - duration: 1000        # usec, mandatory if present in $lock list.
+                                  access : m2           # optional, list
+                        - m1:
+                                - duration: 100
+                                  access: m3
+
+                        - m2:
+                                - duration: 200
+                                  access: m1
+
+                        - m3:
+                                - duration: 500                               
+
+global:
+        # here values are set to their defaults, as an example.
+        - spacing: 0                                    # msec, optional
+          default_policy: OTHER                         # optional
+          duration: -1                                  # seconds, optional, -1 means not ending
+          gnuplot: false                                # optional
+          logdir:  null                                 # full/relative path to the directory where to store logs
+                                                        # by default it is not set, so rt-app logs to stdout
+          baselog: rt-app                               # basename for thread logs (needs $lodgir != null)
+          frag: 1                                       # fragmentation of resource reservations w.r.t thread $period
+                                                        # i.e. 2 means thread period is twice as big as RR period.
+
