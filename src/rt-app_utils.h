@@ -95,8 +95,10 @@ timespec_lower(struct timespec *what, struct timespec *than);
 void
 log_timing(FILE *handler, timing_point_t *t);
 
+#ifdef DLSCHED
 pid_t 
 gettid(void);
+#endif
 
 #endif // _TIMESPEC_UTILS_H_ 
 
