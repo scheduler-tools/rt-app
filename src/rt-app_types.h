@@ -46,7 +46,7 @@ typedef enum policy_t
 #endif
 } policy_t;
 
-struct thread_data {
+typedef struct _thread_data_t {
 	int ind;
 	int lock_pages;
 	int duration;
@@ -71,7 +71,7 @@ struct thread_data {
 #ifdef DLSCHED
 	struct sched_param_ex dl_params;
 #endif
-};
+} thread_data_t;
 
 typedef struct _timing_point_t {
 	int ind;
@@ -89,5 +89,10 @@ typedef struct _timing_point_t {
 	qres_time_t used_budget;
 #endif
 } timing_point_t;
+
+typedef struct _rtapp_options_t {
+   int gnuplot;
+   int lock_pages;
+} rtapp_options_t;
 
 #endif // _RTAPP_TYPES_H_ 

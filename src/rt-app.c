@@ -64,7 +64,7 @@ shutdown(int sig)
 
 void *thread_body(void *arg)
 {
-	struct thread_data *data = (struct thread_data*) arg;
+	thread_data_t *data = (thread_data_t*) arg;
 	struct sched_param param;
 	struct timespec t, t_next;
 	unsigned long t_start_usec;
@@ -312,7 +312,7 @@ int main(int argc, char* argv[])
 	char tmp[PATH_LENGTH];
 	int i,gnuplot, lock_pages;
 
-	struct thread_data *threads_data, *tdata;
+	thread_data_t *threads_data, *tdata;
 
 	policy_t policy = other;
 	unsigned long spacing;
@@ -354,7 +354,7 @@ int main(int argc, char* argv[])
 	duration = -1;
 	logbasename = strdup("rt-app");
 	threads = malloc( sizeof(pthread_t));
-	threads_data = malloc( sizeof(struct thread_data));
+	threads_data = malloc( sizeof(thread_data_t));
 	
 	/* parse args */
 #ifdef AQUOSA
@@ -402,7 +402,7 @@ int main(int argc, char* argv[])
 				if (nthreads > 0)
 				{
 					threads = realloc(threads, (nthreads+1) * sizeof(pthread_t));
-					threads_data = realloc(threads_data, (nthreads+1) * sizeof(struct thread_data));
+					threads_data = realloc(threads_data, (nthreads+1) * sizeof(thread_data_t));
 				}
 				parse_thread_args(optarg, 
 						  &threads_data[nthreads],
