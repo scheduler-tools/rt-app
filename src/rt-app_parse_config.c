@@ -24,16 +24,68 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define JSON_FILE_BUF_SIZE 4096
 
-static int
+static inline struct json_object* 
+get_in_object(struct json_object *where, 
+	      const char *what)
+{
+	struct json_object *to;	
+	to = json_object_object_get(where, what);
+	if (is_error(to)) {
+		log_critical(PFX "Error while parsing config:\n" PFL 
+			  "%s", json_tokener_errors[-(unsigned long)to]);
+		exit(EXIT_FAILURE);
+	}
+	if (strcmp(json_object_to_json_string(to), "null") == 0) {
+		log_critical(PFX "Cannot find key %s", what);
+		exit(EXIT_FAILURE);
+	}
+	return to;
+}
+
+static void
+parse_resources(struct json_object *resources, rtapp_options_t *opts)
+{
+	// TODO
+}
+
+static void
+parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
+{
+	// TODO
+}
+
+static void
+parse_global(struct json_object *global, rtapp_options_t *opts)
+{
+	// TODO
+}
+
+static void
 get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 {
+	struct json_object *global, *tasks, *resources;
+
 	if (is_error(root)) {
-		log_error(PFX "Error while parsing input JSON");
-		return 1;
+		log_error(PFX "Error while parsing input JSON: %s",
+			 json_tokener_errors[-(unsigned long)root]);
+		exit(EXIT_FAILURE);
 	}
 	log_info(PFX "Successfully parsed input JSON");
-	log_info(PFX "%s", json_object_to_json_string(root));
-	return 0;
+	log_debug(PFX "root     : %s", json_object_to_json_string(root));
+	
+	global = get_in_object(root, "global");
+	log_debug(PFX "global   : %s", json_object_to_json_string(global));
+	
+	tasks = get_in_object(root, "tasks");
+	log_debug(PFX "tasks    : %s", json_object_to_json_string(tasks));
+	
+	resources = get_in_object(root, "resources");
+	log_debug(PFX "resources: %s", json_object_to_json_string(resources));
+
+	parse_resources(resources, opts);
+	parse_global(global, opts);
+	parse_tasks(global, opts);
+	
 }
 
 void
