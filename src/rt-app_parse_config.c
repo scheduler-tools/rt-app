@@ -19,147 +19,49 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "rt-app_parse_config.h"
 
-#define PFX "[yaml] "
+#define PFX "[json] "
 #define PFL "         "PFX
 
-static void
-log_parser_error(yaml_parser_t *parser)
+#define JSON_FILE_BUF_SIZE 4096
+
+static int
+get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 {
-	switch (parser->error)
-	{
-		case YAML_MEMORY_ERROR:
-			log_critical(PFX "Memory error: Not enough memory for "
-				     "parsing");
-			break;
-
-		case YAML_READER_ERROR:
-			if (parser->problem_value != -1) {
-				log_critical(PFX "Reader error: %s: #%X at %d",
-					     parser->problem,
-					     parser->problem_value, 
-					     (int) parser->problem_offset);
-			}
-			else {
-				log_critical(PFX "Reader error: %s at %d", 
-					     parser->problem,
-					     (int) parser->problem_offset);
-			}
-			break;
-
-		case YAML_SCANNER_ERROR:
-			if (parser->context) {
-				log_critical(PFX 
-					     "Scanner error: %s at line %d,"
-					     "column %d\n"PFL "%s at line %d,"
-					     "column %d", parser->context,
-					     (int) parser->context_mark.line+1,
-					     (int) parser->context_mark.column+1,
-					     parser->problem,
-					     (int) parser->problem_mark.line+1,
-					     (int) parser->problem_mark.column+1);
-			}
-			else {
-				log_critical(PFX "Scanner error:"
-					     " %s at line %d, column %d",
-					     parser->problem, 
-					     (int) parser->problem_mark.line+1,
-					     (int) parser->problem_mark.column+1);
-			}
-			break;
-
-		case YAML_PARSER_ERROR:
-			if (parser->context) {
-				log_critical(PFX "Parser error: %s at line %d,"
-					     " column %d\n"PFL "%s at line %d,"
-					     " column %d", parser->context,
-					     (int) parser->context_mark.line+1,
-					     (int) parser->context_mark.column+1,
-					     parser->problem, 
-					     (int) parser->problem_mark.line+1,
-					     (int) parser->problem_mark.column+1);
-			}
-			else {
-				log_critical(PFX "Parser error: %s at line %d,"
-					     " column %d",
-					     parser->problem, 
-					     (int) parser->problem_mark.line+1,
-					     (int) parser->problem_mark.column+1);
-			}
-			break;
-
-		default:
-			/* Couldn't happen. */
-			log_critical(PFX "Internal error");
-			break;
+	if (is_error(root)) {
+		log_error(PFX "Error while parsing input JSON");
+		return 1;
 	}
-	yaml_parser_delete(parser);
-	exit(EXIT_FAILURE);
+	log_info(PFX "Successfully parsed input JSON");
+	log_info(PFX "%s", json_object_to_json_string(root));
+	return 0;
 }
 
-int
-parse_token(yaml_token_t *token, int *done)
+void
+parse_config_stdin(rtapp_options_t *opts)
 {
-	yaml_token_type_t t = token->type;
-	switch (token->type) {
-		case YAML_STREAM_START_TOKEN:
-			log_info(PFX "Start stream");
-			break;
-		case YAML_STREAM_END_TOKEN:
-			log_info(PFX "End stream");
-			*done = 1;
-			break;
-		case YAML_DOCUMENT_START_TOKEN:
-			log_info(PFX "Start document");
-			break;
-		case YAML_DOCUMENT_END_TOKEN:
-			log_info(PFX "End document");
-			break;
-		case YAML_KEY_TOKEN:
-			log_info(PFX "Key token %s", token->data.scalar.value);
-		default:
-			/* ignore */
-			log_info(PFX "Ingnoring token %d", token->type);
-			break;
-	}
-	return 0;
+	/* read from stdin until EOF, write to temp file and parse
+	 * as a "normal" config file */
+	size_t in_length;
+	char buf[JSON_FILE_BUF_SIZE];
+	struct json_object *js;
+	log_info(PFX "Reading JSON config from stdin...");
+
+	in_length = fread(buf, sizeof(char), JSON_FILE_BUF_SIZE, stdin);
+	buf[in_length] = '\0';
+	js = json_tokener_parse(buf);
+	get_opts_from_json_object(js, opts);
+	return;
 }
 
 void
 parse_config(const char *filename, rtapp_options_t *opts)
 {
-	yaml_parser_t parser;
-	yaml_token_t token;
-	FILE *config;
 	int done;
-
-	log_info(PFX "Reading %s filename", filename);
-	config = fopen(filename, "r");
-	if (!config)
-		log_error(PFX "Cannot open %s, aborting", filename);
-
-	if (!yaml_parser_initialize(&parser))
-		log_parser_error(&parser);
-
-	yaml_parser_set_input_file(&parser, config);
-
-	while (!done)
-	{
-		/* Get the next event. */
-		if (!yaml_parser_scan(&parser, &token))
-			log_parser_error(&parser);	
-		
-		/* TODO maintain status */
-		parse_token(&token, &done);
-		
-		/* Are we finished? */
-		done = (token.type == YAML_STREAM_END_TOKEN);
-		yaml_token_delete(&token);
-	}
-
-	log_info(PFX "Successfully read config file %s", filename);
-	yaml_parser_delete(&parser);
-	fclose(config);
-	exit(EXIT_SUCCESS);
+	char *fn = strdup(filename);
+	struct json_object *js;
+	log_info(PFX "Reading JSON config from %s", fn);
+	js = json_object_from_file(fn);
+	get_opts_from_json_object(js, opts);
 	return;
 
 

@@ -22,9 +22,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 void
 usage (const char* msg)
 {
-#ifdef YAML
+#ifdef JSON
 	printf("usage:\n"
-	       "rt-app <taskset.yml>\nOR\n");
+	       "rt-app <taskset.json>\nOR\n");
 #endif	       
 	printf("rt-app [options] -t <period>:<exec>[:cpu affinity"
 		"[:policy[:deadline[:prio]]]] -t ...\n\n");
@@ -339,15 +339,18 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 {
-#ifdef YAML
+#ifdef JSON
 	if (argc < 2)
 		usage("");
 	struct stat config_file_stat;
 	if (stat(argv[1], &config_file_stat) == 0) {
 		parse_config(argv[1], opts);
 	}
-	else	
+	else if (strcmp(argv[1], "-") == 0)
+		parse_config_stdin(opts);
+	else
 #endif
 	parse_command_line_options(argc, argv, opts);
+	exit(EXIT_SUCCESS);
 }
 

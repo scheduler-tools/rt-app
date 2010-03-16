@@ -24,6 +24,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sched.h>
 #include <string.h>
@@ -32,7 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifdef DLSCHED
 #include "dl_syscalls.h"
 #endif
-#include <yaml.h>
+#include <json/json.h>
 
 #define DEFAULT_THREAD_PRIORITY 10
 #define PATH_LENGTH 256
