@@ -338,17 +338,16 @@ int main(int argc, char* argv[])
 			tdata->wait_before_start = 0;
 		}
 		tdata->duration = opts.duration;
-		tdata->ind = i;
 		tdata->main_app_start = t_start;
 		tdata->lock_pages = opts.lock_pages;
 #ifdef AQUOSA
 		tdata->fragment = opts.fragment;
 #endif
 		if (opts.logdir) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-t%d.log",
+			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
 				 opts.logdir,
 				 opts.logbasename,
-				 i);
+				 tdata->name);
 			tdata->log_handler = fopen(tmp, "w");
 			if (!tdata->log_handler){
 				log_error("Cannot open logfile %s", tmp);
@@ -389,9 +388,10 @@ int main(int argc, char* argv[])
 				 opts.logdir, opts.logbasename);
 
 			fprintf(gnuplot_script, 
-				"\"%s-t%d.log\" u ($5/1000):9 w l"
-				" title \"thread%d (%s)\"", 
-				opts.logbasename, i, i, 
+				"\"%s-%s.log\" u ($5/1000):9 w l"
+				" title \"thread [%s] (%s)\"", 
+				opts.logbasename, opts.threads_data[i].name, 
+				opts.threads_data[i].name, 
 				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1)
@@ -421,9 +421,10 @@ int main(int argc, char* argv[])
 		for (i=0; i < nthreads; i++)
 		{
 			fprintf(gnuplot_script, 
-				"\"%s-t%d.log\" u ($5/1000):10 w l"
-				" title \"thread%d (%s)\"", 
-				opts.logbasename, i, i,
+				"\"%s-%s.log\" u ($5/1000):10 w l"
+				" title \"thread [%s] (%s)\"", 
+				opts.logbasename, opts.threads_data[i].name,
+				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1) 

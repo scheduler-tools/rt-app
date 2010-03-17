@@ -55,6 +55,7 @@ typedef enum policy_t
 
 typedef struct _thread_data_t {
 	int ind;
+	char *name;
 	int lock_pages;
 	int duration;
 	cpu_set_t *cpuset;

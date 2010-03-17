@@ -1,7 +1,7 @@
 {
 	"resources" : [ "m0", "m1", "m2", "m3" ],
 	"tasks" : {
-		"t0" : { 
+		"thread0" : { 
 		       "exec" : 1000, 
 		       "period" : 10000, 
 		       "deadline" : 8000, 
@@ -12,11 +12,11 @@
 			   "m1" : { "duration" : 1000 }
 		       }
 		},
-		"t1" : { 
+		"thread1" : { 
 		       "exec" : 50000, 
 		       "period" : 100000, 
 		       "cpus" : [1], 
-		       "policy" : "SCHED_DEADLINE",
+		       "policy" : "SCHED_FIFO",
 		       "lock" : [ "m0", "m3", "m2" ],
 		       "resources": {
 			   "m0" : { "duration" : 1000, "access": ["m2"] },
@@ -30,8 +30,8 @@
 		"spacing" : 0,
 		"default_policy" : "SCHED_OTHER",
 		"duration" : -1,
-		"gnuplot" : false,
-		"logdir" : null,
+		"gnuplot" : true,
+		"logdir" : "/tmp/",
 		"log_basename" : "rt-app",
 		"lock_pages" : true,
 		"frag" : 1

@@ -64,7 +64,7 @@ usage (const char* msg, int ex_code)
 
 
 void
-parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
+parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 {
 	char *str = strdup(arg);
 	char *token;
@@ -75,6 +75,10 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 	dline = 0;
 
 	token = strtok(str, ":");
+	tdata->name = malloc(sizeof(char) * 5);
+	tdata->ind = idx;
+	/* default name for command line threads */
+	snprintf(tdata->name, 1, "t%d", tdata->ind); 
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
 	tdata->sched_policy = def_policy;
 	tdata->cpuset = NULL;
@@ -280,7 +284,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 						(opts->nthreads+1) * \
 							sizeof(thread_data_t));
 				}
-				parse_thread_args(optarg,  
+				parse_thread_args(optarg, opts->nthreads,
 					&opts->threads_data[opts->nthreads],
 					opts->policy);
 				opts->nthreads++;
@@ -339,6 +343,5 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 	else
 #endif
 	parse_command_line_options(argc, argv, opts);
-	exit(EXIT_SUCCESS);
 }
 

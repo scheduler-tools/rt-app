@@ -173,6 +173,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	log_debug(PFX "Parsing thread %s [%d]", name, idx);
 	/* common and defaults */
 	data->ind = idx;
+	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
 	data->sched_prio = DEFAULT_THREAD_PRIORITY;
 	data->cpuset = NULL;

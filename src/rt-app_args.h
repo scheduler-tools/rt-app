@@ -46,7 +46,7 @@ void
 usage (const char* msg, int ex_code);
 
 void
-parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy);
+parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy);
 
 void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts);
