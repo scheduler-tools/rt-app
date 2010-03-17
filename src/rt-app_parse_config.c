@@ -21,25 +21,85 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define PFX "[json] "
 #define PFL "         "PFX
-
 #define JSON_FILE_BUF_SIZE 4096
+
+
+static inline void
+assure_type_is(struct json_object *obj,
+	       struct json_object *parent,
+	       const char *key,
+	       enum json_type type)
+{
+	if (!json_object_is_type(obj, type)) {
+		log_critical("Invalid type for key %s", key);
+		log_critical("%s", json_object_to_json_string(parent));
+		exit(EXIT_INV_CONFIG);
+	}
+}
 
 static inline struct json_object* 
 get_in_object(struct json_object *where, 
-	      const char *what)
+	      const char *what,
+	      boolean nullable)
 {
 	struct json_object *to;	
 	to = json_object_object_get(where, what);
 	if (is_error(to)) {
 		log_critical(PFX "Error while parsing config:\n" PFL 
 			  "%s", json_tokener_errors[-(unsigned long)to]);
-		exit(EXIT_FAILURE);
+		exit(EXIT_INV_CONFIG);
 	}
-	if (strcmp(json_object_to_json_string(to), "null") == 0) {
+	if (!nullable && strcmp(json_object_to_json_string(to), "null") == 0) {
 		log_critical(PFX "Cannot find key %s", what);
-		exit(EXIT_FAILURE);
+		exit(EXIT_INV_CONFIG);
 	}
 	return to;
+}
+
+static inline int
+get_int_value_from(struct json_object *where,
+		   const char *key)
+{
+	struct json_object *value;
+	int i_value;
+	value = get_in_object(where, key, TRUE);
+	assure_type_is(value, where, key, json_type_int);
+	i_value = json_object_get_int(value);
+	json_object_put(value);
+	return i_value;
+}
+
+static inline int
+get_bool_value_from(struct json_object *where,
+		    const char *key)
+{
+	struct json_object *value;
+	int bi_value;
+	boolean b_value;
+	value = get_in_object(where, key, TRUE);
+	assure_type_is(value, where, key, json_type_boolean);
+	b_value = json_object_get_boolean(value);
+	if (b_value == TRUE)
+		bi_value = 1;
+	else
+		bi_value = 0;
+	json_object_put(value);
+	return bi_value;
+}
+
+static inline char*
+get_string_value_from(struct json_object *where,
+		      const char *key)
+{
+	struct json_object *value;
+	char *s_value;
+	value = get_in_object(where, key, TRUE);
+	if (!value || json_object_is_type(value, json_type_null))
+		return NULL;
+	assure_type_is(value, where, key, json_type_string);
+	s_value = strdup(json_object_get_string(value));
+	json_object_put(value);
+	return s_value;
 }
 
 static void
@@ -57,7 +117,22 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
-	// TODO
+	char *policy;
+	opts->spacing = get_int_value_from(global, "spacing");
+	opts->duration = get_int_value_from(global, "duration");
+	opts->gnuplot = get_bool_value_from(global, "gnuplot");
+	policy = get_string_value_from(global, "default_policy");
+	if (string_to_policy(policy, &opts->policy) != 0) {
+		log_critical(PFX "Invalid policy %s", policy);
+		exit(EXIT_INV_CONFIG);
+	}
+	opts->logdir = get_string_value_from(global, "logdir");
+	opts->lock_pages = get_bool_value_from(global, "lock_pages");
+	opts->logbasename = get_string_value_from(global, "log_basename");
+#ifdef AQUOSA
+	opts->fragment = get_int_value_from(global, "fragment");
+#endif
+	
 }
 
 static void
@@ -68,18 +143,18 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	if (is_error(root)) {
 		log_error(PFX "Error while parsing input JSON: %s",
 			 json_tokener_errors[-(unsigned long)root]);
-		exit(EXIT_FAILURE);
+		exit(EXIT_INV_CONFIG);
 	}
 	log_info(PFX "Successfully parsed input JSON");
 	log_debug(PFX "root     : %s", json_object_to_json_string(root));
 	
-	global = get_in_object(root, "global");
+	global = get_in_object(root, "global", FALSE);
 	log_debug(PFX "global   : %s", json_object_to_json_string(global));
 	
-	tasks = get_in_object(root, "tasks");
+	tasks = get_in_object(root, "tasks", FALSE);
 	log_debug(PFX "tasks    : %s", json_object_to_json_string(tasks));
 	
-	resources = get_in_object(root, "resources");
+	resources = get_in_object(root, "resources", FALSE);
 	log_debug(PFX "resources: %s", json_object_to_json_string(resources));
 
 	parse_resources(resources, opts);
@@ -115,6 +190,4 @@ parse_config(const char *filename, rtapp_options_t *opts)
 	js = json_object_from_file(fn);
 	get_opts_from_json_object(js, opts);
 	return;
-
-
 }
