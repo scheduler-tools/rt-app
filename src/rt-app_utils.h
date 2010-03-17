@@ -39,31 +39,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define LOG_LEVEL_CRITICAL 10
 
 /* This prepend a string to a message */
-#define rtapp_log_to(where, level, msg, args...)			\
+#define rtapp_log_to(where, level, level_pfx, msg, args...)		\
 do {									\
     if (level <= LOG_LEVEL) {						\
-        fprintf(where, LOG_PREFIX msg "\n", ##args);			\
+        fprintf(where, LOG_PREFIX level_pfx msg "\n", ##args);		\
     }									\
 } while (0);
 
 #define log_info(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_INFO, msg, ##args);			\
+    rtapp_log_to(stderr, LOG_LEVEL_INFO, "<info> ", msg, ##args);	\
 } while (0);
 
 #define log_error(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_ERROR, msg, ##args);			\
+    rtapp_log_to(stderr, LOG_LEVEL_ERROR, "<error> ", msg, ##args);	\
 } while (0);
 
 #define log_debug(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_DEBUG, msg, ##args);			\
+    rtapp_log_to(stderr, LOG_LEVEL_DEBUG, "<debug> ", msg, ##args);	\
 } while (0);
 
 #define log_critical(msg, args...)					\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, msg, ##args);		\
+    rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, "<crit> ", msg, ##args);	\
 } while (0);
 
 unsigned int 
