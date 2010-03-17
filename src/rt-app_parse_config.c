@@ -22,8 +22,50 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define PFX "[json] "
 #define PFL "         "PFX
 #define PIN PFX"    "
+#define PIN2 PIN"    "
 #define JSON_FILE_BUF_SIZE 4096
 
+/* redefine foreach as in <json/json_object.h> but to be ANSI
+ * compatible */
+#define foreach(obj, entry, key, val, idx)				\
+	for ( ({ idx = 0; entry = json_object_get_object(obj)->head;});	\
+		({ if (entry) { key = (char*)entry->k;			\
+				val = (struct json_object*)entry->v;	\
+			      };					\
+		   entry;						\
+		 }							\
+		);							\
+		({ entry = entry->next; idx++; })			\
+	    )								
+
+#define set_default_if_needed(key, value, have_def, def_value) do {	\
+	if (!value) {							\
+		if (have_def) {						\
+			log_debug(PIN "key: %s <default> %d", key, def_value);\
+			return def_value;				\
+		} else {						\
+			log_critical(PFX "Key %s not found", key);	\
+			exit(EXIT_INV_CONFIG);				\
+		}							\
+	}								\
+} while(0)	
+
+#define set_default_if_needed_str(key, value, have_def, def_value) do {	\
+	if (!value) {							\
+		if (have_def) {						\
+			if (!def_value) {				\
+				log_debug(PIN "key: %s <default> NULL", key);\
+				return NULL;				\
+			}						\
+			log_debug(PIN "key: %s <default> %s",		\
+				  key, def_value);			\
+			return strdup(def_value);			\
+		} else {						\
+			log_critical(PFX "Key %s not found", key);	\
+			exit(EXIT_INV_CONFIG);				\
+		}							\
+	}								\
+}while (0)
 
 static inline void
 assure_type_is(struct json_object *obj,
@@ -59,11 +101,14 @@ get_in_object(struct json_object *where,
 
 static inline int
 get_int_value_from(struct json_object *where,
-		   const char *key)
+		   const char *key,
+		   boolean have_def,
+		   int def_value)
 {
 	struct json_object *value;
 	int i_value;
-	value = get_in_object(where, key, TRUE);
+	value = get_in_object(where, key, have_def);
+	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_int);
 	i_value = json_object_get_int(value);
 	json_object_put(value);
@@ -73,11 +118,14 @@ get_int_value_from(struct json_object *where,
 
 static inline int
 get_bool_value_from(struct json_object *where,
-		    const char *key)
+		    const char *key,
+		    boolean have_def,
+		    int def_value)
 {
 	struct json_object *value;
 	boolean b_value;
-	value = get_in_object(where, key, TRUE);
+	value = get_in_object(where, key, have_def);
+	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_boolean);
 	b_value = json_object_get_boolean(value);
 	json_object_put(value);
@@ -87,12 +135,15 @@ get_bool_value_from(struct json_object *where,
 
 static inline char*
 get_string_value_from(struct json_object *where,
-		      const char *key)
+		      const char *key,
+		      boolean have_def,
+		      const char *def_value)
 {
 	struct json_object *value;
 	char *s_value;
-	value = get_in_object(where, key, TRUE);
-	if (!value || json_object_is_type(value, json_type_null)) {
+	value = get_in_object(where, key, have_def);
+	set_default_if_needed_str(key, value, have_def, def_value);
+	if (json_object_is_type(value, json_type_null)) {
 		log_debug(PIN "key: %s, value: NULL, type <string>", key);
 		return NULL;
 	}
@@ -110,9 +161,75 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 }
 
 static void
+parse_thread_data(char *name, struct json_object *obj, int idx, 
+		  thread_data_t *data, const rtapp_options_t *opts)
+{
+	long exec, period, dline;
+	char *policy;
+
+	log_debug(PFX "Parsing thread %s [%d]", name, idx);
+	data->ind = idx;
+	data->lock_pages = opts->lock_pages;
+	data->sched_prio = DEFAULT_THREAD_PRIORITY;
+	data->cpuset = NULL;
+	data->cpuset_str = NULL;
+	period = get_int_value_from(obj, "period", FALSE, 0);
+	if (period <= 0) {
+		log_critical(PIN2 "Cannot set negative period");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->period = usec_to_timespec(period);
+
+	exec = get_int_value_from(obj, "exec", FALSE, 0);
+	if (exec > period) {
+		log_critical(PIN2 "Exec must be greather than period");
+		exit(EXIT_INV_CONFIG);
+	}
+	if (exec < 0) {
+		log_critical(PIN2 "Cannot set negative exec time");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->min_et = usec_to_timespec(exec);
+	data->max_et = usec_to_timespec(exec);
+	
+	policy = get_string_value_from(obj, "policy", TRUE, NULL);
+	if (policy) {
+		if (string_to_policy(policy, &data->sched_policy) != 0) {
+			log_critical(PIN2 "Invalid policy %s", policy);
+			exit(EXIT_INV_CONFIG);
+		}
+	}
+	policy_to_string(data->sched_policy, data->sched_policy_descr);
+	
+	dline = get_int_value_from(obj, "deadline", TRUE, period);
+	if (dline < exec) {
+		log_critical(PIN2 "Deadline cannot be less than exec time");
+		exit(EXIT_INV_CONFIG);
+	}
+	if (dline > period) {
+		log_critical(PIN2 "Deadline cannot be greater than period");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->deadline = usec_to_timespec(dline);
+
+}
+
+static void
 parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 {
-	// TODO
+	/* used in the foreach macro */
+	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+
+	log_debug(PFX "Parsing threads section");
+	opts->nthreads = 0;
+	foreach(tasks, entry, key, val, idx) {
+		opts->nthreads++;
+	}
+	log_debug(PFX "Found %d threads", opts->nthreads);
+	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
+	foreach (tasks, entry, key, val, idx) {
+		parse_thread_data(key, val, idx, &opts->threads_data[idx], opts);
+	}
 }
 
 static void
@@ -120,19 +237,21 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 {
 	char *policy;
 	log_debug(PFX "Parsing global section");
-	opts->spacing = get_int_value_from(global, "spacing");
-	opts->duration = get_int_value_from(global, "duration");
-	opts->gnuplot = get_bool_value_from(global, "gnuplot");
-	policy = get_string_value_from(global, "default_policy");
+	opts->spacing = get_int_value_from(global, "spacing", TRUE, 0);
+	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
+	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
+	policy = get_string_value_from(global, "default_policy", 
+				       TRUE, "SCHED_OTHER");
 	if (string_to_policy(policy, &opts->policy) != 0) {
 		log_critical(PFX "Invalid policy %s", policy);
 		exit(EXIT_INV_CONFIG);
 	}
-	opts->logdir = get_string_value_from(global, "logdir");
-	opts->lock_pages = get_bool_value_from(global, "lock_pages");
-	opts->logbasename = get_string_value_from(global, "log_basename");
+	opts->logdir = get_string_value_from(global, "logdir", TRUE, NULL);
+	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
+	opts->logbasename = get_string_value_from(global, "log_basename", 
+						  TRUE, "rt-app");
 #ifdef AQUOSA
-	opts->fragment = get_int_value_from(global, "fragment");
+	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
 #endif
 	
 }
@@ -161,7 +280,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 
 	parse_resources(resources, opts);
 	parse_global(global, opts);
-	parse_tasks(global, opts);
+	parse_tasks(tasks, opts);
 	
 }
 

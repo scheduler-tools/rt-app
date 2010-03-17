@@ -6,7 +6,7 @@
 		       "period" : 10000, 
 		       "deadline" : 8000, 
 		       "cpu" : [0,1], 
-		       "policy" : "FIFO", 
+		       "policy" : "SCHED_FIFO", 
 		       "lock" : [ "m1" ],
 		       "resources" : {
 			   "m1" : { "duration" : 1000 }
@@ -16,7 +16,7 @@
 		       "exec" : 50000, 
 		       "period" : 100000, 
 		       "cpu" : [1], 
-		       "policy" : "DEADLINE",
+		       "policy" : "SCHED_DEADLINE",
 		       "lock" : [ "m0", "m3", "m2" ],
 		       "resources": {
 			   "m0" : { "duration" : 1000, "access": ["m2"] },
