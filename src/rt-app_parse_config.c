@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define PFX "[json] "
 #define PFL "         "PFX
+#define PIN PFX"    "
 #define JSON_FILE_BUF_SIZE 4096
 
 
@@ -66,6 +67,7 @@ get_int_value_from(struct json_object *where,
 	assure_type_is(value, where, key, json_type_int);
 	i_value = json_object_get_int(value);
 	json_object_put(value);
+	log_debug(PIN "key: %s, value: %d, type <int>", key, i_value);
 	return i_value;
 }
 
@@ -74,17 +76,13 @@ get_bool_value_from(struct json_object *where,
 		    const char *key)
 {
 	struct json_object *value;
-	int bi_value;
 	boolean b_value;
 	value = get_in_object(where, key, TRUE);
 	assure_type_is(value, where, key, json_type_boolean);
 	b_value = json_object_get_boolean(value);
-	if (b_value == TRUE)
-		bi_value = 1;
-	else
-		bi_value = 0;
 	json_object_put(value);
-	return bi_value;
+	log_debug(PIN "key: %s, value: %d, type <bool>", key, b_value);
+	return b_value;
 }
 
 static inline char*
@@ -94,11 +92,14 @@ get_string_value_from(struct json_object *where,
 	struct json_object *value;
 	char *s_value;
 	value = get_in_object(where, key, TRUE);
-	if (!value || json_object_is_type(value, json_type_null))
+	if (!value || json_object_is_type(value, json_type_null)) {
+		log_debug(PIN "key: %s, value: NULL, type <string>", key);
 		return NULL;
+	}
 	assure_type_is(value, where, key, json_type_string);
 	s_value = strdup(json_object_get_string(value));
 	json_object_put(value);
+	log_debug(PIN "key: %s, value: %s, type <string>", key, s_value);
 	return s_value;
 }
 
@@ -118,6 +119,7 @@ static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
 	char *policy;
+	log_debug(PFX "Parsing global section");
 	opts->spacing = get_int_value_from(global, "spacing");
 	opts->duration = get_int_value_from(global, "duration");
 	opts->gnuplot = get_bool_value_from(global, "gnuplot");
