@@ -139,4 +139,57 @@ gettid(void)
 {
 	return syscall(__NR_gettid);
 }
+
+int
+string_to_policy(const char *policy_name, policy_t *policy)
+{
+	if (strcmp(policy_name, "SCHED_OTHER") == 0)
+		*policy = other;
+	else if (strcmp(policy_name, "SCHED_RR") == 0)
+		*policy =  rr;
+	else if (strcmp(policy_name, "SCHED_FIFO") == 0)
+		*policy =  fifo;
+#ifdef DLSCHED
+	else if (strcmp(policy_name, "SCHED_DEADLINE") == 0)
+		*policy =  deadline;
+#endif
+#ifdef AQUOSA
+	else if ( (strcmp(policy_name, "AQUOSA") == 0) || \
+		  (strcmp(policy_name, "AQuoSA") == 0))
+		*policy =  aquosa;
+#endif
+	else
+		return 1;
+	return 0;
+}
+
+int
+policy_to_string(policy_t policy, char *policy_name)
+{
+	switch (policy) {
+		case other:
+			strcpy(policy_name, "SCHED_OTHER");
+			break;
+		case rr:
+			strcpy(policy_name, "SCHED_RR");
+			break;
+		case fifo:
+			strcpy(policy_name, "SCHED_FIFO");
+			break;
+#ifdef DLSCHED			
+		case deadline:
+			strcpy(policy_name, "SCHED_DEADLINE");
+			break;
+#endif
+#ifdef AQUOSA
+		case aquosa:
+			strcpy(policy_name, "AQuoSA");
+			break;
+#endif
+		default:
+			return 1;
+	}
+	return 0;
+}
+
 #endif

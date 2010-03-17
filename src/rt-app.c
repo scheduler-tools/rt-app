@@ -83,14 +83,11 @@ void *thread_body(void *arg)
 	int ret, i = 0;
 	int j;
 	/* set scheduling policy and print pretty info on stdout */
+	log_info("[%d] Using %s policy:", data->ind, data->sched_policy_descr);
 	switch (data->sched_policy)
 	{
 		case rr:
-			log_info("[%d] Using SCHED_RR policy:", data->ind);
-			goto posixrtcommon;
 		case fifo:
-			log_info("[%d] Using SCHED_FIFO policy:", data->ind);
-posixrtcommon:			
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
 						    data->sched_policy, 
@@ -112,7 +109,6 @@ posixrtcommon:
 			break;
 
 		case other:
-			log_info("[%d] Using SCHED_OTHER policy:", data->ind);
 			log_info("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu",
 			       	data->ind,
@@ -147,8 +143,6 @@ posixrtcommon:
 #ifdef DLSCHED
 		case deadline:
 			tid = gettid();
-			log_info("[%d] using %s policy for tid %d", data->ind, 
-				 data->sched_policy_descr, tid);
 			data->dl_params.sched_priority = data->sched_prio;
 			data->dl_params.sched_runtime = data->max_et;
 			data->dl_params.sched_deadline = data->period;

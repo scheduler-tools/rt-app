@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <time.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include "rt-app_types.h"
 
 #ifndef LOG_PREFIX
@@ -99,6 +100,12 @@ log_timing(FILE *handler, timing_point_t *t);
 pid_t 
 gettid(void);
 #endif
+
+int
+string_to_policy(const char *policy_name, policy_t *policy);
+
+int
+policy_to_string(policy_t policy, char *policy_name);
 
 #endif // _TIMESPEC_UTILS_H_ 
 
