@@ -187,30 +187,6 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 	} else 
 		tdata->cpuset_str = strdup("-");
 	
-	/* descriptive name for policy */
-	switch(tdata->sched_policy)
-	{
-		case rr:
-			sprintf(tdata->sched_policy_descr, "SCHED_RR");
-			break;
-		case fifo:
-			sprintf(tdata->sched_policy_descr, "SCHED_FIFO");
-			break;
-		case other:
-			sprintf(tdata->sched_policy_descr, "SCHED_OTHER");
-			break;
-#ifdef AQUOSA
-		case aquosa:
-			sprintf(tdata->sched_policy_descr, "AQuoSA");
-			break;
-#endif
-#ifdef DLSCHED
-		case deadline:
-			sprintf(tdata->sched_policy_descr, "SCHED_DEADLINE");
-			break;
-#endif
-	}
-
 	free(str);
 }
 
