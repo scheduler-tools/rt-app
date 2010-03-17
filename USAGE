@@ -2,6 +2,13 @@ These are usage instructions for rt-app
 
 Usage:
 ------
+$ rt-app <config_file>
+where config file is a full/relative path to a json file (look under doc/ for an example config file) or
+"-" (without quotes) to read JSON data from stdin.
+
+OR you can use commandline to define the taskset.
+Keep in mind that on commandline it will never be possible to define resources and 
+how tasks access them.
 
 $ rt-app 
 usage: rt-app [options] -t <period>:<exec>[:cpu affinity[:policy[:deadline[:prio]]]] 
