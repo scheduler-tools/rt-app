@@ -157,7 +157,101 @@ get_string_value_from(struct json_object *where,
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
-	// TODO
+	int i;
+	int res = json_object_get_int(resources);
+	log_debug(PFX "Creating %d resources", res);
+	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
+	for (i = 0; i < res; i++)
+		pthread_mutex_init(&opts->resources[i].mtx, NULL);
+	opts->nresources = res;
+}
+
+static void 
+serialize_acl(rtapp_resource_access_list_t **acl,
+	      int idx,
+	      struct json_object *task_resources,
+	      rtapp_resource_t *resources)
+{
+	int i, next_idx;
+	struct json_object *access, *res, *next_res;
+	char s_idx[5];
+
+	snprintf(s_idx, 5, "%d", idx);
+
+	*acl = malloc( sizeof(rtapp_resource_access_list_t));
+	(*acl)->res = &resources[idx];
+	(*acl)->index = idx;
+	(*acl)->next = NULL;
+	res = get_in_object(task_resources, s_idx, TRUE);
+	if (!res)
+		return;
+	assure_type_is(res, task_resources, s_idx, json_type_object);
+
+	access = get_in_object(res, "access", TRUE);
+	if (!access)
+		return;
+	assure_type_is(access, res, "access", json_type_array);
+
+	for (i=0; i<json_object_array_length(access); i++)
+	{
+		next_res = json_object_array_get_idx(access, i);
+		if (!json_object_is_type(next_res, json_type_int)){
+			log_critical("Invalid resource index");
+			exit(EXIT_INV_CONFIG);
+		}
+		next_idx = json_object_get_int(next_res);
+		serialize_acl(&(*acl)->next, next_idx, task_resources, resources);
+		while ((*acl)->next != NULL)
+			(*acl)->next = (*acl)->next->next;
+	}
+	
+}
+
+static void
+parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
+		       struct json_object *task_resources, thread_data_t *data)
+{
+	int i,j, cur_res_idx;
+	struct json_object *res;
+	int res_dur;	
+	char res_name[4];
+
+	rtapp_resource_access_list_t *tmp;
+	char debug_msg[512];
+
+	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
+				 json_object_array_length(locks));
+	for (i = 0; i< json_object_array_length(locks); i++)
+	{
+		res = json_object_array_get_idx(locks, i);
+		if (!json_object_is_type(res, json_type_int)){
+			log_critical("Invalid resource index");
+			exit(EXIT_INV_CONFIG);
+		}
+		cur_res_idx = json_object_get_int(res);
+
+		data->blockages[i].usage = usec_to_timespec(0);
+		serialize_acl(&data->blockages[i].acl, cur_res_idx, 
+				task_resources, opts->resources);
+
+		tmp = data->blockages[i].acl;
+		debug_msg[0] = '\0';
+		do  {
+			snprintf(debug_msg, 512, "%s %d", debug_msg, tmp->index);
+			tmp = tmp->next;
+		} while (tmp != NULL);
+		log_debug(PIN "key: acl %s", debug_msg);
+
+		snprintf(res_name, 4, "%d", i);
+		res = get_in_object(task_resources, res_name, TRUE);
+		if (!res) {
+			continue;
+		}
+		assure_type_is(res, task_resources, res_name, json_type_object);
+		data->blockages[i].usage = usec_to_timespec(
+			get_int_value_from(res, "duration", TRUE, 0)
+		);
+	}
 }
 
 static void
@@ -167,7 +261,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	long exec, period, dline;
 	char *policy;
 	struct array_list *cpuset;
-	struct json_object *cpuset_obj, *cpu;
+	struct json_object *cpuset_obj, *cpu, *resources, *locks;
 	int i, cpu_idx;
 
 	log_debug(PFX "Parsing thread %s [%d]", name, idx);
@@ -244,6 +338,22 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		data->cpuset = NULL;
 		log_debug(PIN "key: cpus %s", data->cpuset_str);
 	}
+
+	/* resources */
+	resources = get_in_object(obj, "resources", TRUE);
+	locks = get_in_object(obj, "lock_order", TRUE);
+	if (locks) {
+		assure_type_is(locks, obj, "lock_order", json_type_array);
+		log_debug(PIN "key: lock_order %s", json_object_to_json_string(locks));
+		if (resources) {
+			assure_type_is(resources, obj, "resources", 
+					json_type_object);
+			log_debug(PIN "key: resources %s",
+				  json_object_to_json_string(resources));
+		}
+		parse_thread_resources(opts, locks, resources, data);
+	}
+
 }
 
 static void

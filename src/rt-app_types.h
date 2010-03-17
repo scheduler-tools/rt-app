@@ -53,6 +53,23 @@ typedef enum policy_t
 #endif
 } policy_t;
 
+/* Shared resources */
+typedef struct _rtapp_resource_t {
+	pthread_mutex_t mtx;
+	int index;
+} rtapp_resource_t;
+
+typedef struct _rtapp_resource_access_list_t {
+	rtapp_resource_t *res;
+	int index;
+	struct _rtapp_resource_access_list_t *next;
+} rtapp_resource_access_list_t;
+
+typedef struct _rtapp_tasks_resource_list_t {
+	struct timespec usage;
+	struct _rtapp_resource_access_list_t *acl;
+} rtapp_tasks_resource_list_t; 
+
 typedef struct _thread_data_t {
 	int ind;
 	char *name;
@@ -69,7 +86,9 @@ typedef struct _thread_data_t {
 	policy_t sched_policy;
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
-	
+
+	rtapp_tasks_resource_list_t *blockages;
+
 #ifdef AQUOSA
 	int fragment;
 	int sid;
@@ -94,6 +113,9 @@ typedef struct _rtapp_options_t {
     char *logdir;
     char *logbasename;
     int gnuplot;
+
+    rtapp_resource_t *resources;
+    int nresources;
 
 #ifdef AQUOSA
     int fragment;

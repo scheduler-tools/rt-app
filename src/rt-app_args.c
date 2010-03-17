@@ -337,11 +337,15 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 	struct stat config_file_stat;
 	if (stat(argv[1], &config_file_stat) == 0) {
 		parse_config(argv[1], opts);
+		return;
 	}
-	else if (strcmp(argv[1], "-") == 0)
+	else if (strcmp(argv[1], "-") == 0) {
 		parse_config_stdin(opts);
-	else
+		return;
+	} 
 #endif
 	parse_command_line_options(argc, argv, opts);
+	opts->resources = NULL;
+	opts->nresources = 0;
 }
 
