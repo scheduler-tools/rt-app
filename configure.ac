@@ -57,5 +57,5 @@ AS_IF([test "x$with_json" != "xno"],
      ) 
 
 AC_CONFIG_HEADERS([src/config.h])
-AC_CONFIG_FILES([Makefile src/Makefile libdl/Makefile README:README.in INSTALL:INSTALL.in])
+AC_CONFIG_FILES([Makefile src/Makefile libdl/Makefile README INSTALL USAGE COPYING])
 AC_OUTPUT
