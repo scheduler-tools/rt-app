@@ -166,13 +166,19 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 {
 	long exec, period, dline;
 	char *policy;
+	struct array_list *cpuset;
+	struct json_object *cpuset_obj, *cpu;
+	int i, cpu_idx;
 
 	log_debug(PFX "Parsing thread %s [%d]", name, idx);
+	/* common and defaults */
 	data->ind = idx;
 	data->lock_pages = opts->lock_pages;
 	data->sched_prio = DEFAULT_THREAD_PRIORITY;
 	data->cpuset = NULL;
 	data->cpuset_str = NULL;
+
+	/* period */
 	period = get_int_value_from(obj, "period", FALSE, 0);
 	if (period <= 0) {
 		log_critical(PIN2 "Cannot set negative period");
@@ -180,6 +186,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	}
 	data->period = usec_to_timespec(period);
 
+	/* exec time */
 	exec = get_int_value_from(obj, "exec", FALSE, 0);
 	if (exec > period) {
 		log_critical(PIN2 "Exec must be greather than period");
@@ -192,6 +199,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->min_et = usec_to_timespec(exec);
 	data->max_et = usec_to_timespec(exec);
 	
+	/* policy */
 	policy = get_string_value_from(obj, "policy", TRUE, NULL);
 	if (policy) {
 		if (string_to_policy(policy, &data->sched_policy) != 0) {
@@ -200,7 +208,12 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		}
 	}
 	policy_to_string(data->sched_policy, data->sched_policy_descr);
+
+	/* priority */
+	data->sched_prio = get_int_value_from(obj, "priority", TRUE, 
+					      DEFAULT_THREAD_PRIORITY);
 	
+	/* deadline */
 	dline = get_int_value_from(obj, "deadline", TRUE, period);
 	if (dline < exec) {
 		log_critical(PIN2 "Deadline cannot be less than exec time");
@@ -211,7 +224,25 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		exit(EXIT_INV_CONFIG);
 	}
 	data->deadline = usec_to_timespec(dline);
-
+	
+	/* cpu set */
+	cpuset_obj = get_in_object(obj, "cpus", TRUE);
+	if (cpuset_obj) {
+		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
+		data->cpuset_str = json_object_to_json_string(cpuset_obj);
+		log_debug(PIN "key: cpus %s", data->cpuset_str);
+		data->cpuset = malloc(sizeof(cpu_set_t));
+		cpuset = json_object_get_array(cpuset_obj);
+		for (i=0; i < json_object_array_length(cpuset_obj); i++) {
+			cpu = json_object_array_get_idx(cpuset_obj, i);
+			cpu_idx = json_object_get_int(cpu);
+			CPU_SET(cpu_idx, data->cpuset);
+		}
+	} else {
+		data->cpuset_str = strdup("-");
+		data->cpuset = NULL;
+		log_debug(PIN "key: cpus %s", data->cpuset_str);
+	}
 }
 
 static void
