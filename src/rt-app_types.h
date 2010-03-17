@@ -32,6 +32,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
+#define RTAPP_POLICY_DESCR_LENGTH 16
+/* exit codes */
+
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+#define EXIT_INV_CONFIG 2
+#define EXIT_INV_COMMANDLINE 3
 
 typedef enum policy_t 
 { 
@@ -59,7 +66,7 @@ typedef struct _thread_data_t {
     
 	FILE *log_handler;
 	policy_t sched_policy;
-	char sched_policy_descr[16];
+	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
 	
 #ifdef AQUOSA

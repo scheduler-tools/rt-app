@@ -20,7 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_args.h"
 
 void
-usage (const char* msg)
+usage (const char* msg, int ex_code)
 {
 #ifdef JSON
 	printf("usage:\n"
@@ -59,7 +59,7 @@ usage (const char* msg)
 
 	if (msg != NULL)
 		printf("\n%s\n", msg);
-	exit(0);
+	exit(ex_code);
 }
 
 
@@ -86,7 +86,8 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 		case 0:
 			period = strtol(token, NULL, 10);
 			if (period <= 0 )
-				usage("Cannot set negative period.");
+				usage("Cannot set negative period.", 
+				      EXIT_INV_COMMANDLINE);
 			tdata->period = usec_to_timespec(period);
 			i++;
 			break;
@@ -96,9 +97,10 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 			//TODO: add support for max_et somehow
 			if (exec > period)
 				usage("Exec time cannot be greater than"
-				      " period.");
+				      " period.", EXIT_INV_COMMANDLINE);
 			if (exec <= 0 )
-				usage("Cannot set negative exec time");
+				usage("Cannot set negative exec time",
+				      EXIT_INV_COMMANDLINE);
 			tdata->min_et = usec_to_timespec(exec);
 			tdata->max_et = usec_to_timespec(exec);
 			i++;
@@ -125,8 +127,10 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 				snprintf(tmp, 256, 
 					"Invalid scheduling policy %s in %s",
 					token, arg);
-				usage(tmp);
+				usage(tmp, EXIT_INV_COMMANDLINE);
 			}
+			policy_to_string(tdata->sched_policy, 
+					 tdata->sched_policy_descr);	
 
 			i++;
 			break;
@@ -147,13 +151,14 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 		case 5:
 			dline = strtol(token, NULL, 10);
 			if (dline < exec)
-				usage ("Deadline cannot be less than "
-						"execution time");
+				usage("Deadline cannot be less than "
+				      "execution time", EXIT_INV_COMMANDLINE);
 			if (dline > period)
-				usage ("Deadline cannot be greater than "
-						"period");
+				usage("Deadline cannot be greater than "
+				      "period", EXIT_INV_COMMANDLINE);
 			if (dline <= 0 )
-				usage ("Cannot set negative deadline");
+				usage("Cannot set negative deadline",
+				      EXIT_INV_COMMANDLINE);
 			tdata->deadline = usec_to_timespec(dline);
 			i++;
 			break;
@@ -162,7 +167,7 @@ parse_thread_args(char *arg, thread_data_t *tdata, policy_t def_policy)
 	}
 	if ( i < 2 ) {
 		printf("Period and exec time are mandatory\n");
-		exit(EXIT_FAILURE);
+		exit(EXIT_INV_COMMANDLINE);
 	}
 
 	if (dline == 0)
@@ -259,16 +264,18 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 		switch (ch)
 		{
 			case 'h':
-				usage(NULL);
+				usage(NULL, EXIT_SUCCESS);
 				break;
 			case 'f':
 				if (opts->policy != other)
-					usage("Cannot set multiple policies");
+					usage("Cannot set multiple policies",
+					      EXIT_INV_COMMANDLINE);
 				opts->policy = fifo;
 				break;
 			case 'r':
 				if (opts->policy != other)
-					usage("Cannot set multiple policies");
+					usage("Cannot set multiple policies",
+					      EXIT_INV_COMMANDLINE);
 				opts->policy = rr;
 				break;
 			case 'b':
@@ -279,13 +286,15 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 's':
 				opts->spacing  = strtol(optarg, NULL, 0);
 				if (opts->spacing < 0)
-					usage("Cannot set negative spacing");
+					usage("Cannot set negative spacing",
+					      EXIT_INV_COMMANDLINE);
 				break;
 			case 'l':
 				opts->logdir = strdup(optarg);	
 				lstat(opts->logdir, &dirstat);
 				if (! S_ISDIR(dirstat.st_mode))
-					usage("Cannot stat log directory");
+					usage("Cannot stat log directory",
+					      EXIT_INV_COMMANDLINE);
 				break;
 			case 't':
 				if (opts->nthreads > 0)
@@ -306,7 +315,8 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 'D':
 				opts->duration = strtol(optarg, NULL, 10);
 				if (opts->duration < 0)
-					usage("Cannot set negative duration");
+					usage("Cannot set negative duration",
+					      EXIT_INV_COMMANDLINE);
 				break;
 			case 'K':
 				opts->lock_pages = 0;
@@ -314,25 +324,27 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 #ifdef AQUOSA				
 			case 'q':
 				if (opts->policy != other)
-					usage("Cannot set multiple policies");
+					usage("Cannot set multiple policies",
+					      EXIT_INV_COMMANDLINE);
 				opts->policy = aquosa;
 				break;
 			case 'g':
 				opts->fragment = strtol(optarg, NULL, 10);
 				if (opts->fragment < 1 || opts->fragment > 16)
 					usage("Fragment divisor must be between"
-					      "1 and 16");
+					      "1 and 16", EXIT_INV_COMMANDLINE);
 				break;
 #endif
 			default:
 				log_error("Invalid option %c", ch);
-				usage(NULL);
+				usage(NULL, EXIT_INV_COMMANDLINE);
 
 		}
 
 	}
 	if ( opts->nthreads < 1)
-		usage("You have to set parameters for at least one thread");
+		usage("You have to set parameters for at least one thread",
+		      EXIT_INV_COMMANDLINE);
 	
 }
 
@@ -341,7 +353,7 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 {
 #ifdef JSON
 	if (argc < 2)
-		usage("");
+		usage(NULL, EXIT_SUCCESS);
 	struct stat config_file_stat;
 	if (stat(argv[1], &config_file_stat) == 0) {
 		parse_config(argv[1], opts);
