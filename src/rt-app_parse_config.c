@@ -174,14 +174,27 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 {
 	int i, next_idx;
 	struct json_object *access, *res, *next_res;
+	rtapp_resource_access_list_t *tmp;
 	char s_idx[5];
 
 	snprintf(s_idx, 5, "%d", idx);
 
-	*acl = malloc( sizeof(rtapp_resource_access_list_t));
-	(*acl)->res = &resources[idx];
-	(*acl)->index = idx;
-	(*acl)->next = NULL;
+	if (!(*acl)) {
+		*acl = malloc( sizeof(rtapp_resource_access_list_t));
+		(*acl)->res = &resources[idx];
+		(*acl)->index = idx;
+		(*acl)->next = NULL;
+		tmp = *acl;
+	} else {
+		tmp = *acl;
+		while (tmp->next != NULL)
+			tmp = tmp->next;
+		tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
+		tmp->next->index = idx;
+		tmp->next->next = NULL;
+		tmp->next->res = &resources[idx];
+	}
+
 	res = get_in_object(task_resources, s_idx, TRUE);
 	if (!res)
 		return;
@@ -200,9 +213,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 			exit(EXIT_INV_CONFIG);
 		}
 		next_idx = json_object_get_int(next_res);
-		serialize_acl(&(*acl)->next, next_idx, task_resources, resources);
-		while ((*acl)->next != NULL)
-			(*acl)->next = (*acl)->next->next;
+		serialize_acl(&(*acl), next_idx, task_resources, resources);
 	}
 	
 }
@@ -211,13 +222,13 @@ static void
 parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		       struct json_object *task_resources, thread_data_t *data)
 {
-	int i,j, cur_res_idx;
+	int i,j, cur_res_idx, usage_usec;
 	struct json_object *res;
 	int res_dur;	
 	char res_name[4];
 
 	rtapp_resource_access_list_t *tmp;
-	char debug_msg[512];
+	char debug_msg[512], tmpmsg[512];
 
 	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
 				 json_object_array_length(locks));
@@ -237,7 +248,8 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		tmp = data->blockages[i].acl;
 		debug_msg[0] = '\0';
 		do  {
-			snprintf(debug_msg, 512, "%s %d", debug_msg, tmp->index);
+			snprintf(tmpmsg, 512, "%s %d", debug_msg, tmp->index);
+			strncpy(debug_msg, tmpmsg, 512);
 			tmp = tmp->next;
 		} while (tmp != NULL);
 		log_debug(PIN "key: acl %s", debug_msg);
@@ -245,12 +257,16 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		snprintf(res_name, 4, "%d", i);
 		res = get_in_object(task_resources, res_name, TRUE);
 		if (!res) {
-			continue;
+			usage_usec = 0;
+			data->blockages[i].usage = usec_to_timespec(0);
+		} else {
+			assure_type_is(res, task_resources, res_name, 
+					json_type_object);
+			usage_usec = get_int_value_from(res, "duration", TRUE, 0);
+			data->blockages[i].usage = usec_to_timespec(usage_usec);
 		}
-		assure_type_is(res, task_resources, res_name, json_type_object);
-		data->blockages[i].usage = usec_to_timespec(
-			get_int_value_from(res, "duration", TRUE, 0)
-		);
+		log_debug(PIN "res %d, usage: %d acl: %s", cur_res_idx, 
+			  usage_usec, debug_msg);
 	}
 }
 
