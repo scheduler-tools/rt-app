@@ -50,11 +50,21 @@ AS_IF([test "x$with_json" != "xno"],
 	      	    [AC_SUBST([LIBJSON], ["-ljson"])
         	     AC_DEFINE([JSON], [1], [Define if you have libjson])
        	            ],
-       	            [AC_MSG_FAILURE([libyaml test failed (use --without-json to disable)])],
+       	            [AC_MSG_FAILURE([libjson test failed (use --without-json to disable or install json-c)])],
                     [-ljson]
 		   )
       ]
      ) 
+
+AM_CONDITIONAL([AMJSON], [ test x$with_json != xno])
+
+AC_ARG_VAR([LOGLVL], [verbosity level, from 0 to 100. 100 is very verbose])
+
+if test -z "${LOGLVL}";then
+	AC_DEFINE([LOG_LEVEL], [50], [Define log message verbosity])
+else
+	AC_DEFINE_UNQUOTED([LOG_LEVEL], [${LOGLVL}])
+fi
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile libdl/Makefile README INSTALL USAGE COPYING])
