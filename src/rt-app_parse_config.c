@@ -172,7 +172,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 	      struct json_object *task_resources,
 	      rtapp_resource_t *resources)
 {
-	int i, next_idx;
+	int i, next_idx, found;
 	struct json_object *access, *res, *next_res;
 	rtapp_resource_access_list_t *tmp;
 	char s_idx[5];
@@ -186,13 +186,19 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		(*acl)->next = NULL;
 		tmp = *acl;
 	} else {
+		found = 0;
 		tmp = *acl;
-		while (tmp->next != NULL)
+		while (tmp->next != NULL) {
+			if (tmp->index == idx)
+				found = 1;
 			tmp = tmp->next;
-		tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
-		tmp->next->index = idx;
-		tmp->next->next = NULL;
-		tmp->next->res = &resources[idx];
+		}
+		if (found == 0) {
+			tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
+			tmp->next->index = idx;
+			tmp->next->next = NULL;
+			tmp->next->res = &resources[idx];
+		}
 	}
 
 	res = get_in_object(task_resources, s_idx, TRUE);
@@ -242,6 +248,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		cur_res_idx = json_object_get_int(res);
 
 		data->blockages[i].usage = usec_to_timespec(0);
+		data->blockages[i].acl = NULL;
 		serialize_acl(&data->blockages[i].acl, cur_res_idx, 
 				task_resources, opts->resources);
 
@@ -254,7 +261,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		} while (tmp != NULL);
 		log_debug(PIN "key: acl %s", debug_msg);
 
-		snprintf(res_name, 4, "%d", i);
+		snprintf(res_name, 4, "%d", cur_res_idx);
 		res = get_in_object(task_resources, res_name, TRUE);
 		if (!res) {
 			usage_usec = 0;
