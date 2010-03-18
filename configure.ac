@@ -1,4 +1,4 @@
-AC_INIT([rt-app], [0.2_alpha1], [g.bagnoli@asidev.com])
+AC_INIT([rt-app], [0.2_alpha2], [g.bagnoli@asidev.com])
 AC_COPYRIGHT([Copyright (C) 2009 Giacomo Bagnoli <g.bagnoli@asidev.com])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign dist-bzip2])

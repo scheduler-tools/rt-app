@@ -34,7 +34,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 
 #define LOG_LEVEL_DEBUG 100
-#define LOG_LEVEL_INFO 50
+#define LOG_LEVEL_INFO 75
+#define LOG_LEVEL_NOTICE 50
 #define LOG_LEVEL_ERROR 10
 #define LOG_LEVEL_CRITICAL 10
 
@@ -44,6 +45,11 @@ do {									\
     if (level <= LOG_LEVEL) {						\
         fprintf(where, LOG_PREFIX level_pfx msg "\n", ##args);		\
     }									\
+} while (0);
+
+#define log_notice(msg, args...)					\
+do {									\
+    rtapp_log_to(stderr, LOG_LEVEL_NOTICE, "<notice> ", msg, ##args);	\
 } while (0);
 
 #define log_info(msg, args...)						\

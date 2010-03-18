@@ -42,7 +42,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define set_default_if_needed(key, value, have_def, def_value) do {	\
 	if (!value) {							\
 		if (have_def) {						\
-			log_debug(PIN "key: %s <default> %d", key, def_value);\
+			log_info(PIN "key: %s <default> %d", key, def_value);\
 			return def_value;				\
 		} else {						\
 			log_critical(PFX "Key %s not found", key);	\
@@ -57,10 +57,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 	if (!value) {							\
 		if (have_def) {						\
 			if (!def_value) {				\
-				log_debug(PIN "key: %s <default> NULL", key);\
+				log_info(PIN "key: %s <default> NULL", key);\
 				return NULL;				\
 			}						\
-			log_debug(PIN "key: %s <default> %s",		\
+			log_info(PIN "key: %s <default> %s",		\
 				  key, def_value);			\
 			return strdup(def_value);			\
 		} else {						\
@@ -120,7 +120,7 @@ get_int_value_from(struct json_object *where,
 	assure_type_is(value, where, key, json_type_int);
 	i_value = json_object_get_int(value);
 	json_object_put(value);
-	log_debug(PIN "key: %s, value: %d, type <int>", key, i_value);
+	log_info(PIN "key: %s, value: %d, type <int>", key, i_value);
 	return i_value;
 }
 
@@ -137,7 +137,7 @@ get_bool_value_from(struct json_object *where,
 	assure_type_is(value, where, key, json_type_boolean);
 	b_value = json_object_get_boolean(value);
 	json_object_put(value);
-	log_debug(PIN "key: %s, value: %d, type <bool>", key, b_value);
+	log_info(PIN "key: %s, value: %d, type <bool>", key, b_value);
 	return b_value;
 }
 
@@ -152,13 +152,13 @@ get_string_value_from(struct json_object *where,
 	value = get_in_object(where, key, have_def);
 	set_default_if_needed_str(key, value, have_def, def_value);
 	if (json_object_is_type(value, json_type_null)) {
-		log_debug(PIN "key: %s, value: NULL, type <string>", key);
+		log_info(PIN "key: %s, value: NULL, type <string>", key);
 		return NULL;
 	}
 	assure_type_is(value, where, key, json_type_string);
 	s_value = strdup(json_object_get_string(value));
 	json_object_put(value);
-	log_debug(PIN "key: %s, value: %s, type <string>", key, s_value);
+	log_info(PIN "key: %s, value: %s, type <string>", key, s_value);
 	return s_value;
 }
 
@@ -167,7 +167,7 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
 	int i;
 	int res = json_object_get_int(resources);
-	log_debug(PFX "Creating %d resources", res);
+	log_info(PFX "Creating %d resources", res);
 	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
 	for (i = 0; i < res; i++) {
 		pthread_mutex_init(&opts->resources[i].mtx, NULL);
@@ -296,7 +296,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			tmp = tmp->next;
 		} while (tmp != NULL);
 
-		log_debug(PIN "key: acl %s", debug_msg);
+		log_info(PIN "key: acl %s", debug_msg);
 
 		snprintf(res_name, 4, "%d", cur_res_idx);
 		res = get_in_object(task_resources, res_name, TRUE);
@@ -309,7 +309,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			usage_usec = get_int_value_from(res, "duration", TRUE, 0);
 			data->blockages[i].usage = usec_to_timespec(usage_usec);
 		}
-		log_debug(PIN "res %d, usage: %d acl: %s", cur_res_idx, 
+		log_info(PIN "res %d, usage: %d acl: %s", cur_res_idx, 
 			  usage_usec, debug_msg);
 	}
 }
@@ -324,7 +324,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	struct json_object *cpuset_obj, *cpu, *resources, *locks;
 	int i, cpu_idx;
 
-	log_debug(PFX "Parsing thread %s [%d]", name, idx);
+	log_info(PFX "Parsing thread %s [%d]", name, idx);
 	/* common and defaults */
 	data->ind = idx;
 	data->name = strdup(name);
@@ -385,7 +385,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	if (cpuset_obj) {
 		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
 		data->cpuset_str = json_object_to_json_string(cpuset_obj);
-		log_debug(PIN "key: cpus %s", data->cpuset_str);
+		log_info(PIN "key: cpus %s", data->cpuset_str);
 		data->cpuset = malloc(sizeof(cpu_set_t));
 		cpuset = json_object_get_array(cpuset_obj);
 		for (i=0; i < json_object_array_length(cpuset_obj); i++) {
@@ -396,7 +396,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	} else {
 		data->cpuset_str = strdup("-");
 		data->cpuset = NULL;
-		log_debug(PIN "key: cpus %s", data->cpuset_str);
+		log_info(PIN "key: cpus %s", data->cpuset_str);
 	}
 
 	/* resources */
@@ -404,11 +404,11 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	locks = get_in_object(obj, "lock_order", TRUE);
 	if (locks) {
 		assure_type_is(locks, obj, "lock_order", json_type_array);
-		log_debug(PIN "key: lock_order %s", json_object_to_json_string(locks));
+		log_info(PIN "key: lock_order %s", json_object_to_json_string(locks));
 		if (resources) {
 			assure_type_is(resources, obj, "resources", 
 					json_type_object);
-			log_debug(PIN "key: resources %s",
+			log_info(PIN "key: resources %s",
 				  json_object_to_json_string(resources));
 		}
 		parse_thread_resources(opts, locks, resources, data);
@@ -422,12 +422,12 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	log_debug(PFX "Parsing threads section");
+	log_info(PFX "Parsing threads section");
 	opts->nthreads = 0;
 	foreach(tasks, entry, key, val, idx) {
 		opts->nthreads++;
 	}
-	log_debug(PFX "Found %d threads", opts->nthreads);
+	log_info(PFX "Found %d threads", opts->nthreads);
 	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
 	foreach (tasks, entry, key, val, idx) {
 		parse_thread_data(key, val, idx, &opts->threads_data[idx], opts);
@@ -438,7 +438,7 @@ static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
 	char *policy;
-	log_debug(PFX "Parsing global section");
+	log_info(PFX "Parsing global section");
 	opts->spacing = get_int_value_from(global, "spacing", TRUE, 0);
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
 	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
@@ -469,16 +469,16 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 		exit(EXIT_INV_CONFIG);
 	}
 	log_info(PFX "Successfully parsed input JSON");
-	log_debug(PFX "root     : %s", json_object_to_json_string(root));
+	log_info(PFX "root     : %s", json_object_to_json_string(root));
 	
 	global = get_in_object(root, "global", FALSE);
-	log_debug(PFX "global   : %s", json_object_to_json_string(global));
+	log_info(PFX "global   : %s", json_object_to_json_string(global));
 	
 	tasks = get_in_object(root, "tasks", FALSE);
-	log_debug(PFX "tasks    : %s", json_object_to_json_string(tasks));
+	log_info(PFX "tasks    : %s", json_object_to_json_string(tasks));
 	
 	resources = get_in_object(root, "resources", FALSE);
-	log_debug(PFX "resources: %s", json_object_to_json_string(resources));
+	log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
 	parse_resources(resources, opts);
 	parse_global(global, opts);

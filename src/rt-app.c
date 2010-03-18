@@ -113,7 +113,7 @@ void *thread_body(void *arg)
 	int ret, i = 0;
 	int j;
 	/* set scheduling policy and print pretty info on stdout */
-	log_info("[%d] Using %s policy:", data->ind, data->sched_policy_descr);
+	log_notice("[%d] Using %s policy:", data->ind, data->sched_policy_descr);
 	switch (data->sched_policy)
 	{
 		case rr:
@@ -128,7 +128,7 @@ void *thread_body(void *arg)
 				exit(EXIT_FAILURE);
 			}
 
-			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d",
 			       	data->ind,
 				timespec_to_usec(&data->period), 
@@ -139,7 +139,7 @@ void *thread_body(void *arg)
 			break;
 
 		case other:
-			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu",
 			       	data->ind,
 				timespec_to_usec(&data->period), 
@@ -154,14 +154,14 @@ void *thread_body(void *arg)
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
-			log_info("[%d] Creating QRES Server with Q=%ld, P=%ld",
+			log_notice("[%d] Creating QRES Server with Q=%ld, P=%ld",
 				data->ind,data->params.Q, data->params.P);
 			
 			qos_chk_ok_exit(qres_init());
 			qos_chk_ok_exit(qres_create_server(&data->params, 
 							   &data->sid));
-			log_info("[%d] AQuoSA server ID: %d", data->ind, data->sid);
-			log_info("[%d] attaching thread (deadline: %lu) to server %d",
+			log_notice("[%d] AQuoSA server ID: %d", data->ind, data->sid);
+			log_notice("[%d] attaching thread (deadline: %lu) to server %d",
 				data->ind,
 				timespec_to_usec(&data->deadline),
 				data->sid
@@ -188,7 +188,7 @@ void *thread_body(void *arg)
 				exit(EXIT_FAILURE);
 			}
 				
-			log_info("[%d] starting thread with period: %lu, exec: %lu,"
+			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d",
 			       	data->ind,
 				timespec_to_usec(&data->period), 
@@ -207,7 +207,7 @@ void *thread_body(void *arg)
 	
 	if (data->lock_pages == 1)
 	{
-		log_info("[%d] Locking pages in memory", data->ind);
+		log_notice("[%d] Locking pages in memory", data->ind);
 		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
 		if (ret < 0) {
 			errno = ret;
@@ -218,7 +218,7 @@ void *thread_body(void *arg)
 	/* set thread affinity */
 	if (data->cpuset != NULL)
 	{
-		log_info("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
+		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
 			 data->cpuset_str);
 		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
 						data->cpuset);
@@ -230,7 +230,7 @@ void *thread_body(void *arg)
 	}
 
 	if (data->wait_before_start > 0) {
-		log_info("[%d] Waiting %ld usecs... ", data->ind, 
+		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
 			 data->wait_before_start);
 		clock_gettime(CLOCK_MONOTONIC, &t);
 		t_next = msec_to_timespec(data->wait_before_start);
@@ -239,7 +239,7 @@ void *thread_body(void *arg)
 				TIMER_ABSTIME, 
 				&t_next,
 				NULL);
-		log_info("[%d] Starting...", data->ind);
+		log_notice("[%d] Starting...", data->ind);
 	}
 	/* if we know the duration we can calculate how many periods we will
 	 * do at most, and the log to memory, instead of logging to file.
@@ -315,7 +315,7 @@ void *thread_body(void *arg)
 		for (j=0; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
 	
-	log_info("[%d] Exiting.", data->ind);
+	log_notice("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
 #ifdef AQUOSA
 	if (data->sched_policy == aquosa) {
