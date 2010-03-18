@@ -37,7 +37,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 		);							\
 		({ entry = entry->next; idx++; })			\
 	    )								
-
+/* this macro set a default if key not present, or give an error and exit
+ * if key is present but does not have a default */
 #define set_default_if_needed(key, value, have_def, def_value) do {	\
 	if (!value) {							\
 		if (have_def) {						\
@@ -50,6 +51,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 	}								\
 } while(0)	
 
+/* same as before, but for string, for which we need to strdup in the 
+ * default value so it can be a literal */ 
 #define set_default_if_needed_str(key, value, have_def, def_value) do {	\
 	if (!value) {							\
 		if (have_def) {						\
@@ -67,6 +70,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 	}								\
 }while (0)
 
+/* get an object obj and check if its type is <type>. If not, print a message
+ * (this is what parent and key are used for) and exit
+ */
 static inline void
 assure_type_is(struct json_object *obj,
 	       struct json_object *parent,
@@ -80,6 +86,8 @@ assure_type_is(struct json_object *obj,
 	}
 }
 
+/* search a key (what) in object "where", and return a pointer to its 
+ * associated object. If nullable is false, exit if key is not found */
 static inline struct json_object* 
 get_in_object(struct json_object *where, 
 	      const char *what,
@@ -177,6 +185,8 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 	rtapp_resource_access_list_t *tmp;
 	char s_idx[5];
 
+	/* as keys are string in the json, we need a string for searching
+	 * the resource */
 	snprintf(s_idx, 5, "%d", idx);
 
 	if (!(*acl)) {
@@ -194,6 +204,8 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 			tmp = tmp->next;
 		}
 		if (found == 0) {
+			/* add the resource to the acl only if it is not already
+			 * present in the list */
 			tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
 			tmp->next->index = idx;
 			tmp->next->next = NULL;
@@ -219,6 +231,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 			exit(EXIT_INV_CONFIG);
 		}
 		next_idx = json_object_get_int(next_res);
+		/* recurse on the rest of resources */
 		serialize_acl(&(*acl), next_idx, task_resources, resources);
 	}
 	
