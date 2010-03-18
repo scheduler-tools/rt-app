@@ -169,8 +169,10 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	int res = json_object_get_int(resources);
 	log_debug(PFX "Creating %d resources", res);
 	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
-	for (i = 0; i < res; i++)
+	for (i = 0; i < res; i++) {
 		pthread_mutex_init(&opts->resources[i].mtx, NULL);
+		opts->resources[i].index = i;
+	}
 	opts->nresources = res;
 }
 
@@ -192,7 +194,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 	if (!(*acl)) {
 		*acl = malloc( sizeof(rtapp_resource_access_list_t));
 		(*acl)->res = &resources[idx];
-		(*acl)->index = idx;
+//		(*acl)->index = idx;
 		(*acl)->next = NULL;
 		(*acl)->prev = NULL;
 		tmp = *acl;
@@ -200,7 +202,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		found = 0;
 		tmp = *acl;
 		while (tmp->next != NULL) {
-			if (tmp->index == idx)
+			if (tmp->res->index == idx)
 				found = 1;
 			tmp = tmp->next;
 		}
@@ -208,7 +210,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 			/* add the resource to the acl only if it is not already
 			 * present in the list */
 			tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
-			tmp->next->index = idx;
+			// tmp->next->index = idx;
 			tmp->next->next = NULL;
 			tmp->next->prev = tmp;
 			tmp->next->res = &resources[idx];
@@ -288,7 +290,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		tmp = data->blockages[i].acl;
 		debug_msg[0] = '\0';
 		do  {
-			snprintf(tmpmsg, 512, "%s %d", debug_msg, tmp->index);
+			snprintf(tmpmsg, 512, "%s %d", debug_msg, tmp->res->index);
 			strncpy(debug_msg, tmpmsg, 512);
 			last = tmp;
 			tmp = tmp->next;

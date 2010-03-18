@@ -31,22 +31,52 @@ unsigned int max_run(int min, int max)
         return min + (((double) rand()) / RAND_MAX) * (max - min);
 }
 
-void run(int ind, struct timespec *min, struct timespec *max)
+static inline
+busywait(struct timespec *to)
 {
-	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
-	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
-	struct timespec t_start, t_step, t_exec = *max;
-
-	/* get the start time */
-	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
-	/* compute finish time for CPUTIME_ID clock */
-	t_exec = timespec_add(&t_start, &t_exec);
-
+	struct timespec t_step;
 	while (1) {
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_step);
-		if (!timespec_lower(&t_step, &t_exec))
+		if (!timespec_lower(&t_step, to))
 			break;
 	}
+}
+
+void run(int ind, struct timespec *min, struct timespec *max, 
+	 rtapp_tasks_resource_list_t *blockages, int nblockages)
+{
+	int i;
+	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
+	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
+	struct timespec t_start, now, t_exec, t_totexec = *max;
+	rtapp_resource_access_list_t *lock, *last;
+	
+	/* get the start time */
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
+
+	for (i = 0; i < nblockages; i++)
+	{
+		lock = blockages[i].acl;
+		while (lock != NULL) {
+			log_debug("[%d] locking %d", ind, lock->res->index);
+			pthread_mutex_lock(&lock->res->mtx);
+			last = lock;
+			lock = lock->next;
+		}
+		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
+		t_exec = timespec_add(&now, &blockages[i].usage);
+		busywait(&t_exec);
+		lock = last;
+		while (lock != NULL) {
+			log_debug("[%d] unlocking %d", ind, lock->res->index);
+			pthread_mutex_unlock(&lock->res->mtx);
+			lock = lock->prev;
+		}
+	}
+
+	/* compute finish time for CPUTIME_ID clock */
+	t_totexec = timespec_add(&t_start, &t_totexec);
+	busywait(&t_exec);
 }
 
 static void
@@ -234,7 +264,8 @@ void *thread_body(void *arg)
 		struct timespec t_start, t_end, t_diff, t_slack;
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		run(data->ind, &data->min_et, &data->max_et);
+		run(data->ind, &data->min_et, &data->max_et, data->blockages,
+		    data->nblockages);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 		
 		t_diff = timespec_sub(&t_end, &t_start);

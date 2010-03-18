@@ -61,7 +61,6 @@ typedef struct _rtapp_resource_t {
 
 typedef struct _rtapp_resource_access_list_t {
 	rtapp_resource_t *res;
-	int index;
 	struct _rtapp_resource_access_list_t *next;
 	struct _rtapp_resource_access_list_t *prev;
 } rtapp_resource_access_list_t;
