@@ -182,7 +182,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 {
 	int i, next_idx, found;
 	struct json_object *access, *res, *next_res;
-	rtapp_resource_access_list_t *tmp;
+	rtapp_resource_access_list_t *tmp; 
 	char s_idx[5];
 
 	/* as keys are string in the json, we need a string for searching
@@ -194,6 +194,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		(*acl)->res = &resources[idx];
 		(*acl)->index = idx;
 		(*acl)->next = NULL;
+		(*acl)->prev = NULL;
 		tmp = *acl;
 	} else {
 		found = 0;
@@ -209,6 +210,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 			tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
 			tmp->next->index = idx;
 			tmp->next->next = NULL;
+			tmp->next->prev = tmp;
 			tmp->next->res = &resources[idx];
 		}
 	}
@@ -251,6 +253,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 
 	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
 				 json_object_array_length(locks));
+	data->nblockages = json_object_array_length(locks);
 	for (i = 0; i< json_object_array_length(locks); i++)
 	{
 		res = json_object_array_get_idx(locks, i);
@@ -276,8 +279,10 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		/* move first element to list end */
 		if (last != head) {
 			data->blockages[i].acl = head->next;
+			data->blockages[i].acl->prev = NULL;
 			last->next = head;
 			head->next = NULL;
+			head->prev = last;
 		}
 
 		tmp = data->blockages[i].acl;
