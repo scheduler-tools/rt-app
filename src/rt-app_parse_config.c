@@ -246,7 +246,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 	int res_dur;	
 	char res_name[4];
 
-	rtapp_resource_access_list_t *tmp;
+	rtapp_resource_access_list_t *tmp, *head, *last;
 	char debug_msg[512], tmpmsg[512];
 
 	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
@@ -265,13 +265,30 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		serialize_acl(&data->blockages[i].acl, cur_res_idx, 
 				task_resources, opts->resources);
 
+		/* since the "current" resource is returned as the first
+		 * element in the list, we move it to the back  */
+		tmp = data->blockages[i].acl;
+		head = data->blockages[i].acl;
+		do {	
+			last = tmp;
+			tmp = tmp->next;
+		} while (tmp != NULL);
+		/* move first element to list end */
+		if (last != head) {
+			data->blockages[i].acl = head->next;
+			last->next = head;
+			head->next = NULL;
+		}
+
 		tmp = data->blockages[i].acl;
 		debug_msg[0] = '\0';
 		do  {
 			snprintf(tmpmsg, 512, "%s %d", debug_msg, tmp->index);
 			strncpy(debug_msg, tmpmsg, 512);
+			last = tmp;
 			tmp = tmp->next;
 		} while (tmp != NULL);
+
 		log_debug(PIN "key: acl %s", debug_msg);
 
 		snprintf(res_name, 4, "%d", cur_res_idx);

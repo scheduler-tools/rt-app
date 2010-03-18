@@ -1,4 +1,5 @@
 * build system: add log-level switch
 * build system: compile rtapp_config.{h,c} files only if --with-json is true.
 * rt-app : add support for shared resources (both in app and in config)
+	- done in config, missing in app.
 
