@@ -26,8 +26,8 @@ usage (const char* msg, int ex_code)
 	printf("usage:\n"
 	       "rt-app <taskset.json>\nOR\n");
 #endif	       
-	printf("rt-app [options] -t <period>:<exec>[:cpu affinity"
-		"[:policy[:deadline[:prio]]]] -t ...\n\n");
+	printf("rt-app [options] -t <period>:<exec>[:policy"
+		"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
 	printf("-h, --help\t:\tshow this help\n");
 	printf("-f, --fifo\t:\tset default policy for threads to SCHED_FIFO\n");
 	printf("-r, --rr\t:\tset default policy fior threads to SCHED_RR\n");

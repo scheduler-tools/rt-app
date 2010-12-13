@@ -25,14 +25,12 @@ static int continue_running;
 static pthread_t *threads;
 static int nthreads;
 
-static inline
-unsigned int max_run(int min, int max)
+static inline unsigned int max_run(int min, int max)
 {
         return min + (((double) rand()) / RAND_MAX) * (max - min);
 }
 
-static inline
-busywait(struct timespec *to)
+static inline busywait(struct timespec *to)
 {
 	struct timespec t_step;
 	while (1) {
@@ -76,7 +74,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	}
 
 	/* compute finish time for CPUTIME_ID clock */
-	t_totexec = timespec_add(&t_start, &t_totexec);
+	t_exec = timespec_add(&t_start, &t_totexec);
 	busywait(&t_exec);
 }
 
