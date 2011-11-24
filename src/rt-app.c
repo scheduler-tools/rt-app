@@ -173,16 +173,16 @@ void *thread_body(void *arg)
 		case deadline:
 			tid = gettid();
 			data->dl_params.sched_priority = data->sched_prio;
-			data->dl_params.sched_runtime = data->max_et;
-			data->dl_params.sched_deadline = data->period;
-			data->dl_params.sched_period = data->period;
-			data->dl_params.sched_flags = SCHED_BWRECL_RT;
+			data->dl_params.sched_runtime = timespec_to_nsec(&data->max_et);
+			data->dl_params.sched_deadline = timespec_to_nsec(&data->period);
+			data->dl_params.sched_period = timespec_to_nsec(&data->period);
+			/* not implemented inside SCHED_DEADLINE V4	  */
+			/* data->dl_params.sched_flags = SCHED_BWRECL_RT; */
 
-			ret = sched_setscheduler_ex(tid, SCHED_DEADLINE, 
-						    sizeof(struct sched_param_ex),
+			ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
 						    &data->dl_params);
 			if (ret != 0) {
-				log_critical("[%d] sched_setscheduler_ex"
+				log_critical("[%d] sched_setscheduler2"
 					     "returned %d", data->ind, ret);
 				exit(EXIT_FAILURE);
 			}

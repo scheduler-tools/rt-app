@@ -37,6 +37,12 @@ timespec_to_usec(struct timespec *ts)
 	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
+unsigned long long
+timespec_to_nsec(struct timespec *ts)
+{
+	return round(ts->tv_sec * 1E9 + ts->tv_nsec);
+}
+
 struct timespec 
 usec_to_timespec(unsigned long usec)
 {

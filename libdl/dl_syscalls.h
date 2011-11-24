@@ -25,51 +25,49 @@
 
 /* XXX use the proper syscall numbers */
 #ifdef __x86_64__
-#define __NR_sched_setscheduler_ex	300
-#define __NR_sched_setparam_ex		301
-#define __NR_sched_getparam_ex		302
-#define __NR_sched_wait_interval	303
+#define __NR_sched_setscheduler2	312
+#define __NR_sched_setparam2		313
+#define __NR_sched_getparam2		314
 #endif
 
 #ifdef __i386__
-#define __NR_sched_setscheduler_ex	338
-#define __NR_sched_setparam_ex		339
-#define __NR_sched_getparam_ex		340
-#define __NR_sched_wait_interval	341
+#define __NR_sched_setscheduler2	349
+#define __NR_sched_setparam2		350
+#define __NR_sched_getparam2		351
 #endif
 
 #ifdef __arm__
-#define __NR_sched_setscheduler_ex	366
-#define __NR_sched_setparam_ex		367
-#define __NR_sched_getparam_ex		368
-#define __NR_sched_wait_interval	369
+#define __NR_sched_setscheduler2	376
+#define __NR_sched_setparam2		377
+#define __NR_sched_getparam2		378
 #endif
 
-#define SCHED_SIG_RORUN		0x0001
-#define SCHED_SIG_DMISS		0x0002
-#define SCHED_BWRECL_DL         0x0004
-#define SCHED_BWRECL_RT         0x0008
-#define SCHED_BWRECL_OTH        0x0010
+#define SF_SIG_RORUN		2
+#define SF_SIG_DMISS		4
+#define SF_BWRECL_DL		8
+#define SF_BWRECL_RT		16
+#define SF_BWRECL_OTH		32
 
 #define RLIMIT_DLDLINE		16
 #define RLIMIT_DLRTIME		17
 
-struct sched_param_ex {
+struct sched_param2 {
 	int sched_priority;
-	struct timespec sched_runtime;
-	struct timespec sched_deadline;
-	struct timespec sched_period;
 	unsigned int sched_flags;
+	__u64 sched_runtime;
+	__u64 sched_deadline;
+	__u64 sched_period;
+
+	__u64 __unused[12];
 };
 
-int sched_setscheduler_ex(pid_t pid, int policy, unsigned int len,
-			  struct sched_param_ex *param);
+int sched_setscheduler2(pid_t pid, int policy,
+			  const struct sched_param2 *param);
 
-int sched_setparam_ex(pid_t pid, unsigned len, struct sched_param_ex *param);
+int sched_setparam2(pid_t pid,
+		      const struct sched_param2 *param);
 
-int sched_getparam_ex(pid_t pid, unsigned len, struct sched_param_ex *param);
-
-int sched_wait_interval(const struct timespec *rqtp, struct timespec *rmtp);
+int sched_getparam2(pid_t pid, struct sched_param2 *param);
 
 #endif /* __DL_SYSCALLS__ */
 
