@@ -36,6 +36,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <aquosa/qres_lib.h>
 #endif /* AQUOSA */
 
+#define BUDGET_OVERP 5
+
 void *thread_body(void *arg);
 
 #endif /* _RT_APP_H_ */

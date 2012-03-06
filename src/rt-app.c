@@ -108,6 +108,7 @@ void *thread_body(void *arg)
 #endif
 #ifdef DLSCHED
 	pid_t tid;
+	struct sched_param2 param2;
 #endif
 	int ret, i = 0;
 	int j;
@@ -172,20 +173,14 @@ void *thread_body(void *arg)
 #ifdef DLSCHED
 		case deadline:
 			tid = gettid();
-			data->dl_params.sched_priority = data->sched_prio;
-			data->dl_params.sched_runtime = timespec_to_nsec(&data->max_et);
-			data->dl_params.sched_deadline = timespec_to_nsec(&data->period);
-			data->dl_params.sched_period = timespec_to_nsec(&data->period);
+			param2.sched_priority = data->sched_prio;
+			param2.sched_runtime = timespec_to_nsec(&data->max_et) +
+				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
+			param2.sched_deadline = timespec_to_nsec(&data->period);
+			param2.sched_period = timespec_to_nsec(&data->period);
 			/* not implemented inside SCHED_DEADLINE V4	  */
 			/* data->dl_params.sched_flags = SCHED_BWRECL_RT; */
 
-			ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
-						    &data->dl_params);
-			if (ret != 0) {
-				log_critical("[%d] sched_setscheduler2"
-					     "returned %d", data->ind, ret);
-				exit(EXIT_FAILURE);
-			}
 				
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d",
@@ -252,13 +247,24 @@ void *thread_body(void *arg)
 		timings = malloc ( nperiods * sizeof(timing_point_t));
 	}
 
+	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
+				   "\t\tend\t\tdeadline\tdur.\tslack"
+				   "\tBudget\tUsed Budget\n");
+
+#ifdef DLSCHED
+	ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
+				    &param2);
+	if (ret != 0) {
+		log_critical("[%d] sched_setscheduler2 "
+			     "returned %d", data->ind, ret);
+		exit(EXIT_FAILURE);
+	}
+#endif
+
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	t_next = t;
 	data->deadline = timespec_add(&t, &data->deadline);
 
-	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
-				   "\t\tend\t\tdeadline\tdur.\tslack"
-				   "\tBudget\tUsed Budget\n");
 	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
