@@ -63,7 +63,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		}
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
 		t_exec = timespec_add(&now, &blockages[i].usage);
-		log_debug("[%d] busywait for %d", ind, timespec_to_usec(&blockages[i].usage));
+		log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
 		busywait(&t_exec);
 		lock = last;
 		while (lock != NULL) {
