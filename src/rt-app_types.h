@@ -34,6 +34,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif /* AQUOSA */
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
+#define RTAPP_FTRACE_PATH_LENGTH 256
 /* exit codes */
 
 #define EXIT_SUCCESS 0
@@ -102,25 +103,33 @@ typedef struct _thread_data_t {
 #endif
 } thread_data_t;
 
+typedef struct _ftrace_data_t {
+	char *debugfs;
+	int trace_fd;
+	int marker_fd;
+} ftrace_data_t;
+
 typedef struct _rtapp_options_t {
-    int lock_pages;
+	int lock_pages;
+	
+	thread_data_t *threads_data;
+	int nthreads;
+	
+	policy_t policy;
+	int duration;
+	unsigned long spacing;
+	
+	char *logdir;
+	char *logbasename;
+	int gnuplot;
+	
+	rtapp_resource_t *resources;
+	int nresources;
 
-    thread_data_t *threads_data;
-    int nthreads;
-
-    policy_t policy;
-    int duration;
-    unsigned long spacing;
-
-    char *logdir;
-    char *logbasename;
-    int gnuplot;
-
-    rtapp_resource_t *resources;
-    int nresources;
+	int ftrace;
 
 #ifdef AQUOSA
-    int fragment;
+	int fragment;
 #endif
 } rtapp_options_t;
 

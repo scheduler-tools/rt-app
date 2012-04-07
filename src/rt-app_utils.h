@@ -24,6 +24,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include "rt-app_types.h"
 
 #ifndef LOG_PREFIX
@@ -38,6 +40,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define LOG_LEVEL_NOTICE 50
 #define LOG_LEVEL_ERROR 10
 #define LOG_LEVEL_CRITICAL 10
+
+#define BUF_SIZE 100
 
 /* This prepend a string to a message */
 #define rtapp_log_to(where, level, level_pfx, msg, args...)		\
@@ -115,6 +119,9 @@ string_to_policy(const char *policy_name, policy_t *policy);
 
 int
 policy_to_string(policy_t policy, char *policy_name);
+
+int
+ftrace_write(int mark_fd, const char *fmt, ...);
 
 #endif // _TIMESPEC_UTILS_H_ 
 

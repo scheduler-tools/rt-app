@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */ 
 
+#include <fcntl.h>
 #include "rt-app.h"
 #include "rt-app_utils.h"
 
@@ -24,6 +25,11 @@ static int errno;
 static int continue_running;
 static pthread_t *threads;
 static int nthreads;
+static ftrace_data_t ft_data = {
+	.debugfs = "/debug",
+	.trace_fd = -1,
+	.marker_fd = -1,
+};
 
 static inline unsigned int max_run(int min, int max)
 {
@@ -345,7 +351,7 @@ int main(int argc, char* argv[])
 {
 	struct timespec t_curr, t_next, t_start;
 	FILE *gnuplot_script = NULL;
-	int i;
+	int i, res;
 	thread_data_t *tdata;
 	char tmp[PATH_LENGTH];
 
@@ -360,6 +366,37 @@ int main(int argc, char* argv[])
 	signal(SIGTERM, shutdown);
 	signal(SIGHUP, shutdown);
 	signal(SIGINT, shutdown);
+
+	/* if using ftrace open trace and marker fds */
+	if (opts.ftrace) {
+		log_notice("configuring ftrace");
+		strcpy(tmp, ft_data.debugfs);
+		strcat(tmp, "/tracing/tracing_on");
+		ft_data.trace_fd = open(tmp, O_WRONLY);
+		if (ft_data.trace_fd < 0) {
+			log_error("Cannot open trace_fd file %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+
+		strcpy(tmp, ft_data.debugfs);
+		strcat(tmp, "/tracing/trace_marker");
+		ft_data.marker_fd = open(tmp, O_WRONLY);
+		if (ft_data.trace_fd < 0) {
+			log_error("Cannot open trace_marker file %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+
+		res = ftrace_write(ft_data.trace_fd, "1");
+		if (res < 0) {
+			log_error("Cannot write to trace_fd");
+			exit(EXIT_FAILURE);
+		}
+		res = ftrace_write(ft_data.marker_fd, "main creates threads\n");
+		if (res < 0) {
+			log_error("Cannot write to marker_fd");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	continue_running = 1;
 
@@ -488,12 +525,22 @@ int main(int argc, char* argv[])
 	for (i = 0; i < nthreads; i++) 	{
 		pthread_join(threads[i], NULL);
 	}
+
+	if (opts.ftrace) {
+		res = ftrace_write(ft_data.trace_fd, "0");
+		if (res < 0) {
+			log_error("Cannot write to trace_fd");
+			exit(EXIT_FAILURE);
+		}
+		res = ftrace_write(ft_data.marker_fd, "main ends\n");
+		if (res < 0) {
+			log_error("Cannot write to marker_fd");
+			exit(EXIT_FAILURE);
+		}
+	}
 	exit(EXIT_SUCCESS);
 
 
 exit_err:
 	exit(EXIT_FAILURE);
 }
-
-
-

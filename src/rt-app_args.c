@@ -37,6 +37,8 @@ usage (const char* msg, int ex_code)
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
+	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
+	printf("-T, --ftrace\t:\tenable ftrace prints\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -212,6 +214,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->logbasename = strdup("rt-app");
 	opts->logdir = NULL;
 	opts->nthreads = 0;
+	opts->ftrace = 0;
 	opts->policy = other;
 	opts->threads_data = malloc(sizeof(thread_data_t));
 #ifdef AQUOSA
@@ -227,6 +230,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {"baselog", 1, 0, 'b'},
 			   {"gnuplot", 1, 0, 'G'},
 			   {"duration", 1, 0, 'D'},
+			   {"ftrace", 0, 0, 'T'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
@@ -234,10 +238,10 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {0, 0, 0, 0}
 	               };
 #ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:T", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:T", 
 				  long_options, &longopt_idx)) != -1)
 #endif
 	{
@@ -300,6 +304,9 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				break;
 			case 'K':
 				opts->lock_pages = 0;
+				break;
+			case 'T':
+				opts->ftrace = 1;
 				break;
 #ifdef AQUOSA				
 			case 'q':
