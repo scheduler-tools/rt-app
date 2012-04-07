@@ -252,12 +252,18 @@ void *thread_body(void *arg)
 				   "\tBudget\tUsed Budget\n");
 
 #ifdef DLSCHED
-	ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
-				    &param2);
-	if (ret != 0) {
-		log_critical("[%d] sched_setscheduler2 "
-			     "returned %d", data->ind, ret);
-		exit(EXIT_FAILURE);
+	/*
+	 * Set the task to SCHED_DEADLINE as far as possible touching its
+	 * budget as little as possible for the first iteration.
+	 */
+	if (data->sched_policy == SCHED_DEADLINE) {
+		ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
+					    &param2);
+		if (ret != 0) {
+			log_critical("[%d] sched_setscheduler2 "
+				     "returned %d", data->ind, ret);
+			exit(EXIT_FAILURE);
+		}
 	}
 #endif
 
