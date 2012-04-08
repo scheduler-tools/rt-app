@@ -37,7 +37,6 @@ usage (const char* msg, int ex_code)
 	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
-	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
 	printf("-T, --ftrace\t:\tenable ftrace prints\n");
 	
 #ifdef AQUOSA

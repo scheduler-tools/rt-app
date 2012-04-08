@@ -452,6 +452,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->logbasename = get_string_value_from(global, "log_basename", 
 						  TRUE, "rt-app");
+	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
 #ifdef AQUOSA
 	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
 #endif
