@@ -281,6 +281,8 @@ void *thread_body(void *arg)
 	}
 #endif
 
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	t_next = t;
 	data->deadline = timespec_add(&t, &data->deadline);
@@ -288,6 +290,8 @@ void *thread_body(void *arg)
 	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd, "[%d] begin loop %d", data->ind, i);
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
 		run(data->ind, &data->min_et, &data->max_et, data->blockages,
 		    data->nblockages);
@@ -332,6 +336,8 @@ void *thread_body(void *arg)
 
 		t_next = timespec_add(&t_next, &data->period);
 		data->deadline = timespec_add(&data->deadline, &data->period);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd, "[%d] end loop %d", data->ind, i);
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
@@ -340,6 +346,8 @@ void *thread_body(void *arg)
 		for (j=0; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
 	
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 	log_notice("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
 #ifdef AQUOSA
