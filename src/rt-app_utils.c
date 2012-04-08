@@ -202,17 +202,21 @@ policy_to_string(policy_t policy, char *policy_name)
 
 #endif
 
-int ftrace_write(int mark_fd, const char *fmt, ...)
+void ftrace_write(int mark_fd, const char *fmt, ...)
 {
 	va_list ap;
 	int n, size = BUF_SIZE;
 	char *tmp, *ntmp;
 
-	if (mark_fd < 0)
-		return -1;
+	if (mark_fd < 0) {
+		log_error("invalid mark_fd");
+		exit(EXIT_FAILURE);
+	}
 
-	if ((tmp = malloc(size)) == NULL)
-		return -1;
+	if ((tmp = malloc(size)) == NULL) {
+		log_error("Cannot allocate ftrace buffer");
+		exit(EXIT_FAILURE);
+	}
 	
 	while(1) {
 		/* Try to print in the allocated space */
@@ -223,7 +227,7 @@ int ftrace_write(int mark_fd, const char *fmt, ...)
 		if (n > -1 && n < size) {
 			write(mark_fd, tmp, n);
 			free(tmp);
-			return 1;
+			return;
 		}
 		/* Else try again with more space */
 		if (n > -1)	/* glibc 2.1 */
@@ -232,7 +236,8 @@ int ftrace_write(int mark_fd, const char *fmt, ...)
 			size *= 2;
 		if ((ntmp = realloc(tmp, size)) == NULL) {
 			free(tmp);
-			return -1;
+			log_error("Cannot reallocate ftrace buffer");
+			exit(EXIT_FAILURE);
 		} else {
 			tmp = ntmp;
 		}

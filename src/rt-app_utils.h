@@ -51,6 +51,11 @@ do {									\
     }									\
 } while (0);
 
+#define log_ftrace(mark_fd, msg, args...)				\
+do {									\
+    ftrace_write(mark_fd, msg, ##args);					\
+} while (0);
+
 #define log_notice(msg, args...)					\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_NOTICE, "<notice> ", msg, ##args);	\
@@ -120,7 +125,7 @@ string_to_policy(const char *policy_name, policy_t *policy);
 int
 policy_to_string(policy_t policy, char *policy_name);
 
-int
+void
 ftrace_write(int mark_fd, const char *fmt, ...);
 
 #endif // _TIMESPEC_UTILS_H_ 

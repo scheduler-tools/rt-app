@@ -25,6 +25,7 @@ static int errno;
 static int continue_running;
 static pthread_t *threads;
 static int nthreads;
+rtapp_options_t opts;
 static ftrace_data_t ft_data = {
 	.debugfs = "/debug",
 	.trace_fd = -1,
@@ -93,6 +94,13 @@ shutdown(int sig)
 	for (i = 0; i < nthreads; i++)
 	{
 		pthread_join(threads[i], NULL);
+	}
+	if (opts.ftrace) {
+		log_notice("stopping ftrace");
+		log_ftrace(ft_data.marker_fd, "main ends\n");
+		log_ftrace(ft_data.trace_fd, "0");
+		close(ft_data.trace_fd);
+		close(ft_data.marker_fd);
 	}
 	exit(EXIT_SUCCESS);
 }
@@ -355,7 +363,6 @@ int main(int argc, char* argv[])
 	thread_data_t *tdata;
 	char tmp[PATH_LENGTH];
 
-	rtapp_options_t opts;
 	parse_command_line(argc, argv, &opts);
 
 	nthreads = opts.nthreads;
@@ -386,16 +393,8 @@ int main(int argc, char* argv[])
 			exit(EXIT_FAILURE);
 		}
 
-		res = ftrace_write(ft_data.trace_fd, "1");
-		if (res < 0) {
-			log_error("Cannot write to trace_fd");
-			exit(EXIT_FAILURE);
-		}
-		res = ftrace_write(ft_data.marker_fd, "main creates threads\n");
-		if (res < 0) {
-			log_error("Cannot write to marker_fd");
-			exit(EXIT_FAILURE);
-		}
+		log_ftrace(ft_data.trace_fd, "1");
+		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
 	continue_running = 1;
@@ -527,16 +526,11 @@ int main(int argc, char* argv[])
 	}
 
 	if (opts.ftrace) {
-		res = ftrace_write(ft_data.trace_fd, "0");
-		if (res < 0) {
-			log_error("Cannot write to trace_fd");
-			exit(EXIT_FAILURE);
-		}
-		res = ftrace_write(ft_data.marker_fd, "main ends\n");
-		if (res < 0) {
-			log_error("Cannot write to marker_fd");
-			exit(EXIT_FAILURE);
-		}
+		log_notice("stopping ftrace");
+		log_ftrace(ft_data.marker_fd, "main ends\n");
+		log_ftrace(ft_data.trace_fd, "0");
+		close(ft_data.trace_fd);
+		close(ft_data.marker_fd);
 	}
 	exit(EXIT_SUCCESS);
 
