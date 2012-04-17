@@ -438,6 +438,7 @@ static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
 	char *policy;
+	char *algo;
 	log_info(PFX "Parsing global section");
 	opts->spacing = get_int_value_from(global, "spacing", TRUE, 0);
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
@@ -453,6 +454,12 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->logbasename = get_string_value_from(global, "log_basename", 
 						  TRUE, "rt-app");
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
+	algo = get_string_value_from(global, "default_algo", 
+				       TRUE, "nothing");
+	if (string_to_algo(algo, &opts->algo) != 0) {
+		log_critical(PFX "Invalid algorithm %s", algo);
+		exit(EXIT_INV_CONFIG);
+	}
 #ifdef AQUOSA
 	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
 #endif

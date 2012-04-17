@@ -55,6 +55,15 @@ typedef enum policy_t
 #endif
 } policy_t;
 
+typedef enum algorithm_t
+{
+	nothing,
+	rm
+#ifdef DLSCHED
+	, edf
+#endif
+} algorithm_t;
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	pthread_mutex_t mtx;
@@ -127,6 +136,8 @@ typedef struct _rtapp_options_t {
 	int nresources;
 
 	int ftrace;
+
+	algorithm_t algo;
 
 #ifdef AQUOSA
 	int fragment;

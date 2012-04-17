@@ -202,6 +202,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	char ch;
 	int longopt_idx;
 	int i;
+	char *algo;
 
 	struct stat dirstat;
 
@@ -215,6 +216,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->nthreads = 0;
 	opts->ftrace = 0;
 	opts->policy = other;
+	opts->algo = nothing;
 	opts->threads_data = malloc(sizeof(thread_data_t));
 #ifdef AQUOSA
 	opts->fragment = 1;
@@ -229,6 +231,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {"baselog", 1, 0, 'b'},
 			   {"gnuplot", 1, 0, 'G'},
 			   {"duration", 1, 0, 'D'},
+			   {"algorithm", 1, 0, 'a'},
 			   {"ftrace", 0, 0, 'T'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
@@ -237,10 +240,10 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {0, 0, 0, 0}
 	               };
 #ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:T", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:Ta:", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:T", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:Ta:", 
 				  long_options, &longopt_idx)) != -1)
 #endif
 	{
@@ -306,6 +309,13 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				break;
 			case 'T':
 				opts->ftrace = 1;
+				break;
+			case 'a':
+				algo = strdup(optarg);
+				if (string_to_algo(algo, &opts->algo) != 0) {
+					usage("Invalid algorithm",
+						EXIT_INV_COMMANDLINE);
+				}
 				break;
 #ifdef AQUOSA				
 			case 'q':

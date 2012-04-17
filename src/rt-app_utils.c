@@ -147,6 +147,7 @@ gettid(void)
 {
 	return syscall(__NR_gettid);
 }
+#endif
 
 int
 string_to_policy(const char *policy_name, policy_t *policy)
@@ -200,7 +201,21 @@ policy_to_string(policy_t policy, char *policy_name)
 	return 0;
 }
 
+int
+string_to_algo(const char *algo_name, algorithm_t  *algorithm)
+{
+	if (strcmp(algo_name, "nothing") == 0)
+		*algorithm = nothing;
+	else if (strcmp(algo_name, "rm") == 0)
+		*algorithm =  rm;
+#ifdef DLSCHED
+	else if (strcmp(algo_name, "edf") == 0)
+		*algorithm =  edf;
 #endif
+	else
+		return 1;
+	return 0;
+}
 
 void ftrace_write(int mark_fd, const char *fmt, ...)
 {
