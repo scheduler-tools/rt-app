@@ -405,6 +405,32 @@ int main(int argc, char* argv[])
 		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
+	switch(opts.algo)
+	{
+		case nothing:
+			break;
+		case rm:
+			if (opts.policy != fifo) {
+				log_error("RM can be implemented only using SCHED_FIFO");
+				exit(EXIT_FAILURE);
+			}
+			log_notice("setting priorities according to RM");
+			set_prio_rm(opts.threads_data, nthreads);
+			break;
+#ifdef DLSCHED
+		case edf:
+			if (opts.policy != deadline) {
+				log_error("EDF can be implemented only using SCHED_DEADLINE");
+				exit(EXIT_FAILURE);
+			}
+			log_notice("scheduling tasks with EDF");
+			break;
+#endif
+		default:
+			log_error("wrong algorithm selected");
+			exit(EXIT_FAILURE);
+	}
+
 	continue_running = 1;
 
 	/* Take the beginning time for everything */

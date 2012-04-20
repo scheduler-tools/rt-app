@@ -128,6 +128,8 @@ policy_to_string(policy_t policy, char *policy_name);
 void
 ftrace_write(int mark_fd, const char *fmt, ...);
 
+void set_prio_rm(thread_data_t *tdata, int nthreads);
+
 #endif // _TIMESPEC_UTILS_H_ 
 
 /* vim: set ts=8 noexpandtab shiftwidth=8: */

@@ -259,3 +259,38 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 	}
 
 }
+
+static int
+cmpthreads(const void *p1, const void *p2)
+{
+	thread_data_t *tdata1 = (thread_data_t*) p1;
+	thread_data_t *tdata2 = (thread_data_t*) p2;
+
+	return timespec_lower(&tdata2->period, &tdata1->period);
+}
+
+void set_prio_rm(thread_data_t *tdata, int nthreads)
+{
+	int i, prio = 99;
+	struct timespec prev_prd = msec_to_timespec(0);
+
+	log_debug("sorting %d threads in ascending period order",
+			nthreads);
+	for (i = 0; i < nthreads; i++) {
+		log_debug("[%d] period = %lu", i,
+			timespec_to_usec(&tdata[i].period));
+	}
+	qsort(tdata, nthreads, sizeof(thread_data_t), cmpthreads);
+	log_debug("setting priorities according RM");
+	for (i = 0; i < nthreads; i++) {
+		if (timespec_lower(&prev_prd, &tdata[i].period)) {
+			tdata[i].sched_prio = prio;
+			prev_prd = tdata[i].period;
+			prio--;
+		} else
+			tdata[i].sched_prio = prio + 1;
+		log_debug("[%d] period = %lu, prio = %d", i,
+			timespec_to_usec(&tdata[i].period),
+			tdata[i].sched_prio);
+	}
+}
