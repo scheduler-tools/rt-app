@@ -442,6 +442,9 @@ int main(int argc, char* argv[])
 		} else {
 			tdata->log_handler = stdout;
 		}
+
+		tdata->sched_policy = opts.policy;
+		policy_to_string(opts.policy, tdata->sched_policy_descr);
 		
 		if (pthread_create(&threads[i],
 				  NULL, 
