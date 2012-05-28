@@ -25,21 +25,21 @@
 
 /* XXX use the proper syscall numbers */
 #ifdef __x86_64__
-#define __NR_sched_setscheduler2	312
-#define __NR_sched_setparam2		313
-#define __NR_sched_getparam2		314
+#define __NR_sched_setparam2		312
+#define __NR_sched_getparam2		313
+#define __NR_sched_setscheduler2	314
 #endif
 
 #ifdef __i386__
-#define __NR_sched_setscheduler2	349
-#define __NR_sched_setparam2		350
-#define __NR_sched_getparam2		351
+#define __NR_sched_setparam2		349
+#define __NR_sched_getparam2		350
+#define __NR_sched_setscheduler2	351
 #endif
 
 #ifdef __arm__
-#define __NR_sched_setscheduler2	376
-#define __NR_sched_setparam2		377
-#define __NR_sched_getparam2		378
+#define __NR_sched_setscheduler2	378
+#define __NR_sched_setparam2		379
+#define __NR_sched_getparam2		380
 #endif
 
 #define SF_SIG_RORUN		2
