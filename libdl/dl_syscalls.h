@@ -18,8 +18,8 @@
 
 #include <linux/kernel.h>
 #include <linux/unistd.h>
-#include <linux/types.h>
 #include <time.h>
+#include <linux/types.h>
 
 #define SCHED_DEADLINE	6
 
