@@ -1,21 +1,135 @@
-In this file:
--------------
-	* General Introduction
-	* Requirements
-	* Documentation
+README for rt-app @VERSION@
 
-General Introduction:
----------------------
-This is rt-app @VERSION@.
+==============
+ INTRODUCTION
+==============
+
 rt-app is a test application that starts multiple periodic threads in order to 
 simulate a real-time periodic load. It supports SCHED_OTHER, SCHED_FIFO, 
 SCHED_RR as well as the AQuoSA framework and SCHED_DEADLINE.
 
-Please report any bugs you find in launchpad at the url 
-https://bugs.launchpad.net/rt-app
+Code is currently maintained on GitHub:
 
-Read the file INSTALL for instructions on how to install rt-app.
-Read the file USAGE for instructions on how to run rt-app
-Read the file LICENSE for license terms on using, modifying and redistributing rt-app
+	https://github.com/gbagnoli/rt-app
+
+
+==============
+ REQUIREMENTS
+==============
+
+rt-app runs on GNU/Linux. It needs autoconf, automake, libtool and a recent
+compiler (mainly: gcc) for basic features.
+
+For advanced usage, the following optional libraries are needed:
+- qreslib for AQuoSA support (and, obviously a GENS_SCHED patched kernel)
+- a SCHED_DEADLINE patched kernel to support SCHED_DEADLINE policy.
+- json-c installed for reading config files. In case libjson is not available
+  for your target, you can download and compile json-c from
+  http://oss.metaparadigm.com/json-c/
+
+
+=============
+ COMPILATION
+=============
+
+$ autoreconf --install
+$ ./configure
+$ make
+$ make install
+
+Last step is optional, rt-app is generated in the src/ directory.
+
+Typical usage:
+$ ./configure --with-aquosa
+	adds support for the AQuoSA framework.
+	qreslib MUST be installed in the system to compile this feature
+
+$ ./configure --with-deadline
+	adds support for SCHED_DEADLINE.
+	There are no compile-time requirements for this feature.
+
+$ ./configure --with-json
+	adds support for reading taskset definitions from JSON files
+	(and from stdin).
+	json-c (libjson.so.0.0.1) is needed to compile this feature.
+
+$ ./configure --prefix=<directory>
+	installs the compiled program in  the given directory
+
+see ./configure --help for additional options.
+
+For cross-compilation, you may have to set the CC environment variable to your
+cross-compiler, and provide the --host option (e.g., --host=arm).
+
+=======
+ USAGE
+=======
+
+$ rt-app <config_file>
+where config file is a full/relative path to a json file (look under doc/ for
+an example config file) or "-" (without quotes) to read JSON data from stdin.
+
+OR you can use commandline to define the taskset.
+Keep in mind that on commandline it will never be possible to define resources
+and how tasks access them.
+
+$ rt-app
+usage: rt-app [options] -t <period>:<exec>[:cpu affinity[:policy[:deadline[:prio]]]] 
+
+-h, --help	:	show this help
+-f, --fifo	:	set default policy for threads to SCHED_FIFO
+-r, --rr	:	set default policy fior threads to SCHED_RR
+-s, --spacing	:	msec to wait beetween thread starts
+-l, --logdir	:	save logs to different directory
+-b, --baselog	:	basename for logs (implies -l . if not set)
+-G, --gnuplot	:	generate gnuplot script (needs -l)
+-D, --duration	:	time (in seconds) before stopping threads
+-K, --no-mlock	:	Do not lock pages in memory
+-q, --qos	:	create AQuoSA reservation
+-g, --frag	:	fragment for the reservation
+
+POLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA
+AFFINITY: comma-separated cpu index (starting from 0) i.e. 0,2,3 for first,
+third and fourth CPU
+
+Note: when using AQuoSA scheduling, priority is used as percent increment for
+budget over exec time
+
+Options:
+
+* --fifo,--rr and --qos sets the default scheduling policy for all threads.
+	--qos is available only when compiled with AQuoSA support enabled.
+
+* --logdir and --baselog control log output (rt-app creates one log for each
+	thread).  If --logdir is not present, rt-app logs everything to stdout.
+	When logging to file and -D (see below) is present, the file is written
+	at the end of execution, during which all logging data is kept in
+	memory.
+
+* --gnuplot if it is present then rt-app outputs sample gnuplot scripts to
+	$logdir (which must be passed too
+
+* --spacing and --duration control the spacing between threads and their
+	duration of execution,  i.e. each thread is started every $spacing ms
+	and the total runtime is $duration.
+
+* --frag (AQuoSA only): fragments the reservation period by $fragmentation, i.e.
+	reservation period is $frag times smaller than thread's period.
+
+* --no-mlock: do not lock threads' memory pages when using realtime scheduling
+	classes
+
+Each thread is specified by
+
+	--thread <period>:<exec>[:$POLICY[:deadline[:prio]]]:
+
+period   : thread period in microseconds
+exec     : thread WCET in microseconds
+policy   : one of f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA (if enabled)
+affinity : comma-separated cpu index (starting from 0) i.e. 0,2,3 for first,
+	   third and fourth CPU
+prio     : thread priority in SCHED_FIFO/SCHED_RR/SCHED_OTHER, percentile
+           increment for AQuoSA reservation budget w.r.t. WCET.
+deadline : deadline in microseconds (used ONLY for plotting!)
 
 
