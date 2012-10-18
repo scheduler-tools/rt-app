@@ -459,8 +459,8 @@ int main(int argc, char* argv[])
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
 			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.eps",
-			opts.logdir, opts.logbasename);
+		snprintf(tmp, PATH_LENGTH, "%s-duration.eps",
+			 opts.logbasename);
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
 			"set output '%s'\n"
@@ -473,7 +473,7 @@ int main(int argc, char* argv[])
 
 		for (i=0; i<nthreads; i++)
 		{
-			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
+			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 				 opts.logdir, opts.logbasename);
 
 			fprintf(gnuplot_script, 
@@ -494,8 +494,8 @@ int main(int argc, char* argv[])
 		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot", 
 		 	 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.eps", 
-		 	 opts.logdir, opts.logbasename);
+		snprintf(tmp, PATH_LENGTH, "%s-slack.eps",
+			 opts.logbasename);
 
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
