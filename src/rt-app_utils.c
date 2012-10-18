@@ -147,6 +147,7 @@ gettid(void)
 {
 	return syscall(__NR_gettid);
 }
+#endif
 
 int
 string_to_policy(const char *policy_name, policy_t *policy)
@@ -200,7 +201,6 @@ policy_to_string(policy_t policy, char *policy_name)
 	return 0;
 }
 
-#endif
 
 void ftrace_write(int mark_fd, const char *fmt, ...)
 {
