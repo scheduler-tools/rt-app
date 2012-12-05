@@ -199,7 +199,7 @@ static void
 parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 {
 	char tmp[PATH_LENGTH];
-	char ch;
+	signed char ch;
 	int longopt_idx;
 	int i;
 
