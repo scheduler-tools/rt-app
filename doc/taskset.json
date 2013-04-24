@@ -18,6 +18,31 @@
 		       "cpus" : [1], 
 		       "policy" : "SCHED_FIFO",
 		       "priority": 20,
+        /*
+         * Resources are acquired in "lock_order" order;
+         * the dependecy chain for nested locks is built through "access";
+         * the innermost lock is held for "duration" msec.
+         *
+         * In the case below:
+         *
+         * L(2)
+         *  |
+         *  -> L(1)                                   L(1)
+         *      |                                      |
+         *      -> L(3)                                -> L(3)
+         *          |                                      |
+         *          -> L(0)                L(3)            -> L(2)
+         *              |                   |                  |
+         *          busy_wait(1000) --- busy_wait(500) --- busy_wait(200)
+         *              |                   |                  |
+         *             U(0)                U(3)               U(2)
+         *              |                                      |
+         *         U(3)<-                                 U(3)<-
+         *          |                                      |
+         *     U(1)<-                                 U(1)<-
+         *      |
+         * U(2)<-
+         */
 		       "lock_order" : [ 0, 3, 2 ],
 		       "resources": {
 			   "0" : { "duration" : 1000, "access": [2] },
