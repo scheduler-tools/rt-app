@@ -91,11 +91,11 @@ assure_type_is(struct json_object *obj,
 static inline struct json_object* 
 get_in_object(struct json_object *where, 
 	      const char *what,
-	      boolean nullable)
+	      json_bool nullable)
 {
 	struct json_object *to;	
 	to = json_object_object_get(where, what);
-	if (is_error(to)) {
+	if (!nullable && is_error(to)) {
 		log_critical(PFX "Error while parsing config:\n" PFL 
 			  "%s", json_tokener_errors[-(unsigned long)to]);
 		exit(EXIT_INV_CONFIG);
@@ -110,7 +110,7 @@ get_in_object(struct json_object *where,
 static inline int
 get_int_value_from(struct json_object *where,
 		   const char *key,
-		   boolean have_def,
+		   json_bool have_def,
 		   int def_value)
 {
 	struct json_object *value;
@@ -127,11 +127,11 @@ get_int_value_from(struct json_object *where,
 static inline int
 get_bool_value_from(struct json_object *where,
 		    const char *key,
-		    boolean have_def,
+		    json_bool have_def,
 		    int def_value)
 {
 	struct json_object *value;
-	boolean b_value;
+	json_bool b_value;
 	value = get_in_object(where, key, have_def);
 	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_boolean);
@@ -144,7 +144,7 @@ get_bool_value_from(struct json_object *where,
 static inline char*
 get_string_value_from(struct json_object *where,
 		      const char *key,
-		      boolean have_def,
+		      json_bool have_def,
 		      const char *def_value)
 {
 	struct json_object *value;
@@ -320,6 +320,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 {
 	long exec, period, dline;
 	char *policy;
+	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
 	struct array_list *cpuset;
 	struct json_object *cpuset_obj, *cpu, *resources, *locks;
 	int i, cpu_idx;
@@ -353,9 +354,10 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	}
 	data->min_et = usec_to_timespec(exec);
 	data->max_et = usec_to_timespec(exec);
-	
+
 	/* policy */
-	policy = get_string_value_from(obj, "policy", TRUE, NULL);
+	policy_to_string(opts->policy, def_policy);
+	policy = get_string_value_from(obj, "policy", TRUE, def_policy);
 	if (policy) {
 		if (string_to_policy(policy, &data->sched_policy) != 0) {
 			log_critical(PIN2 "Invalid policy %s", policy);
