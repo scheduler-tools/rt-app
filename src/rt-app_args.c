@@ -38,6 +38,7 @@ usage (const char* msg, int ex_code)
 	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
 	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
 	printf("-T, --ftrace\t:\tenable ftrace prints\n");
+	printf("-P, --pi_enabled\t:\tenable priority inheritance on resources\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -214,6 +215,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->logdir = NULL;
 	opts->nthreads = 0;
 	opts->ftrace = 0;
+	opts->pi_enabled = 0;
 	opts->policy = other;
 	opts->threads_data = malloc(sizeof(thread_data_t));
 #ifdef AQUOSA
@@ -230,6 +232,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			   {"gnuplot", 1, 0, 'G'},
 			   {"duration", 1, 0, 'D'},
 			   {"ftrace", 0, 0, 'T'},
+			   {"pi_enabled", 0, 0, 'T'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
@@ -306,6 +309,9 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				break;
 			case 'T':
 				opts->ftrace = 1;
+				break;
+			case 'P':
+				opts->pi_enabled = 1;
 				break;
 #ifdef AQUOSA				
 			case 'q':

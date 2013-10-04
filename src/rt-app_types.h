@@ -126,6 +126,7 @@ typedef struct _rtapp_options_t {
 	
 	rtapp_resource_t *resources;
 	int nresources;
+	int pi_enabled;
 
 	int ftrace;
 

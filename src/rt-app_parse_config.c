@@ -171,8 +171,12 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
 	for (i = 0; i < res; i++) {
 		pthread_mutexattr_init(&opts->resources[i].mtx_attr);
-		pthread_mutexattr_setprotocol(&opts->resources[i].mtx_attr,
-					      PTHREAD_PRIO_INHERIT);
+		if (opts->pi_enabled) {
+			printf("pi enabled\n");
+			pthread_mutexattr_setprotocol(
+				&opts->resources[i].mtx_attr,
+				PTHREAD_PRIO_INHERIT);
+		}
 		pthread_mutex_init(&opts->resources[i].mtx,
 				   &opts->resources[i].mtx_attr);
 		opts->resources[i].index = i;
@@ -459,6 +463,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->logbasename = get_string_value_from(global, "log_basename", 
 						  TRUE, "rt-app");
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
+	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
 #ifdef AQUOSA
 	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
 #endif
@@ -487,8 +492,8 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	resources = get_in_object(root, "resources", FALSE);
 	log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
-	parse_resources(resources, opts);
 	parse_global(global, opts);
+	parse_resources(resources, opts);
 	parse_tasks(tasks, opts);
 	
 }
