@@ -58,6 +58,7 @@ typedef enum policy_t
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	pthread_mutex_t mtx;
+	pthread_mutexattr_t mtx_attr;
 	int index;
 } rtapp_resource_t;
 

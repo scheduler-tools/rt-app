@@ -170,7 +170,11 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	log_info(PFX "Creating %d resources", res);
 	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
 	for (i = 0; i < res; i++) {
-		pthread_mutex_init(&opts->resources[i].mtx, NULL);
+		pthread_mutexattr_init(&opts->resources[i].mtx_attr);
+		pthread_mutexattr_setprotocol(&opts->resources[i].mtx_attr,
+					      PTHREAD_PRIO_INHERIT);
+		pthread_mutex_init(&opts->resources[i].mtx,
+				   &opts->resources[i].mtx_attr);
 		opts->resources[i].index = i;
 	}
 	opts->nresources = res;
