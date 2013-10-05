@@ -138,6 +138,21 @@ void *thread_body(void *arg)
 #endif
 	int ret, i = 0;
 	int j;
+
+	/* set thread affinity */
+	if (data->cpuset != NULL)
+	{
+		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
+			 data->cpuset_str);
+		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+						data->cpuset);
+		if (ret < 0) {
+			errno = ret;
+			perror("pthread_setaffinity_np");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	/* set scheduling policy and print pretty info on stdout */
 	log_notice("[%d] Using %s policy:", data->ind, data->sched_policy_descr);
 	switch (data->sched_policy)
@@ -232,19 +247,6 @@ void *thread_body(void *arg)
 		if (ret < 0) {
 			errno = ret;
 			perror("mlockall");
-			exit(EXIT_FAILURE);
-		}
-	}
-	/* set thread affinity */
-	if (data->cpuset != NULL)
-	{
-		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
-			 data->cpuset_str);
-		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
-						data->cpuset);
-		if (ret < 0) {
-			errno = ret;
-			perror("pthread_setaffinity_np");
 			exit(EXIT_FAILURE);
 		}
 	}

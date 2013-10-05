@@ -172,7 +172,6 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	for (i = 0; i < res; i++) {
 		pthread_mutexattr_init(&opts->resources[i].mtx_attr);
 		if (opts->pi_enabled) {
-			printf("pi enabled\n");
 			pthread_mutexattr_setprotocol(
 				&opts->resources[i].mtx_attr,
 				PTHREAD_PRIO_INHERIT);
@@ -398,6 +397,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		log_info(PIN "key: cpus %s", data->cpuset_str);
 		data->cpuset = malloc(sizeof(cpu_set_t));
 		cpuset = json_object_get_array(cpuset_obj);
+		CPU_ZERO(data->cpuset);
 		for (i=0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
