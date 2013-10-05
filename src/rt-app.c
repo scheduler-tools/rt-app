@@ -64,6 +64,10 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		lock = blockages[i].acl;
 		while (lock != NULL) {
 			log_debug("[%d] locking %d", ind, lock->res->index);
+			if (opts.ftrace)
+				log_ftrace(ft_data.marker_fd,
+					   "[%d] locking %d",
+					   ind, lock->res->index);
 			pthread_mutex_lock(&lock->res->mtx);
 			last = lock;
 			lock = lock->next;
@@ -71,10 +75,18 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
 		t_exec = timespec_add(&now, &blockages[i].usage);
 		log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] busywait for %d",
+				   ind, timespec_to_usec(&blockages[i].usage));
 		busywait(&t_exec);
 		lock = last;
 		while (lock != NULL) {
 			log_debug("[%d] unlocking %d", ind, lock->res->index);
+			if (opts.ftrace)
+				log_ftrace(ft_data.marker_fd,
+					   "[%d] unlocking %d",
+					   ind, lock->res->index);
 			pthread_mutex_unlock(&lock->res->mtx);
 			lock = lock->prev;
 		}
@@ -291,7 +303,7 @@ void *thread_body(void *arg)
 		struct timespec t_start, t_end, t_diff, t_slack;
 
 		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, "[%d] begin loop %d", data->ind, i);
+			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d", data->ind, i);
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
 		run(data->ind, &data->min_et, &data->max_et, data->blockages,
 		    data->nblockages);
