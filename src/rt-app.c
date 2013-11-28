@@ -134,7 +134,8 @@ void *thread_body(void *arg)
 #endif
 #ifdef DLSCHED
 	pid_t tid;
-	struct sched_param2 param2;
+	//struct sched_param2 param2;
+	struct sched_attr attr;
 #endif
 	int ret, i = 0;
 	int j;
@@ -214,11 +215,12 @@ void *thread_body(void *arg)
 #ifdef DLSCHED
 		case deadline:
 			tid = gettid();
-			param2.sched_priority = data->sched_prio;
-			param2.sched_runtime = timespec_to_nsec(&data->max_et) +
+			attr.size = SCHED_ATTR_SIZE_VER0;
+			attr.sched_priority = data->sched_prio;
+			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
 				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
-			param2.sched_deadline = timespec_to_nsec(&data->period);
-			param2.sched_period = timespec_to_nsec(&data->period);
+			attr.sched_deadline = timespec_to_nsec(&data->period);
+			attr.sched_period = timespec_to_nsec(&data->period);
 			/* not implemented inside SCHED_DEADLINE V4	  */
 			/* data->dl_params.sched_flags = SCHED_BWRECL_RT; */
 
@@ -286,7 +288,7 @@ void *thread_body(void *arg)
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
 		ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
-					    &param2);
+					    &attr);
 		if (ret != 0) {
 			log_critical("[%d] sched_setscheduler2 "
 				     "returned %d", data->ind, ret);

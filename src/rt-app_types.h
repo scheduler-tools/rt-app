@@ -100,7 +100,7 @@ typedef struct _thread_data_t {
 #endif
 
 #ifdef DLSCHED
-	struct sched_param2 dl_params;
+	struct sched_attr dl_params;
 #endif
 } thread_data_t;
 
