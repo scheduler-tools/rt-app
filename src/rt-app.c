@@ -216,7 +216,8 @@ void *thread_body(void *arg)
 		case deadline:
 			tid = gettid();
 			attr.size = SCHED_ATTR_SIZE_VER0;
-			attr.sched_priority = data->sched_prio;
+			attr.sched_policy = SCHED_DEADLINE;
+			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
 				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&data->period);
@@ -287,10 +288,9 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
-		ret = sched_setscheduler2(tid, SCHED_DEADLINE, 
-					    &attr);
+		ret = sched_setattr(tid, &attr);
 		if (ret != 0) {
-			log_critical("[%d] sched_setscheduler2 "
+			log_critical("[%d] sched_setattr "
 				     "returned %d", data->ind, ret);
 			exit(EXIT_FAILURE);
 		}
