@@ -48,8 +48,6 @@
 #define RLIMIT_DLDLINE		16
 #define RLIMIT_DLRTIME		17
 
-#define SCHED_ATTR_SIZE_VER0    48
-
 struct sched_attr {
 	__u32 size;
 	

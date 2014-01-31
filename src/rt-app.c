@@ -215,25 +215,15 @@ void *thread_body(void *arg)
 #ifdef DLSCHED
 		case deadline:
 			tid = gettid();
-			attr.size = SCHED_ATTR_SIZE_VER0;
+			attr.size = sizeof(attr);
+			attr.sched_flags = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
 				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&data->period);
 			attr.sched_period = timespec_to_nsec(&data->period);
-			/* not implemented inside SCHED_DEADLINE V4	  */
-			/* data->dl_params.sched_flags = SCHED_BWRECL_RT; */
-
 				
-			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-			       "deadline: %lu, priority: %d",
-			       	data->ind,
-				timespec_to_usec(&data->period), 
-				timespec_to_usec(&data->min_et),
-				timespec_to_usec(&data->deadline),
-				data->sched_prio
-			);
 			break;
 #endif
 			
@@ -288,10 +278,21 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
+		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
+		       "deadline: %lu, priority: %d",
+		       	data->ind,
+			attr.sched_period / 1000, 
+			attr.sched_runtime / 1000,
+			attr.sched_deadline / 1000,
+			attr.sched_priority
+		);
+
 		ret = sched_setattr(tid, &attr);
 		if (ret != 0) {
 			log_critical("[%d] sched_setattr "
 				     "returned %d", data->ind, ret);
+			errno = ret;
+			perror("sched_setattr");
 			exit(EXIT_FAILURE);
 		}
 	}
