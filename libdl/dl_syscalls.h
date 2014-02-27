@@ -67,9 +67,13 @@ struct sched_attr {
 };
 
 int sched_setattr(pid_t pid,
-		      const struct sched_attr *attr);
+		      const struct sched_attr *attr,
+		      unsigned int flags);
 
-int sched_getattr(pid_t pid, struct sched_attr *attr);
+int sched_getattr(pid_t pid,
+		      struct sched_attr *attr,
+		      unsigned int size,
+		      unsigned int flags);
 
 #endif /* __DL_SYSCALLS__ */
 

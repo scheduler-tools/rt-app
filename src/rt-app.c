@@ -134,8 +134,8 @@ void *thread_body(void *arg)
 #endif
 #ifdef DLSCHED
 	pid_t tid;
-	//struct sched_param2 param2;
 	struct sched_attr attr;
+	unsigned int flags = 0;
 #endif
 	int ret, i = 0;
 	int j;
@@ -287,7 +287,7 @@ void *thread_body(void *arg)
 			attr.sched_priority
 		);
 
-		ret = sched_setattr(tid, &attr);
+		ret = sched_setattr(tid, &attr, flags);
 		if (ret != 0) {
 			log_critical("[%d] sched_setattr "
 				     "returned %d", data->ind, ret);
