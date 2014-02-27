@@ -160,6 +160,8 @@ void *thread_body(void *arg)
 	{
 		case rr:
 		case fifo:
+			fprintf(data->log_handler, "# Policy : %s\n",
+				(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"));
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(), 
 						    data->sched_policy, 
@@ -181,6 +183,7 @@ void *thread_body(void *arg)
 			break;
 
 		case other:
+			fprintf(data->log_handler, "# Policy : SCHED_OTHER\n");
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu",
 			       	data->ind,
@@ -192,6 +195,7 @@ void *thread_body(void *arg)
 			break;
 #ifdef AQUOSA			
 		case aquosa:
+			fprintf(data->log_handler, "# Policy : AQUOSA\n");
 			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0)); 
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
@@ -214,6 +218,7 @@ void *thread_body(void *arg)
 #endif
 #ifdef DLSCHED
 		case deadline:
+			fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
 			tid = gettid();
 			attr.size = sizeof(attr);
 			attr.sched_flags = 0;
