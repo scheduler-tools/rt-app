@@ -338,10 +338,6 @@ void *thread_body(void *arg)
 		curr_timing->deadline = timespec_to_usec(&data->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
-		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
-			log_critical("[%d] DEADLINE MISS !!!", data->ind);
-			exit(EXIT_FAILURE);
-		}
 #ifdef AQUOSA
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
@@ -364,6 +360,10 @@ void *thread_body(void *arg)
 		data->deadline = timespec_add(&data->deadline, &data->period);
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d", data->ind, i);
+		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
+			log_critical("[%d] DEADLINE MISS !!!", data->ind);
+			exit(EXIT_FAILURE);
+		}
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
