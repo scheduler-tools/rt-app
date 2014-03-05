@@ -28,17 +28,18 @@ usage (const char* msg, int ex_code)
 #endif	       
 	printf("rt-app [options] -t <period>:<exec>[:policy"
 		"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
-	printf("-h, --help\t:\tshow this help\n");
-	printf("-f, --fifo\t:\tset default policy for threads to SCHED_FIFO\n");
-	printf("-r, --rr\t:\tset default policy fior threads to SCHED_RR\n");
-	printf("-s, --spacing\t:\tmsec to wait beetween thread starts\n");
-	printf("-l, --logdir\t:\tsave logs to different directory\n");
-	printf("-b, --baselog\t:\tbasename for logs (implies -l . if not set)\n");
-	printf("-G, --gnuplot\t:\tgenerate gnuplot script (needs -l)\n");
-	printf("-D, --duration\t:\ttime (in seconds) before stopping threads\n");
-	printf("-K, --no-mlock\t:\tDo not lock pages in memory\n");
-	printf("-T, --ftrace\t:\tenable ftrace prints\n");
+	printf("-h, --help\t\t:\tshow this help\n");
+	printf("-f, --fifo\t\t:\tset default policy for threads to SCHED_FIFO\n");
+	printf("-r, --rr\t\t:\tset default policy fior threads to SCHED_RR\n");
+	printf("-s, --spacing\t\t:\tmsec to wait beetween thread starts\n");
+	printf("-l, --logdir\t\t:\tsave logs to different directory\n");
+	printf("-b, --baselog\t\t:\tbasename for logs (implies -l . if not set)\n");
+	printf("-G, --gnuplot\t\t:\tgenerate gnuplot script (needs -l)\n");
+	printf("-D, --duration\t\t:\ttime (in seconds) before stopping threads\n");
+	printf("-K, --no-mlock\t\t:\tDo not lock pages in memory\n");
+	printf("-T, --ftrace\t\t:\tenable ftrace prints\n");
 	printf("-P, --pi_enabled\t:\tenable priority inheritance on resources\n");
+	printf("-M, --die_on_dmiss\t:\texit with an error if a task misses a deadline\n");
 	
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
@@ -215,6 +216,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->logdir = NULL;
 	opts->nthreads = 0;
 	opts->ftrace = 0;
+	opts->die_on_dmiss = 0;
 	opts->pi_enabled = 0;
 	opts->policy = other;
 	opts->threads_data = malloc(sizeof(thread_data_t));
@@ -233,6 +235,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			   {"duration", 1, 0, 'D'},
 			   {"ftrace", 0, 0, 'T'},
 			   {"pi_enabled", 0, 0, 'T'},
+			   {"die_on_dmiss", 0, 0, 'M'},
 #ifdef AQUOSA
 			   {"qos", 0, 0, 'q'},
 			   {"frag",1, 0, 'g'},
@@ -240,10 +243,10 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {0, 0, 0, 0}
 	               };
 #ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:T", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM", 
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:T", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM", 
 				  long_options, &longopt_idx)) != -1)
 #endif
 	{
@@ -312,6 +315,9 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				break;
 			case 'P':
 				opts->pi_enabled = 1;
+				break;
+			case 'M':
+				opts->die_on_dmiss = 1;
 				break;
 #ifdef AQUOSA				
 			case 'q':

@@ -129,6 +129,7 @@ typedef struct _rtapp_options_t {
 	int pi_enabled;
 
 	int ftrace;
+	int die_on_dmiss;
 
 #ifdef AQUOSA
 	int fragment;

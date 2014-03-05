@@ -338,6 +338,10 @@ void *thread_body(void *arg)
 		curr_timing->deadline = timespec_to_usec(&data->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
+		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
+			log_critical("[%d] DEADLINE MISS !!!", data->ind);
+			exit(EXIT_FAILURE);
+		}
 #ifdef AQUOSA
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
