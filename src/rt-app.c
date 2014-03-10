@@ -22,7 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 
 static int errno;
-static int continue_running;
+static volatile int continue_running;
 static pthread_t *threads;
 static int nthreads;
 rtapp_options_t opts;
@@ -359,13 +359,29 @@ void *thread_body(void *arg)
 		t_next = timespec_add(&t_next, &data->period);
 		data->deadline = timespec_add(&data->deadline, &data->period);
 		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, "[%d] end loop %d", data->ind, i);
+			log_ftrace(ft_data.marker_fd, "[%d] end loop %d",
+				   data->ind, i);
 		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
 			log_critical("[%d] DEADLINE MISS !!!", data->ind);
-			exit(EXIT_FAILURE);
+			if (opts.ftrace)
+				log_ftrace(ft_data.marker_fd,
+					   "[%d] DEADLINE MISS!!", data->ind);
+			shutdown(SIGTERM);
+			goto exit_miss;
 		}
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
+	}
+
+exit_miss:
+	param.sched_priority = 0;
+	ret = pthread_setschedparam(pthread_self(), 
+				    SCHED_OTHER, 
+				    &param);
+	if (ret != 0) {
+		errno = ret; 
+		perror("pthread_setschedparam"); 
+		exit(EXIT_FAILURE);
 	}
 
 	if (timings)
@@ -552,6 +568,8 @@ int main(int argc, char* argv[])
 	if (opts.duration > 0)
 	{
 		sleep(opts.duration);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd, "main shutdown\n");
 		shutdown(SIGTERM);
 	}
 	
