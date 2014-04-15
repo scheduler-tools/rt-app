@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 static int errno;
 static volatile int continue_running;
+unsigned int seed;
 static pthread_t *threads;
 static int nthreads;
 rtapp_options_t opts;
@@ -358,6 +359,24 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, curr_timing);
 
 		t_next = timespec_add(&t_next, &data->period);
+
+		if (data->period_jitter > 0) {
+			struct timespec period, period_jitter;
+			long rand_jitter;
+
+			rand_jitter = -(data->period_jitter) + rand_r(&seed) /
+				      (RAND_MAX / (data->period_jitter * 2 + 1) + 1);
+
+			if (rand_jitter > 0) {
+				period_jitter = usec_to_timespec(rand_jitter);
+				t_next = timespec_add(&t_next, &period_jitter);
+			}
+			else {
+				period_jitter = usec_to_timespec(-rand_jitter);
+				t_next = timespec_sub(&t_next, &period_jitter);
+			}
+		}
+
 		data->deadline = timespec_add(&data->deadline, &data->period);
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d",
@@ -452,6 +471,7 @@ int main(int argc, char* argv[])
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
+	seed = time(NULL);
 
 	/* start threads */
 	for (i = 0; i < nthreads; i++)

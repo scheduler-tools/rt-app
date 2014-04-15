@@ -326,7 +326,7 @@ static void
 parse_thread_data(char *name, struct json_object *obj, int idx, 
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
-	long exec, period, dline;
+	long exec, period, period_jitter, dline;
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
 	struct array_list *cpuset;
@@ -349,6 +349,14 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		exit(EXIT_INV_CONFIG);
 	}
 	data->period = usec_to_timespec(period);
+
+	/* period jitter */
+	period_jitter = get_int_value_from(obj, "period jitter", TRUE, 0);
+	if (period_jitter > 5000L) {
+		log_critical(PIN2 "Cannot set a period jitter bigger than 5ms");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->period_jitter = period_jitter;
 
 	/* exec time */
 	exec = get_int_value_from(obj, "exec", FALSE, 0);
