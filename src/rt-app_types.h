@@ -91,6 +91,7 @@ typedef struct _thread_data_t {
 	policy_t sched_policy;
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
+	unsigned long sched_flags;
 
 	rtapp_tasks_resource_list_t *blockages;
 	int nblockages;

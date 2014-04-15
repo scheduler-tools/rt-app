@@ -341,6 +341,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->sched_prio = DEFAULT_THREAD_PRIORITY;
 	data->cpuset = NULL;
 	data->cpuset_str = NULL;
+	data->sched_flags = 0;
 
 	/* period */
 	period = get_int_value_from(obj, "period", FALSE, 0);
@@ -397,6 +398,10 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		exit(EXIT_INV_CONFIG);
 	}
 	data->deadline = usec_to_timespec(dline);
+
+	/* reservation type */
+	if (!get_bool_value_from(obj, "hard_rsv", TRUE, 1))
+		data->sched_flags |= SCHED_FLAG_SOFT_RSV;
 	
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
