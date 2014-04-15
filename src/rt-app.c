@@ -223,7 +223,11 @@ void *thread_body(void *arg)
 			fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
 			tid = gettid();
 			attr.size = sizeof(attr);
-			attr.sched_flags = 0;
+			attr.sched_flags = data->sched_flags;
+			if (data->sched_flags && SCHED_FLAG_SOFT_RSV)
+				fprintf(data->log_handler, "# Type : SOFT_RSV\n");
+			else
+				fprintf(data->log_handler, "# Type : HARD_RSV\n");
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
