@@ -129,6 +129,19 @@ policy_to_string(policy_t policy, char *policy_name);
 void
 ftrace_write(int mark_fd, const char *fmt, ...);
 
+void
+run (int ind, ...);
+
+void
+sleep_for (int ind, ...);
+
+#define exec_phase(data, pn)						\
+do {									\
+    data->phases[pn].do_phase(data->ind, &data->phases[pn].usage,	\
+			      &data->phases[pn].usage, NULL, 0);	\
+} while (0);
+
+
 #endif // _TIMESPEC_UTILS_H_ 
 
 /* vim: set ts=8 noexpandtab shiftwidth=8: */

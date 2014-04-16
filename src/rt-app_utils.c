@@ -151,6 +151,18 @@ gettid(void)
 #endif
 
 int
+string_to_phase(const char *phase_name, phase_t *phase)
+{
+	if (strncmp(phase_name, "r", 1) == 0)
+		*phase = RUN;
+	else if (strncmp(phase_name, "s", 1) == 0)
+		*phase =  SLEEP;
+	else
+		return 1;
+	return 0;
+}
+
+int
 string_to_policy(const char *policy_name, policy_t *policy)
 {
 	if (strcmp(policy_name, "SCHED_OTHER") == 0)

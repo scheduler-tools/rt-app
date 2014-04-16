@@ -323,6 +323,52 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 }
 
 static void
+parse_thread_phases(const rtapp_options_t *opts,
+		    struct json_object *task_phases,
+		    thread_data_t *data)
+{
+	/* used in the foreach macro */
+	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	int i,j, cur_res_idx, usage_usec;
+	struct json_object *phase, *duration;
+	int res_dur;	
+	char res_name[4];
+	phase_t ph;
+
+	rtapp_tasks_phase_list_t *tmp, *head, *last;
+	char debug_msg[512], tmpmsg[512];
+
+	log_info(PFX "Parsing threads phases");
+	data->nphases = 0;
+	foreach (task_phases, entry, key, val, idx) {
+		data->nphases++;
+	}
+	log_info(PFX "Found %d thread phases", data->nphases);
+	data->phases = malloc(sizeof(rtapp_tasks_phase_list_t) * data->nphases);
+
+	foreach (task_phases, entry, key, val, idx) {
+		log_info(PFX "Parsing phase %s", key);
+		data->phases[idx].index = idx;
+		string_to_phase(key, &ph);
+		data->phases[idx].phase_type = ph;
+
+		if (ph == RUN) {
+			log_info(PIN "key: type %d (RUN)", ph);
+			data->phases[idx].do_phase = run;
+		} else {
+			log_info(PIN "key: type %d (SLEEP)", ph);
+			data->phases[idx].do_phase = sleep_for;
+		}
+
+		phase = get_in_object(task_phases, key, FALSE);
+		log_info(PIN "key: phase %s", json_object_to_json_string(phase));
+		duration = get_in_object(phase, "duration", FALSE);
+		log_info(PIN "key: duration %s", json_object_to_json_string(duration));
+		data->phases[idx].usage = usec_to_timespec(get_int_value_from(phase, "duration", FALSE, 0));
+	}
+}
+
+static void
 parse_thread_data(char *name, struct json_object *obj, int idx, 
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
@@ -330,7 +376,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
 	struct array_list *cpuset;
-	struct json_object *cpuset_obj, *cpu, *resources, *locks;
+	struct json_object *cpuset_obj, *cpu, *resources, *locks, *phases;
 	int i, cpu_idx;
 
 	log_info(PFX "Parsing thread %s [%d]", name, idx);
@@ -436,6 +482,14 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 				  json_object_to_json_string(resources));
 		}
 		parse_thread_resources(opts, locks, resources, data);
+	}
+
+	/* phases */
+	phases = get_in_object(obj, "phases", TRUE);
+	if (phases) {
+		assure_type_is(phases, obj, "phases", json_type_object);
+		log_info(PIN "key: phases %s", json_object_to_json_string(phases));
+		parse_thread_phases(opts, phases, data);
 	}
 
 }

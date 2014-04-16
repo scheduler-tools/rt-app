@@ -49,14 +49,25 @@ static inline busywait(struct timespec *to)
 	}
 }
 
-void run(int ind, struct timespec *min, struct timespec *max, 
-	 rtapp_tasks_resource_list_t *blockages, int nblockages)
+void run(int ind, ...)
 {
 	int i;
+	int nblockages;
 	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
 	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
-	struct timespec t_start, now, t_exec, t_totexec = *max;
+	struct timespec *min, *max;
+	struct timespec t_start, now, t_exec, t_totexec;
 	rtapp_resource_access_list_t *lock, *last;
+	rtapp_tasks_resource_list_t *blockages;
+	va_list argp;
+
+	va_start(argp, ind);
+	min = va_arg(argp, struct timespec*);
+	max = va_arg(argp, struct timespec*);
+	t_totexec = *max;
+	blockages = va_arg(argp, rtapp_tasks_resource_list_t*);
+	nblockages = va_arg(argp, int);
+	va_end(argp);
 	
 	/* get the start time */
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
@@ -97,6 +108,20 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	/* compute finish time for CPUTIME_ID clock */
 	t_exec = timespec_add(&t_start, &t_totexec);
 	busywait(&t_exec);
+}
+
+void sleep_for (int ind, ...)
+{
+	struct timespec *t_sleep, t_now;
+	va_list argp;
+
+	va_start(argp, ind);
+	t_sleep = va_arg(argp, struct timespec*);
+	va_end(argp);
+
+	clock_gettime(CLOCK_MONOTONIC, &t_now);
+	t_now = timespec_add(&t_now, t_sleep);
+	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_now, NULL);
 }
 
 static void
@@ -316,13 +341,28 @@ void *thread_body(void *arg)
 	data->deadline = timespec_add(&t, &data->deadline);
 
 	while (continue_running) {
+		int pn;
 		struct timespec t_start, t_end, t_diff, t_slack;
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d", data->ind, i);
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		run(data->ind, &data->min_et, &data->max_et, data->blockages,
-		    data->nblockages);
+		if (data->nphases == 0) {
+			run(data->ind, &data->min_et, &data->max_et,
+			    data->blockages, data->nblockages);
+		} else {
+			for (pn = 0; pn < data->nphases; pn++) {
+				if (opts.ftrace)
+					log_ftrace(ft_data.marker_fd,
+						   "[%d] phase %d start",
+						   data->ind, pn);
+				exec_phase(data, pn);
+				if (opts.ftrace)
+					log_ftrace(ft_data.marker_fd,
+						   "[%d] phase %d end",
+						   data->ind, pn);
+			}
+		}
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 		
 		t_diff = timespec_sub(&t_end, &t_start);
