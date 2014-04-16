@@ -74,6 +74,20 @@ typedef struct _rtapp_tasks_resource_list_t {
 	struct _rtapp_resource_access_list_t *acl;
 } rtapp_tasks_resource_list_t; 
 
+/* Task phases */
+typedef enum phase_t 
+{ 
+	RUN, 
+	SLEEP 
+} phase_t;
+
+typedef struct _rtapp_tasks_phase_list_t {
+	int index;
+	phase_t phase_type;
+	struct timespec usage;
+	void (*do_phase) (int ind, ...);
+} rtapp_tasks_phase_list_t; 
+
 typedef struct _thread_data_t {
 	int ind;
 	char *name;
@@ -95,6 +109,9 @@ typedef struct _thread_data_t {
 
 	rtapp_tasks_resource_list_t *blockages;
 	int nblockages;
+
+	rtapp_tasks_phase_list_t *phases;
+	int nphases;
 
 #ifdef AQUOSA
 	int fragment;
