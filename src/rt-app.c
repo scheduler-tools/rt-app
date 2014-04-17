@@ -425,13 +425,14 @@ void *thread_body(void *arg)
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d",
 				   data->ind, i);
-		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
-			log_critical("[%d] DEADLINE MISS !!!", data->ind);
+		//if (curr_timing->slack < 0 && opts.die_on_dmiss) {
+		if (curr_timing->slack < 0) {
+			//log_critical("[%d] DEADLINE MISS !!!", data->ind);
 			if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
 					   "[%d] DEADLINE MISS!!", data->ind);
-			shutdown(SIGTERM);
-			goto exit_miss;
+			//shutdown(SIGTERM);
+			//goto exit_miss;
 		}
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
