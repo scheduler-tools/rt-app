@@ -24,8 +24,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 static int errno;
 static volatile int continue_running;
+static struct timespec t_zero;
 unsigned int seed;
 static pthread_t *threads;
+static pthread_barrier_t threads_barrier;
 static int nthreads;
 rtapp_options_t opts;
 static ftrace_data_t ft_data = {
@@ -280,18 +282,6 @@ void *thread_body(void *arg)
 		}
 	}
 
-	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
-			 data->wait_before_start);
-		clock_gettime(CLOCK_MONOTONIC, &t);
-		t_next = msec_to_timespec(data->wait_before_start);
-		t_next = timespec_add(&t, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC, 
-				TIMER_ABSTIME, 
-				&t_next,
-				NULL);
-		log_notice("[%d] Starting...", data->ind);
-	}
 	/* if we know the duration we can calculate how many periods we will
 	 * do at most, and the log to memory, instead of logging to file.
 	 */
@@ -305,7 +295,7 @@ void *thread_body(void *arg)
 	}
 
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
-				   "\t\tend\t\tdeadline\tdur.\tslack"
+				   "\t\tend\t\tdeadline\tdur.\tslack\tresp_t"
 				   "\tBudget\tUsed Budget\n");
 
 #ifdef DLSCHED
@@ -334,15 +324,44 @@ void *thread_body(void *arg)
 	}
 #endif
 
+	if (data->ind == 0) {
+		clock_gettime(CLOCK_MONOTONIC, &t_zero);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] sets zero time",
+				   data->ind);
+	}
+	
+	pthread_barrier_wait(&threads_barrier);
+	t_next = t_zero;
+
+	if (data->wait_before_start > 0) {
+		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
+			 data->wait_before_start);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] Waiting %ld usecs... ",
+				   data->ind, data->wait_before_start);
+		clock_gettime(CLOCK_MONOTONIC, &t);
+		t_next = msec_to_timespec(data->wait_before_start);
+		t_next = timespec_add(&t, &t_next);
+		clock_nanosleep(CLOCK_MONOTONIC, 
+				TIMER_ABSTIME, 
+				&t_next,
+				NULL);
+		log_notice("[%d] Starting...", data->ind);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd, 
+				   "[%d] Starting...", data->ind);
+	}
+	data->deadline = timespec_add(&t_next, &data->deadline);
+
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	t_next = t;
-	data->deadline = timespec_add(&t, &data->deadline);
 
 	while (continue_running) {
 		int pn;
-		struct timespec t_start, t_end, t_diff, t_slack;
+		struct timespec t_start, t_end, t_diff, t_slack, t_resp;
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d", data->ind, i);
@@ -367,6 +386,7 @@ void *thread_body(void *arg)
 		
 		t_diff = timespec_sub(&t_end, &t_start);
 		t_slack = timespec_sub(&data->deadline, &t_end);
+		t_resp = timespec_sub(&t_end, &t_next);
 
 		t_start_usec = timespec_to_usec(&t_start); 
 		if (timings)
@@ -384,6 +404,7 @@ void *thread_body(void *arg)
 		curr_timing->deadline = timespec_to_usec(&data->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
+		curr_timing->resp_time =  timespec_to_usec(&t_resp);
 #ifdef AQUOSA
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
@@ -472,7 +493,7 @@ exit_miss:
 
 int main(int argc, char* argv[])
 {
-	struct timespec t_curr, t_next, t_start;
+	struct timespec t_start;
 	FILE *gnuplot_script = NULL;
 	int i, res;
 	thread_data_t *tdata;
@@ -482,6 +503,7 @@ int main(int argc, char* argv[])
 
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
+	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 	
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
