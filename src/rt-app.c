@@ -298,32 +298,6 @@ void *thread_body(void *arg)
 				   "\t\tend\t\tdeadline\tdur.\tslack\tresp_t"
 				   "\tBudget\tUsed Budget\n");
 
-#ifdef DLSCHED
-	/*
-	 * Set the task to SCHED_DEADLINE as far as possible touching its
-	 * budget as little as possible for the first iteration.
-	 */
-	if (data->sched_policy == SCHED_DEADLINE) {
-		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-		       "deadline: %lu, priority: %d",
-		       	data->ind,
-			attr.sched_period / 1000, 
-			attr.sched_runtime / 1000,
-			attr.sched_deadline / 1000,
-			attr.sched_priority
-		);
-
-		ret = sched_setattr(tid, &attr, flags);
-		if (ret != 0) {
-			log_critical("[%d] sched_setattr "
-				     "returned %d", data->ind, ret);
-			errno = ret;
-			perror("sched_setattr");
-			exit(EXIT_FAILURE);
-		}
-	}
-#endif
-
 	if (data->ind == 0) {
 		clock_gettime(CLOCK_MONOTONIC, &t_zero);
 		if (opts.ftrace)
@@ -355,6 +329,32 @@ void *thread_body(void *arg)
 				   "[%d] Starting...", data->ind);
 	}
 	data->deadline = timespec_add(&t_next, &data->deadline);
+
+#ifdef DLSCHED
+	/*
+	 * Set the task to SCHED_DEADLINE as far as possible touching its
+	 * budget as little as possible for the first iteration.
+	 */
+	if (data->sched_policy == SCHED_DEADLINE) {
+		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
+		       "deadline: %lu, priority: %d",
+		       	data->ind,
+			attr.sched_period / 1000, 
+			attr.sched_runtime / 1000,
+			attr.sched_deadline / 1000,
+			attr.sched_priority
+		);
+
+		ret = sched_setattr(tid, &attr, flags);
+		if (ret != 0) {
+			log_critical("[%d] sched_setattr "
+				     "returned %d", data->ind, ret);
+			errno = ret;
+			perror("sched_setattr");
+			exit(EXIT_FAILURE);
+		}
+	}
+#endif
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -471,7 +471,8 @@ exit_miss:
 	}
 
 	if (timings)
-		for (j=0; j < i; j++)
+		//discard first second
+		for (j=10; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
 	
 	if (opts.ftrace)
