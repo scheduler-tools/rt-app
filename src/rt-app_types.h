@@ -166,6 +166,7 @@ typedef struct _timing_point_t {
 	unsigned long end_time;
 	unsigned long deadline;
 	unsigned long duration;
+	unsigned long resp_time;
 	long slack;
 #ifdef AQUOSA
 	qres_time_t budget;

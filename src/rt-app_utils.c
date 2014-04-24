@@ -120,7 +120,7 @@ void
 log_timing(FILE *handler, timing_point_t *t)
 {
 	fprintf(handler, 
-		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld",
+		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld\t%lu",
 		t->ind,
 		t->period,
 		t->min_et,
@@ -130,7 +130,8 @@ log_timing(FILE *handler, timing_point_t *t)
 		t->end_time,
 		t->deadline,
 		t->duration,
-		t->slack
+		t->slack,
+		t->resp_time
 	);
 #ifdef AQUOSA
 	fprintf(handler,
