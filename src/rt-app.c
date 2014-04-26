@@ -471,8 +471,7 @@ exit_miss:
 	}
 
 	if (timings)
-		//discard first second
-		for (j=10; j < i; j++)
+		for (j=0; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
 	
 	if (opts.ftrace)
