@@ -307,29 +307,6 @@ void *thread_body(void *arg)
 	}
 	
 	pthread_barrier_wait(&threads_barrier);
-	t_next = t_zero;
-
-	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
-			 data->wait_before_start);
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd,
-				   "[%d] Waiting %ld usecs... ",
-				   data->ind, data->wait_before_start);
-		//clock_gettime(CLOCK_MONOTONIC, &t);
-		t = t_zero;
-		t_next = msec_to_timespec(data->wait_before_start);
-		t_next = timespec_add(&t, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC, 
-				TIMER_ABSTIME, 
-				&t_next,
-				NULL);
-		log_notice("[%d] Starting...", data->ind);
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, 
-				   "[%d] Starting...", data->ind);
-	}
-	data->deadline = timespec_add(&t_next, &data->deadline);
 
 #ifdef DLSCHED
 	/*
@@ -356,6 +333,42 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
+	t_next = t_zero;
+
+	if (data->wait_before_start > 0) {
+		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
+			 data->wait_before_start);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] Waiting %ld usecs... ",
+				   data->ind, data->wait_before_start);
+		//clock_gettime(CLOCK_MONOTONIC, &t);
+		t = t_next;
+		t_next = msec_to_timespec(data->wait_before_start);
+		t_next = timespec_add(&t, &t_next);
+		//clock_nanosleep(CLOCK_MONOTONIC, 
+		//		TIMER_ABSTIME, 
+		//		&t_next,
+		//		NULL);
+		log_notice("[%d] Starting...", data->ind);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd, 
+				   "[%d] Starting...", data->ind);
+	}
+
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd,
+			   "[%d] Waiting 1 sec more... ",
+			   data->ind);
+	t = t_next;
+	t_next = msec_to_timespec(1000LL);
+	t_next = timespec_add(&t, &t_next);
+	clock_nanosleep(CLOCK_MONOTONIC, 
+			TIMER_ABSTIME, 
+			&t_next,
+			NULL);
+
+	data->deadline = timespec_add(&t_next, &data->deadline);
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
