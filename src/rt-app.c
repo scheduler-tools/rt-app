@@ -316,7 +316,8 @@ void *thread_body(void *arg)
 			log_ftrace(ft_data.marker_fd,
 				   "[%d] Waiting %ld usecs... ",
 				   data->ind, data->wait_before_start);
-		clock_gettime(CLOCK_MONOTONIC, &t);
+		//clock_gettime(CLOCK_MONOTONIC, &t);
+		t = t_zero;
 		t_next = msec_to_timespec(data->wait_before_start);
 		t_next = timespec_add(&t, &t_next);
 		clock_nanosleep(CLOCK_MONOTONIC, 
