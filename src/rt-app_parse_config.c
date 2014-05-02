@@ -373,6 +373,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
 	long exec, period, period_jitter, dline;
+	unsigned exec_jitter;
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
 	struct array_list *cpuset;
@@ -417,6 +418,15 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	}
 	data->min_et = usec_to_timespec(exec);
 	data->max_et = usec_to_timespec(exec);
+
+	/* exec jitter */
+	exec_jitter = get_int_value_from(obj, "exec jitter", TRUE, 0);
+	if (exec_jitter > 100) {
+		log_critical(PIN2 "Cannot set an exec jitter bigger than 100%% of original exec time");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->exec_jitter = exec_jitter;
+
 
 	/* policy */
 	policy_to_string(opts->policy, def_policy);

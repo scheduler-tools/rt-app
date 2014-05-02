@@ -97,6 +97,7 @@ typedef struct _thread_data_t {
 	char *cpuset_str;
 	unsigned long wait_before_start;
 	unsigned long period_jitter;
+	unsigned exec_jitter;
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
 	struct timespec main_app_start;
