@@ -36,9 +36,12 @@ static ftrace_data_t ft_data = {
 	.marker_fd = -1,
 };
 
-static inline unsigned int max_run(int min, int max)
+static inline unsigned long rand_exec(unsigned long exec, unsigned long pexec)
 {
-        return min + (((double) rand()) / RAND_MAX) * (max - min);
+	unsigned long min = exec - pexec;
+	unsigned long max = exec + pexec;
+
+        return min + (((double) rand_r(&seed)) / RAND_MAX) * (max - min);
 }
 
 static inline busywait(struct timespec *to)
@@ -54,19 +57,15 @@ static inline busywait(struct timespec *to)
 void run(int ind, ...)
 {
 	int i;
-	int nblockages;
-	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
-	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
-	struct timespec *min, *max;
+	int exec_jitter, nblockages;
 	struct timespec t_start, now, t_exec, t_totexec;
 	rtapp_resource_access_list_t *lock, *last;
 	rtapp_tasks_resource_list_t *blockages;
 	va_list argp;
 
 	va_start(argp, ind);
-	min = va_arg(argp, struct timespec*);
-	max = va_arg(argp, struct timespec*);
-	t_totexec = *max;
+	t_totexec = *va_arg(argp, struct timespec*);
+	exec_jitter = va_arg(argp, int);
 	blockages = va_arg(argp, rtapp_tasks_resource_list_t*);
 	nblockages = va_arg(argp, int);
 	va_end(argp);
@@ -106,6 +105,20 @@ void run(int ind, ...)
 			lock = lock->prev;
 		}
 	}
+
+	if (exec_jitter) {
+		unsigned long p_exec, rand_jitter, exec;
+
+		exec = timespec_to_usec(&t_totexec);
+		p_exec = (exec / 100) * exec_jitter;
+		exec = rand_exec(exec, p_exec);
+
+		t_totexec = usec_to_timespec(exec);
+	}
+
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd, "[%d] busywait for %d",
+			   ind, timespec_to_usec(&t_totexec));
 
 	/* compute finish time for CPUTIME_ID clock */
 	t_exec = timespec_add(&t_start, &t_totexec);

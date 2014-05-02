@@ -1,0 +1,26 @@
+{
+	"resources" : 0,
+	"tasks" : {
+		"thread1" : { 
+		       "exec" : 30000, 
+		       "exec jitter" : 5, 
+		       "period" : 100000,
+		       "hard_rsv" : false, 
+		       "cpus" : [1],
+		       "phases" : {
+			   "r0" : { "duration" : 2500 },
+			   "s0" : { "duration" : 5000 },
+			   "r1" : { "duration" : 5000 }
+		       }
+		}
+	},
+	"global" : {
+		"default_policy" : "SCHED_DEADLINE",
+		"duration" : 5,
+		"logdir" : "/tmp/",
+		"log_basename" : "rt-app",
+		"lock_pages" : true,
+		"frag" : 1,
+		"ftrace" : true
+	}
+}

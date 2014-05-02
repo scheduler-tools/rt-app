@@ -138,7 +138,7 @@ sleep_for (int ind, ...);
 #define exec_phase(data, pn)						\
 do {									\
     data->phases[pn].do_phase(data->ind, &data->phases[pn].usage,	\
-			      &data->phases[pn].usage, NULL, 0);	\
+			      data->exec_jitter, NULL, 0);		\
 } while (0);
 
 
