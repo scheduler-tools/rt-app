@@ -78,7 +78,8 @@ typedef struct _rtapp_tasks_resource_list_t {
 typedef enum phase_t 
 { 
 	RUN, 
-	SLEEP 
+	SLEEP,
+	COMPUTE
 } phase_t;
 
 typedef struct _rtapp_tasks_phase_list_t {

@@ -135,6 +135,9 @@ run (int ind, ...);
 void
 sleep_for (int ind, ...);
 
+void
+compute (int ind, ...);
+
 #define exec_phase(data, pn)						\
 do {									\
     data->phases[pn].do_phase(data->ind, &data->phases[pn].usage,	\

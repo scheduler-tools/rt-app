@@ -352,12 +352,19 @@ parse_thread_phases(const rtapp_options_t *opts,
 		string_to_phase(key, &ph);
 		data->phases[idx].phase_type = ph;
 
-		if (ph == RUN) {
+		switch (ph) {
+		case RUN:
 			log_info(PIN "key: type %d (RUN)", ph);
 			data->phases[idx].do_phase = run;
-		} else {
+			break;
+		case SLEEP:
 			log_info(PIN "key: type %d (SLEEP)", ph);
 			data->phases[idx].do_phase = sleep_for;
+			break;
+		case COMPUTE:
+			log_info(PIN "key: type %d (COMPUTE)", ph);
+			data->phases[idx].do_phase = compute;
+			break;
 		}
 
 		phase = get_in_object(task_phases, key, FALSE);

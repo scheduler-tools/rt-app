@@ -158,6 +158,8 @@ string_to_phase(const char *phase_name, phase_t *phase)
 		*phase = RUN;
 	else if (strncmp(phase_name, "s", 1) == 0)
 		*phase =  SLEEP;
+	else if (strncmp(phase_name, "c", 1) == 0)
+		*phase =  COMPUTE;
 	else
 		return 1;
 	return 0;

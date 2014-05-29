@@ -139,6 +139,31 @@ void sleep_for (int ind, ...)
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_now, NULL);
 }
 
+void compute (int ind, ...)
+{
+	unsigned int loops, i, counter = 0;
+	struct timespec *t_spec;
+	va_list argp;
+
+	va_start(argp, ind);
+	t_spec = va_arg(argp, struct timespec*);
+	va_end(argp);
+
+	loops = timespec_to_usec(t_spec);
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd,
+		   "[%d] will do %u loops",
+		   ind, loops);
+
+	for (i = 0; i < loops; i++)
+		counter = (++counter) * i;
+
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd,
+		   "[%d] counter = %u",
+		   ind, counter);
+}
+
 static void
 shutdown(int sig)
 {
