@@ -507,7 +507,7 @@ void *thread_body(void *arg)
 			//shutdown(SIGTERM);
 			//goto exit_miss;
 		}
-		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
+		//clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 		i++;
 	}
 
