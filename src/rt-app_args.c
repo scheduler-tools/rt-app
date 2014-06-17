@@ -26,9 +26,9 @@ usage (const char* msg, int ex_code)
 #ifdef JSON
 	printf("usage:\n"
 	       "rt-app <taskset.json>\nOR\n");
-#endif	       
+#endif
 	printf("rt-app [options] -t <period>:<exec>[:policy"
-		"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
+			"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
 	printf("-h, --help\t\t:\tshow this help\n");
 	printf("-f, --fifo\t\t:\tset default policy for threads to SCHED_FIFO\n");
 	printf("-r, --rr\t\t:\tset default policy fior threads to SCHED_RR\n");
@@ -41,7 +41,7 @@ usage (const char* msg, int ex_code)
 	printf("-T, --ftrace\t\t:\tenable ftrace prints\n");
 	printf("-P, --pi_enabled\t:\tenable priority inheritance on resources\n");
 	printf("-M, --die_on_dmiss\t:\texit with an error if a task misses a deadline\n");
-	
+
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
 	printf("-g, --frag\t:\tfragment for the reservation\n\n");
@@ -81,8 +81,9 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 	token = strtok(str, ":");
 	tdata->name = malloc(sizeof(char) * 5);
 	tdata->ind = idx;
+
 	/* default name for command line threads */
-	snprintf(tdata->name, 1, "t%d", tdata->ind); 
+	snprintf(tdata->name, 1, "t%d", tdata->ind);
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
 	tdata->sched_policy = def_policy;
 	tdata->cpuset = NULL;
@@ -105,10 +106,10 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			//TODO: add support for max_et somehow
 			if (exec > period)
 				usage("Exec time cannot be greater than"
-				      " period.", EXIT_INV_COMMANDLINE);
+						" period.", EXIT_INV_COMMANDLINE);
 			if (exec <= 0 )
 				usage("Cannot set negative exec time",
-				      EXIT_INV_COMMANDLINE);
+						EXIT_INV_COMMANDLINE);
 			tdata->min_et = usec_to_timespec(exec);
 			tdata->max_et = usec_to_timespec(exec);
 			i++;
@@ -118,7 +119,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 #ifdef AQUOSA
 			if (strcmp(token,"q") == 0)
 				tdata->sched_policy = aquosa;
-			else 
+			else
 #endif
 #ifdef DLSCHED
 			if (strcmp(token,"d") == 0)
@@ -132,13 +133,13 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			else if (strcmp(token,"o") == 0)
 				tdata->sched_policy = other;
 			else {
-				snprintf(tmp, 256, 
+				snprintf(tmp, 256,
 					"Invalid scheduling policy %s in %s",
 					token, arg);
 				usage(tmp, EXIT_INV_COMMANDLINE);
 			}
-			policy_to_string(tdata->sched_policy, 
-					 tdata->sched_policy_descr);	
+			policy_to_string(tdata->sched_policy,
+					 tdata->sched_policy_descr);
 
 			i++;
 			break;
@@ -173,6 +174,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 		}
 		token = strtok(NULL, ":");
 	}
+
 	if ( i < 2 ) {
 		printf("Period and exec time are mandatory\n");
 		exit(EXIT_INV_COMMANDLINE);
@@ -180,7 +182,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 
 	if (dline == 0)
 		tdata->deadline = tdata->period;
-	
+
 	/* set cpu affinity mask */
 	if (tdata->cpuset_str)
 	{
@@ -192,9 +194,9 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			strtok(NULL, ",");
 			i++;
 		}
-	} else 
+	} else
 		tdata->cpuset_str = strdup("-");
-	
+
 	free(str);
 }
 
@@ -224,30 +226,32 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 #ifdef AQUOSA
 	opts->fragment = 1;
 #endif
+
 	static struct option long_options[] = {
-	                   {"help", 0, 0, 'h'},
-			   {"fifo", 0, 0, 'f'},
-			   {"rr", 0, 0, 'r'},
-			   {"thread", 1, 0, 't'},
-			   {"spacing", 1, 0, 's'},
-			   {"logdir", 1, 0, 'l'},
-	                   {"baselog", 1, 0, 'b'},
-			   {"gnuplot", 1, 0, 'G'},
-			   {"duration", 1, 0, 'D'},
-			   {"ftrace", 0, 0, 'T'},
-			   {"pi_enabled", 0, 0, 'T'},
-			   {"die_on_dmiss", 0, 0, 'M'},
+				{"help", 0, 0, 'h'},
+				{"fifo", 0, 0, 'f'},
+				{"rr", 0, 0, 'r'},
+				{"thread", 1, 0, 't'},
+				{"spacing", 1, 0, 's'},
+				{"logdir", 1, 0, 'l'},
+				{"baselog", 1, 0, 'b'},
+				{"gnuplot", 1, 0, 'G'},
+				{"duration", 1, 0, 'D'},
+				{"ftrace", 0, 0, 'T'},
+				{"pi_enabled", 0, 0, 'T'},
+				{"die_on_dmiss", 0, 0, 'M'},
 #ifdef AQUOSA
-			   {"qos", 0, 0, 'q'},
-			   {"frag",1, 0, 'g'},
+				{"qos", 0, 0, 'q'},
+				{"frag",1, 0, 'g'},
 #endif
-	                   {0, 0, 0, 0}
-	               };
+				{0, 0, 0, 0}
+	};
+
 #ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM",
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM",
 				  long_options, &longopt_idx)) != -1)
 #endif
 	{
@@ -259,17 +263,17 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 'f':
 				if (opts->policy != other)
 					usage("Cannot set multiple policies",
-					      EXIT_INV_COMMANDLINE);
+							EXIT_INV_COMMANDLINE);
 				opts->policy = fifo;
 				break;
 			case 'r':
 				if (opts->policy != other)
 					usage("Cannot set multiple policies",
-					      EXIT_INV_COMMANDLINE);
+							EXIT_INV_COMMANDLINE);
 				opts->policy = rr;
 				break;
 			case 'b':
-				if (!opts->logdir)	
+				if (!opts->logdir)
 					opts->logdir = strdup(".");
 				opts->logbasename = strdup(optarg);
 				break;
@@ -277,26 +281,26 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				opts->spacing  = strtol(optarg, NULL, 0);
 				if (opts->spacing < 0)
 					usage("Cannot set negative spacing",
-					      EXIT_INV_COMMANDLINE);
+						      EXIT_INV_COMMANDLINE);
 				break;
 			case 'l':
-				opts->logdir = strdup(optarg);	
+				opts->logdir = strdup(optarg);
 				lstat(opts->logdir, &dirstat);
 				if (! S_ISDIR(dirstat.st_mode))
 					usage("Cannot stat log directory",
-					      EXIT_INV_COMMANDLINE);
+						      EXIT_INV_COMMANDLINE);
 				break;
 			case 't':
 				if (opts->nthreads > 0)
 				{
 					opts->threads_data = realloc(
-						opts->threads_data, 
-						(opts->nthreads+1) * \
+							opts->threads_data,
+							(opts->nthreads+1) * \
 							sizeof(thread_data_t));
 				}
 				parse_thread_args(optarg, opts->nthreads,
-					&opts->threads_data[opts->nthreads],
-					opts->policy);
+						&opts->threads_data[opts->nthreads],
+						opts->policy);
 				opts->nthreads++;
 				break;
 			case 'G':
@@ -306,7 +310,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				opts->duration = strtol(optarg, NULL, 10);
 				if (opts->duration < 0)
 					usage("Cannot set negative duration",
-					      EXIT_INV_COMMANDLINE);
+							EXIT_INV_COMMANDLINE);
 				break;
 			case 'K':
 				opts->lock_pages = 0;
@@ -320,49 +324,50 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 'M':
 				opts->die_on_dmiss = 1;
 				break;
-#ifdef AQUOSA				
+#ifdef AQUOSA
 			case 'q':
 				if (opts->policy != other)
 					usage("Cannot set multiple policies",
-					      EXIT_INV_COMMANDLINE);
+							EXIT_INV_COMMANDLINE);
 				opts->policy = aquosa;
 				break;
 			case 'g':
 				opts->fragment = strtol(optarg, NULL, 10);
 				if (opts->fragment < 1 || opts->fragment > 16)
 					usage("Fragment divisor must be between"
-					      "1 and 16", EXIT_INV_COMMANDLINE);
+							"1 and 16", EXIT_INV_COMMANDLINE);
 				break;
 #endif
 			default:
 				log_error("Invalid option %c", ch);
 				usage(NULL, EXIT_INV_COMMANDLINE);
-
 		}
-
 	}
+
 	if ( opts->nthreads < 1)
 		usage("You have to set parameters for at least one thread",
-		      EXIT_INV_COMMANDLINE);
-	
+				EXIT_INV_COMMANDLINE);
+
 }
 
 void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 {
 #ifdef JSON
+	struct stat config_file_stat;
+
 	if (argc < 2)
 		usage(NULL, EXIT_SUCCESS);
-	struct stat config_file_stat;
+
 	if (stat(argv[1], &config_file_stat) == 0) {
 		parse_config(argv[1], opts);
 		return;
-	}
-	else if (strcmp(argv[1], "-") == 0) {
+	} else if (strcmp(argv[1], "-") == 0) {
 		parse_config_stdin(opts);
 		return;
-	} 
+	}
 #endif
+
 	parse_command_line_options(argc, argv, opts);
 	opts->resources = NULL;
 	opts->nresources = 0;

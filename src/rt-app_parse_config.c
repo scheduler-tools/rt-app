@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/ 
+*/
 
 #include "rt-app_parse_config.h"
 
@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 		 }							\
 		);							\
 		({ entry = entry->next; idx++; })			\
-	    )								
+	    )
 /* this macro set a default if key not present, or give an error and exit
  * if key is present but does not have a default */
 #define set_default_if_needed(key, value, have_def, def_value) do {	\
@@ -50,10 +50,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 			exit(EXIT_INV_CONFIG);				\
 		}							\
 	}								\
-} while(0)	
+} while(0)
 
-/* same as before, but for string, for which we need to strdup in the 
- * default value so it can be a literal */ 
+/* same as before, but for string, for which we need to strdup in the
+ * default value so it can be a literal */
 #define set_default_if_needed_str(key, value, have_def, def_value) do {	\
 	if (!value) {							\
 		if (have_def) {						\
@@ -87,17 +87,17 @@ assure_type_is(struct json_object *obj,
 	}
 }
 
-/* search a key (what) in object "where", and return a pointer to its 
+/* search a key (what) in object "where", and return a pointer to its
  * associated object. If nullable is false, exit if key is not found */
-static inline struct json_object* 
-get_in_object(struct json_object *where, 
+static inline struct json_object*
+get_in_object(struct json_object *where,
 	      const char *what,
 	      int nullable)
 {
-	struct json_object *to;	
+	struct json_object *to;
 	to = json_object_object_get(where, what);
 	if (!nullable && is_error(to)) {
-		log_critical(PFX "Error while parsing config:\n" PFL 
+		log_critical(PFX "Error while parsing config:\n" PFL
 			  "%s", json_tokener_errors[-(unsigned long)to]);
 		exit(EXIT_INV_CONFIG);
 	}
@@ -184,7 +184,7 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	opts->nresources = res;
 }
 
-static void 
+static void
 serialize_acl(rtapp_resource_access_list_t **acl,
 	      int idx,
 	      struct json_object *task_resources,
@@ -192,7 +192,7 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 {
 	int i, next_idx, found;
 	struct json_object *access, *res, *next_res;
-	rtapp_resource_access_list_t *tmp; 
+	rtapp_resource_access_list_t *tmp;
 	char s_idx[5];
 
 	/* as keys are string in the json, we need a string for searching
@@ -246,7 +246,6 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		/* recurse on the rest of resources */
 		serialize_acl(&(*acl), next_idx, task_resources, resources);
 	}
-	
 }
 
 static void
@@ -255,16 +254,17 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 {
 	int i,j, cur_res_idx, usage_usec;
 	struct json_object *res;
-	int res_dur;	
+	int res_dur;
 	char res_name[4];
 
 	rtapp_resource_access_list_t *tmp, *head, *last;
 	char debug_msg[512], tmpmsg[512];
 
-	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
-				 json_object_array_length(locks));
 	data->nblockages = json_object_array_length(locks);
-	for (i = 0; i< json_object_array_length(locks); i++)
+	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
+			data->nblockages);
+
+	for (i = 0; i< data->nblockages; i++)
 	{
 		res = json_object_array_get_idx(locks, i);
 		if (!json_object_is_type(res, json_type_int)){
@@ -275,17 +275,18 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 
 		data->blockages[i].usage = usec_to_timespec(0);
 		data->blockages[i].acl = NULL;
-		serialize_acl(&data->blockages[i].acl, cur_res_idx, 
+		serialize_acl(&data->blockages[i].acl, cur_res_idx,
 				task_resources, opts->resources);
 
 		/* since the "current" resource is returned as the first
 		 * element in the list, we move it to the back  */
 		tmp = data->blockages[i].acl;
 		head = data->blockages[i].acl;
-		do {	
+		do {
 			last = tmp;
 			tmp = tmp->next;
 		} while (tmp != NULL);
+
 		/* move first element to list end */
 		if (last != head) {
 			data->blockages[i].acl = head->next;
@@ -312,18 +313,18 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			usage_usec = 0;
 			data->blockages[i].usage = usec_to_timespec(0);
 		} else {
-			assure_type_is(res, task_resources, res_name, 
+			assure_type_is(res, task_resources, res_name,
 					json_type_object);
 			usage_usec = get_int_value_from(res, "duration", TRUE, 0);
 			data->blockages[i].usage = usec_to_timespec(usage_usec);
 		}
-		log_info(PIN "res %d, usage: %d acl: %s", cur_res_idx, 
-			  usage_usec, debug_msg);
+		log_info(PIN "res %d, usage: %d acl: %s", cur_res_idx,
+				usage_usec, debug_msg);
 	}
 }
 
 static void
-parse_thread_data(char *name, struct json_object *obj, int idx, 
+parse_thread_data(char *name, struct json_object *obj, int idx,
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
 	long exec, period, dline;
@@ -363,6 +364,18 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->min_et = usec_to_timespec(exec);
 	data->max_et = usec_to_timespec(exec);
 
+	/* deadline */
+	dline = get_int_value_from(obj, "deadline", TRUE, period);
+	if (dline < exec) {
+		log_critical(PIN2 "Deadline cannot be less than exec time");
+		exit(EXIT_INV_CONFIG);
+	}
+	if (dline > period) {
+		log_critical(PIN2 "Deadline cannot be greater than period");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->deadline = usec_to_timespec(dline);
+
 	/* policy */
 	policy_to_string(opts->policy, def_policy);
 	policy = get_string_value_from(obj, "policy", TRUE, def_policy);
@@ -375,21 +388,9 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	policy_to_string(data->sched_policy, data->sched_policy_descr);
 
 	/* priority */
-	data->sched_prio = get_int_value_from(obj, "priority", TRUE, 
-					      DEFAULT_THREAD_PRIORITY);
-	
-	/* deadline */
-	dline = get_int_value_from(obj, "deadline", TRUE, period);
-	if (dline < exec) {
-		log_critical(PIN2 "Deadline cannot be less than exec time");
-		exit(EXIT_INV_CONFIG);
-	}
-	if (dline > period) {
-		log_critical(PIN2 "Deadline cannot be greater than period");
-		exit(EXIT_INV_CONFIG);
-	}
-	data->deadline = usec_to_timespec(dline);
-	
+	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
+			DEFAULT_THREAD_PRIORITY);
+
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
 	if (cpuset_obj) {
@@ -417,7 +418,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		assure_type_is(locks, obj, "lock_order", json_type_array);
 		log_info(PIN "key: lock_order %s", json_object_to_json_string(locks));
 		if (resources) {
-			assure_type_is(resources, obj, "resources", 
+			assure_type_is(resources, obj, "resources",
 					json_type_object);
 			log_info(PIN "key: resources %s",
 				  json_object_to_json_string(resources));
@@ -453,7 +454,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->spacing = get_int_value_from(global, "spacing", TRUE, 0);
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
 	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
-	policy = get_string_value_from(global, "default_policy", 
+	policy = get_string_value_from(global, "default_policy",
 				       TRUE, "SCHED_OTHER");
 	if (string_to_policy(policy, &opts->policy) != 0) {
 		log_critical(PFX "Invalid policy %s", policy);
@@ -461,14 +462,14 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	}
 	opts->logdir = get_string_value_from(global, "logdir", TRUE, NULL);
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
-	opts->logbasename = get_string_value_from(global, "log_basename", 
+	opts->logbasename = get_string_value_from(global, "log_basename",
 						  TRUE, "rt-app");
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
 #ifdef AQUOSA
 	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
 #endif
-	
+
 }
 
 static void
@@ -483,27 +484,29 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	}
 	log_info(PFX "Successfully parsed input JSON");
 	log_info(PFX "root     : %s", json_object_to_json_string(root));
-	
+
 	global = get_in_object(root, "global", FALSE);
 	log_info(PFX "global   : %s", json_object_to_json_string(global));
-	
+
 	tasks = get_in_object(root, "tasks", FALSE);
 	log_info(PFX "tasks    : %s", json_object_to_json_string(tasks));
-	
+
 	resources = get_in_object(root, "resources", FALSE);
 	log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
 	parse_global(global, opts);
 	parse_resources(resources, opts);
 	parse_tasks(tasks, opts);
-	
+
 }
 
 void
 parse_config_stdin(rtapp_options_t *opts)
 {
-	/* read from stdin until EOF, write to temp file and parse
-	 * as a "normal" config file */
+	/*
+	 * Read from stdin until EOF, write to temp file and parse
+	 * as a "normal" config file
+	 */
 	size_t in_length;
 	char buf[JSON_FILE_BUF_SIZE];
 	struct json_object *js;

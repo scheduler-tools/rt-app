@@ -43,13 +43,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define EXIT_INV_CONFIG 2
 #define EXIT_INV_COMMANDLINE 3
 
-typedef enum policy_t 
-{ 
-	other = SCHED_OTHER, 
-	rr = SCHED_RR, 
+typedef enum policy_t
+{
+	other = SCHED_OTHER,
+	rr = SCHED_RR,
 	fifo = SCHED_FIFO
 #ifdef AQUOSA
-	, aquosa = 1000 
+	, aquosa = 1000
 #endif
 #ifdef DLSCHED
 	, deadline = SCHED_DEADLINE
@@ -72,7 +72,7 @@ typedef struct _rtapp_resource_access_list_t {
 typedef struct _rtapp_tasks_resource_list_t {
 	struct timespec usage;
 	struct _rtapp_resource_access_list_t *acl;
-} rtapp_tasks_resource_list_t; 
+} rtapp_tasks_resource_list_t;
 
 typedef struct _thread_data_t {
 	int ind;
@@ -85,7 +85,7 @@ typedef struct _thread_data_t {
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
 	struct timespec main_app_start;
-    
+
 	FILE *log_handler;
 	policy_t sched_policy;
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
@@ -113,18 +113,18 @@ typedef struct _ftrace_data_t {
 
 typedef struct _rtapp_options_t {
 	int lock_pages;
-	
+
 	thread_data_t *threads_data;
 	int nthreads;
-	
+
 	policy_t policy;
 	int duration;
 	unsigned long spacing;
-	
+
 	char *logdir;
 	char *logbasename;
 	int gnuplot;
-	
+
 	rtapp_resource_t *resources;
 	int nresources;
 	int pi_enabled;
