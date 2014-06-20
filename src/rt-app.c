@@ -297,8 +297,8 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
-		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-			   "deadline: %lu, priority: %d",
+		log_notice("[%d] starting thread with period: %llu, exec: %llu,"
+			   "deadline: %llu, priority: %d",
 			   data->ind,
 			   attr.sched_period / 1000,
 			   attr.sched_runtime / 1000,
