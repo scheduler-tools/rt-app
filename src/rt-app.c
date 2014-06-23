@@ -95,6 +95,11 @@ void run(int ind, struct timespec *min, struct timespec *max,
 
 	/* Compute finish time for CPUTIME_ID clock */
 	t_exec = timespec_add(&t_start, &t_totexec);
+	log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&t_exec));
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd,
+				"[%d] busywait for %lu",
+				ind, timespec_to_usec(&t_exec));
 	busywait(&t_exec);
 }
 
