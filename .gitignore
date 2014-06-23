@@ -5,6 +5,12 @@ Makefile
 Makefile.in
 README
 aclocal.m4
+*.txt
+*.swp
+*.patch
+cscope.out
+ID
+TAGS.LST
 autom4te.cache/
 build-aux/
 config.log
@@ -24,5 +30,7 @@ src/config.h
 src/config.h.in
 src/rt-app
 src/*.o
+src/*.txt
+src/*.swp
 src/stamp-h1
 
