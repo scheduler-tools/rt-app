@@ -1,61 +1,59 @@
 {
-	"resources" : 4, 
+	/*"resources" : 4,*/
+	"resources" : {
+		"m0" : { "type" : "mutex" },
+		"sync_mutex" : { "type" : "mutex" },
+		"wait" : { "type" : "wait" },
+		"trig" : { "type" : "signal", "target" : "wait" },
+		"m1" : { "type" : "mutex" },
+		"wake" : { "type" : "wait" },
+		"broad" : { "type" : "broadcast", "target" : "wake"  },
+	},
 	"tasks" : {
 		"thread0" : { 
-		       "exec" : 1000, 
-		       "period" : 10000, 
-		       "deadline" : 8000, 
-		       "cpus" : [0,1], 
-		       "policy" : "SCHED_FIFO", 
-		       "lock_order" : [0],
+		       "exec" : 5000, 
+		       "period" : 5000, 
+		       "deadline" : 5000, 
+		       "lock_order" : ["wait", "m0", "broad"],
 		       "resources" : {
-			   "0" : { "duration" : 1000 }
+			   "m0" : { "duration" : 1000 },
+			   "wait" : { "duration" : 0, "access": ["sync_mutex"] },
+			   "broad" : { "duration" : 0, "access": ["m1"] }
 		       }
 		},
 		"thread1" : { 
-		       "exec" : 50000, 
-		       "period" : 100000, 
-		       "cpus" : [1], 
-		       "policy" : "SCHED_FIFO",
-		       "priority": 20,
-        /*
-         * Resources are acquired in "lock_order" order;
-         * the dependecy chain for nested locks is built through "access";
-         * the innermost lock is held for "duration" msec.
-         *
-         * In the case below:
-         *
-         * L(2)
-         *  |
-         *  -> L(1)                                   L(1)
-         *      |                                      |
-         *      -> L(3)                                -> L(3)
-         *          |                                      |
-         *          -> L(0)                L(3)            -> L(2)
-         *              |                   |                  |
-         *          busy_wait(1000) --- busy_wait(500) --- busy_wait(200)
-         *              |                   |                  |
-         *             U(0)                U(3)               U(2)
-         *              |                                      |
-         *         U(3)<-                                 U(3)<-
-         *          |                                      |
-         *     U(1)<-                                 U(1)<-
-         *      |
-         * U(2)<-
-         */
-		       "lock_order" : [ 0, 3, 2 ],
-		       "resources": {
-			   "0" : { "duration" : 1000, "access": [2] },
-			   "1" : { "duration" : 100, "access": [3] },
-			   "2" : { "duration" : 200, "access": [1] },
-			   "3" : { "duration" : 500}
-		       }	
-		}
+		       "exec" : 1000, 
+		       "period" : 10000, 
+		       "deadline" : 8000, 
+		       "lock_order" : ["m0", "trig"],
+		       "resources" : {
+			   "m0" : { "duration" : 500 },
+			   "trig" : { "duration" : 0, "access": ["sync_mutex"] },
+		       }
+		},
+		"thread2" : { 
+		       "exec" : 1000, 
+		       "period" : 1000, 
+		       "deadline" : 1000, 
+		       "lock_order" : ["wake"],
+		       "resources" : {
+			   "wake" : { "duration" : 0, "access": ["m1"] }
+		       }
+		},
+		"thread3" : { 
+		       "exec" : 1000, 
+		       "period" : 1000, 
+		       "deadline" : 1000, 
+		       "lock_order" : ["wake"],
+		       "resources" : {
+			   "wake" : { "duration" : 0, "access": ["m1"] }
+		       }
+		},
 	},
 	"global" : {
-		"spacing" : 1000,
 		"default_policy" : "SCHED_OTHER",
-		"duration" : 20,
+		"duration" : 5,
+		"ftrace" : true,
 		"gnuplot" : true,
 		"logdir" : "/tmp/",
 		"log_basename" : "rt-app",
