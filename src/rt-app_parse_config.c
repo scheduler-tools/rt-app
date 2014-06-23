@@ -391,6 +391,9 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
 			DEFAULT_THREAD_PRIORITY);
 
+	/* delay */
+	data->wait_before_start = get_int_value_from(obj, "delay", TRUE, 0);
+
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
 	if (cpuset_obj) {
