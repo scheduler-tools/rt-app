@@ -1,0 +1,13 @@
+{
+	"tasks" : {
+		"thread3" : { 
+		       "exec" : 1000, 
+		       "period" : 1000, 
+		       "deadline" : 1000, 
+		       "lock_order" : ["wake"],
+		       "resources" : {
+			   "wake" : { "duration" : 0, "access": ["m1"] }
+		       }
+		}
+	}
+}

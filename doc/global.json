@@ -1,0 +1,12 @@
+{
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"duration" : 5,
+		"ftrace" : true,
+		"gnuplot" : true,
+		"logdir" : "/tmp/",
+		"log_basename" : "rt-app",
+		"lock_pages" : true,
+		"frag" : 1
+	}
+}

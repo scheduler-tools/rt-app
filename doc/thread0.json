@@ -1,0 +1,15 @@
+{
+	"tasks" : {
+		"thread0" : { 
+		       "exec" : 5000, 
+		       "period" : 5000, 
+		       "deadline" : 5000, 
+		       "lock_order" : ["wait", "m0", "broad"],
+		       "resources" : {
+			   "m0" : { "duration" : 1000 },
+			   "wait" : { "duration" : 0, "access": ["sync_mutex"] },
+			   "broad" : { "duration" : 0, "access": ["m1"] }
+		       }
+		}
+       }
+}

@@ -1,0 +1,14 @@
+{
+	"tasks" : {
+		"thread1" : { 
+		       "exec" : 1000, 
+		       "period" : 10000, 
+		       "deadline" : 8000, 
+		       "lock_order" : ["m0", "trig"],
+		       "resources" : {
+			   "m0" : { "duration" : 500 },
+			   "trig" : { "duration" : 0, "access": ["sync_mutex"] }
+		       }
+		}
+	}
+}

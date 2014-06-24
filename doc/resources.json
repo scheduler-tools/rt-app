@@ -1,0 +1,11 @@
+{
+	"resources" : {
+		"m0" : { "type" : "mutex" },
+		"sync_mutex" : { "type" : "mutex" },
+		"wait" : { "type" : "wait" },
+		"trig" : { "type" : "signal", "target" : "wait" },
+		"m1" : { "type" : "mutex" },
+		"wake" : { "type" : "wait" },
+		"broad" : { "type" : "broadcast", "target" : "wake"  }
+	}
+}
