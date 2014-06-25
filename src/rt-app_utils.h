@@ -126,8 +126,6 @@ policy_to_string(policy_t policy, char *policy_name);
 int
 string_to_policy(const char *policy_name, policy_t *policy);
 
-int
-
 void
 ftrace_write(int mark_fd, const char *fmt, ...);
 
