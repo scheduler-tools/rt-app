@@ -35,6 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif /* AQUOSA */
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
+#define RTAPP_RESOURCE_DESCR_LENGTH 16
 #define RTAPP_FTRACE_PATH_LENGTH 256
 /* exit codes */
 
@@ -56,11 +57,38 @@ typedef enum policy_t
 #endif
 } policy_t;
 
+typedef enum resource_t
+{
+	rtapp_mutex = 0,
+	rtapp_wait,
+	rtapp_signal,
+	rtapp_broadcast,
+} resource_t;
+
+struct _rtapp_mutex {
+		pthread_mutex_t obj;
+		pthread_mutexattr_t attr;
+} ;
+
+struct _rtapp_cond {
+	pthread_cond_t obj;
+	pthread_condattr_t attr;
+};
+
+struct _rtapp_signal {
+	pthread_cond_t *target;
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
-	pthread_mutex_t mtx;
-	pthread_mutexattr_t mtx_attr;
+	union {
+		struct _rtapp_mutex mtx;
+		struct _rtapp_cond cond;
+		struct _rtapp_signal signal;
+	} res;
 	int index;
+	resource_t type;
+	char *name;
 } rtapp_resource_t;
 
 typedef struct _rtapp_resource_access_list_t {

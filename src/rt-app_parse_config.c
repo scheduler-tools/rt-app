@@ -120,7 +120,6 @@ get_int_value_from(struct json_object *where,
 	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_int);
 	i_value = json_object_get_int(value);
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %d, type <int>", key, i_value);
 	return i_value;
 }
@@ -137,7 +136,6 @@ get_bool_value_from(struct json_object *where,
 	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_boolean);
 	b_value = json_object_get_boolean(value);
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %d, type <bool>", key, b_value);
 	return b_value;
 }
@@ -158,46 +156,152 @@ get_string_value_from(struct json_object *where,
 	}
 	assure_type_is(value, where, key, json_type_string);
 	s_value = strdup(json_object_get_string(value));
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %s, type <string>", key, s_value);
 	return s_value;
+}
+
+static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN "Init: %s mutex", data->name);
+
+	pthread_mutexattr_init(&data->res.mtx.attr);
+	if (opts->pi_enabled) {
+		pthread_mutexattr_setprotocol(
+				&data->res.mtx.attr,
+				PTHREAD_PRIO_INHERIT);
+	}
+	pthread_mutex_init(&data->res.mtx.obj,
+			&data->res.mtx.attr);
+}
+
+static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN "Init: %s wait", data->name);
+
+	pthread_condattr_init(&data->res.cond.attr);
+	pthread_cond_init(&data->res.cond.obj,
+			&data->res.cond.attr);
+}
+
+static int init_signal_resource(rtapp_resource_t *data, const rtapp_options_t *opts, char *target)
+{
+	log_info(PIN "Init: %s signal", data->name);
+
+	int i = 0;
+	while (strcmp(opts->resources[i].name, target) != 0) {
+		if (data->index == i) {
+			log_critical(PIN2 "Invalid target %s", target);
+			exit(EXIT_INV_CONFIG);
+		}
+		i++;
+	}
+
+	data->res.signal.target = &(opts->resources[i].res.cond.obj);
+}
+
+static void
+parse_resource_data(char *name, struct json_object *obj, int idx,
+		  rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	char *type, *target;
+	char def_type[RTAPP_RESOURCE_DESCR_LENGTH];
+
+	log_info(PFX "Parsing resources %s [%d]", name, idx);
+
+	/* common and defaults */
+	data->index = idx;
+	data->name = strdup(name);
+
+	/* resource type */
+	resource_to_string(0, def_type);
+	type = get_string_value_from(obj, "type", TRUE, def_type);
+	if (type) {
+		if (string_to_resource(type, &data->type) != 0) {
+			log_critical(PIN2 "Invalid type of resource %s", type);
+			exit(EXIT_INV_CONFIG);
+		}
+	}
+
+	switch (data->type) {
+		case rtapp_wait:
+			init_cond_resource(data, opts);
+			break;
+		case rtapp_signal:
+		case rtapp_broadcast:
+			target = get_string_value_from(obj, "target", FALSE, NULL);
+			init_signal_resource(data, opts, target);
+			break;
+		default:
+		init_mutex_resource(data, opts);
+
+	}
+}
+
+static void parse_legacy_resources(int nresources, rtapp_options_t *opts)
+{
+	int i;
+	char name[5];
+
+	log_info(PIN "Creating %d mutex resources", nresources);
+
+	opts->resources = malloc(sizeof(rtapp_resource_t) * nresources);
+	for (i = 0; i < nresources; i++) {
+		opts->resources[i].index = i;
+		snprintf(name, 5, "%d", i);
+		opts->resources[i].name = strdup(name);
+		init_mutex_resource(&opts->resources[i], opts);
+	}
+	opts->nresources = nresources;
 }
 
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
 	int i;
-	int res = json_object_get_int(resources);
-	log_info(PFX "Creating %d resources", res);
-	opts->resources = malloc(sizeof(rtapp_resource_t) * res);
-	for (i = 0; i < res; i++) {
-		pthread_mutexattr_init(&opts->resources[i].mtx_attr);
-		if (opts->pi_enabled) {
-			pthread_mutexattr_setprotocol(
-				&opts->resources[i].mtx_attr,
-				PTHREAD_PRIO_INHERIT);
-		}
-		pthread_mutex_init(&opts->resources[i].mtx,
-				   &opts->resources[i].mtx_attr);
-		opts->resources[i].index = i;
+	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+
+	log_info(PFX "Parsing resource section");
+
+	if (json_object_is_type(resources, json_type_int)) {
+		parse_legacy_resources(json_object_get_int(resources), opts);
 	}
-	opts->nresources = res;
+	else {
+		opts->nresources = 0;
+		foreach(resources, entry, key, val, idx) {
+			opts->nresources++;
+		}
+
+		log_info(PFX "Found %d Resources", opts->nresources);
+		opts->resources = malloc(sizeof(rtapp_resource_t) * opts->nresources);
+
+		foreach (resources, entry, key, val, idx) {
+			parse_resource_data(key, val, idx, &opts->resources[idx], opts);
+		}
+	}
+}
+
+static int get_resource_index(char *name, rtapp_resource_t *resources)
+{
+	int i=0;
+
+	while (strcmp(resources[i].name, name) != 0)
+		i++;
+
+	return i;
 }
 
 static void
 serialize_acl(rtapp_resource_access_list_t **acl,
-	      int idx,
+	      char *name,
 	      struct json_object *task_resources,
 	      rtapp_resource_t *resources)
 {
-	int i, next_idx, found;
+	int i, idx, found;
 	struct json_object *access, *res, *next_res;
 	rtapp_resource_access_list_t *tmp;
-	char s_idx[5];
+	char * next_name;
 
-	/* as keys are string in the json, we need a string for searching
-	 * the resource */
-	snprintf(s_idx, 5, "%d", idx);
+	idx = get_resource_index(name, resources);
 
 	if (!(*acl)) {
 		*acl = malloc( sizeof(rtapp_resource_access_list_t));
@@ -225,10 +329,10 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		}
 	}
 
-	res = get_in_object(task_resources, s_idx, TRUE);
+	res = get_in_object(task_resources, name, TRUE);
 	if (!res)
 		return;
-	assure_type_is(res, task_resources, s_idx, json_type_object);
+	assure_type_is(res, task_resources, name, json_type_object);
 
 	access = get_in_object(res, "access", TRUE);
 	if (!access)
@@ -237,14 +341,22 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 
 	for (i=0; i<json_object_array_length(access); i++)
 	{
+		char res_name[5];
+
 		next_res = json_object_array_get_idx(access, i);
-		if (!json_object_is_type(next_res, json_type_int)){
-			log_critical("Invalid resource index");
-			exit(EXIT_INV_CONFIG);
-		}
-		next_idx = json_object_get_int(next_res);
+		if (!json_object_is_type(next_res, json_type_string)){
+			if (!json_object_is_type(next_res, json_type_int)){
+				log_critical("Invalid resource index");
+				exit(EXIT_INV_CONFIG);
+			} else {
+				snprintf(res_name, 5, "%d", json_object_get_int(next_res));
+				next_name = res_name;
+			}
+			log_critical("Legacy resource index");
+		} else
+			next_name = json_object_get_string(next_res);
 		/* recurse on the rest of resources */
-		serialize_acl(&(*acl), next_idx, task_resources, resources);
+		serialize_acl(&(*acl), next_name, task_resources, resources);
 	}
 }
 
@@ -252,10 +364,11 @@ static void
 parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 		       struct json_object *task_resources, thread_data_t *data)
 {
-	int i,j, cur_res_idx, usage_usec;
+	int i, j, usage_usec;
 	struct json_object *res;
 	int res_dur;
-	char res_name[4];
+	char res_name[5];
+	char *cur_res_name;
 
 	rtapp_resource_access_list_t *tmp, *head, *last;
 	char debug_msg[512], tmpmsg[512];
@@ -267,15 +380,21 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 	for (i = 0; i< data->nblockages; i++)
 	{
 		res = json_object_array_get_idx(locks, i);
-		if (!json_object_is_type(res, json_type_int)){
-			log_critical("Invalid resource index");
-			exit(EXIT_INV_CONFIG);
-		}
-		cur_res_idx = json_object_get_int(res);
+		if (!json_object_is_type(res, json_type_string)){
+			if (!json_object_is_type(res, json_type_int)){
+				log_critical("Invalid resource index");
+				exit(EXIT_INV_CONFIG);
+			} else {
+				snprintf(res_name, 5, "%d", json_object_get_int(res));
+				cur_res_name = res_name;
+			}
+			log_critical("Legacy resource index");
+		} else
+			cur_res_name = json_object_get_string(res);
 
 		data->blockages[i].usage = usec_to_timespec(0);
 		data->blockages[i].acl = NULL;
-		serialize_acl(&data->blockages[i].acl, cur_res_idx,
+		serialize_acl(&data->blockages[i].acl, cur_res_name,
 				task_resources, opts->resources);
 
 		/* since the "current" resource is returned as the first
@@ -307,8 +426,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 
 		log_info(PIN "key: acl %s", debug_msg);
 
-		snprintf(res_name, 4, "%d", cur_res_idx);
-		res = get_in_object(task_resources, res_name, TRUE);
+		res = get_in_object(task_resources, cur_res_name, TRUE);
 		if (!res) {
 			usage_usec = 0;
 			data->blockages[i].usage = usec_to_timespec(0);
@@ -318,7 +436,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			usage_usec = get_int_value_from(res, "duration", TRUE, 0);
 			data->blockages[i].usage = usec_to_timespec(usage_usec);
 		}
-		log_info(PIN "res %d, usage: %d acl: %s", cur_res_idx,
+		log_info(PIN "res %s, usage: %d acl: %s", cur_res_name,
 				usage_usec, debug_msg);
 	}
 }
@@ -335,6 +453,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	int i, cpu_idx;
 
 	log_info(PFX "Parsing thread %s [%d]", name, idx);
+
 	/* common and defaults */
 	data->ind = idx;
 	data->name = strdup(name);
@@ -501,8 +620,11 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
 	parse_global(global, opts);
+	json_object_put(global);
 	parse_resources(resources, opts);
+	json_object_put(resources);
 	parse_tasks(tasks, opts);
+	json_object_put(tasks);
 
 }
 

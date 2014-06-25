@@ -219,6 +219,43 @@ policy_to_string(policy_t policy, char *policy_name)
 	return 0;
 }
 
+int
+string_to_resource(const char *name, resource_t *resource)
+{
+	if (strcmp(name, "mutex") == 0)
+		*resource = rtapp_mutex;
+	else if (strcmp(name, "signal") == 0)
+		*resource =  rtapp_signal;
+	else if (strcmp(name, "wait") == 0)
+		*resource =  rtapp_wait;
+	else if (strcmp(name, "broadcast") == 0)
+		*resource =  rtapp_broadcast;
+	else
+		return 1;
+	return 0;
+}
+
+int
+resource_to_string(resource_t resource, char *resource_name)
+{
+	switch (resource) {
+		case rtapp_mutex:
+			strcpy(resource_name, "mutex");
+			break;
+		case rtapp_wait:
+			strcpy(resource_name, "wait");
+			break;
+		case rtapp_signal:
+			strcpy(resource_name, "signal");
+			break;
+		case rtapp_broadcast:
+			strcpy(resource_name, "broadcast");
+			break;
+		default:
+			return 1;
+	}
+	return 0;
+}
 
 void ftrace_write(int mark_fd, const char *fmt, ...)
 {

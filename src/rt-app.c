@@ -113,6 +113,35 @@ static inline busywait(struct timespec *to)
 	}
 }
 
+void lock_resource(rtapp_resource_access_list_t *lock)
+{
+	rtapp_resource_access_list_t *prev;
+
+	switch(lock->res->type) {
+	case rtapp_wait:
+		prev = lock->prev;
+		pthread_cond_wait(&(lock->res->res.cond.obj), &(prev->res->res.mtx.obj));
+		break;
+	case rtapp_signal:
+		pthread_cond_signal(lock->res->res.signal.target);
+		break;
+	case rtapp_broadcast:
+		pthread_cond_broadcast(lock->res->res.signal.target);
+		break;
+	default:
+		pthread_mutex_lock(&(lock->res->res.mtx.obj));
+	}
+}
+
+void unlock_resource(rtapp_resource_access_list_t *lock)
+{
+	switch(lock->res->type) {
+	case rtapp_mutex:
+		pthread_mutex_unlock(&(lock->res->res.mtx.obj));
+		break;
+	}
+}
+
 void run(int ind, struct timespec *min, struct timespec *max,
 	 rtapp_tasks_resource_list_t *blockages, int nblockages)
 {
@@ -132,7 +161,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] locking %d",
 						ind, lock->res->index);
-			pthread_mutex_lock(&lock->res->mtx);
+			lock_resource(lock);
 			last = lock;
 			lock = lock->next;
 		}
@@ -154,7 +183,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] unlocking %d",
 						ind, lock->res->index);
-			pthread_mutex_unlock(&lock->res->mtx);
+			unlock_resource(lock);
 			lock = lock->prev;
 		}
 	}
