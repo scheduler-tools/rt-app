@@ -113,11 +113,15 @@ static inline busywait(struct timespec *to)
 	}
 }
 
-void lock_resource(rtapp_resource_access_list_t *lock)
+int get_resource(rtapp_resource_access_list_t *lock, struct timespec *usage)
 {
+	int busywait = 1;
 	rtapp_resource_access_list_t *prev;
 
 	switch(lock->res->type) {
+	case rtapp_mutex:
+		pthread_mutex_lock(&(lock->res->res.mtx.obj));
+		break;
 	case rtapp_wait:
 		prev = lock->prev;
 		pthread_cond_wait(&(lock->res->res.cond.obj), &(prev->res->res.mtx.obj));
@@ -128,24 +132,25 @@ void lock_resource(rtapp_resource_access_list_t *lock)
 	case rtapp_broadcast:
 		pthread_cond_broadcast(lock->res->res.signal.target);
 		break;
-	default:
-		pthread_mutex_lock(&(lock->res->res.mtx.obj));
-	}
-}
-
-void unlock_resource(rtapp_resource_access_list_t *lock)
-{
-	switch(lock->res->type) {
-	case rtapp_mutex:
-		pthread_mutex_unlock(&(lock->res->res.mtx.obj));
+	case rtapp_sleep:
+		nanosleep(usage, NULL);
+		busywait = 0;
 		break;
 	}
+
+	return busywait;
+}
+
+void put_resource(rtapp_resource_access_list_t *lock)
+{
+	if (lock->res->type == rtapp_mutex)
+		pthread_mutex_unlock(&(lock->res->res.mtx.obj));
 }
 
 void run(int ind, struct timespec *min, struct timespec *max,
 	 rtapp_tasks_resource_list_t *blockages, int nblockages)
 {
-	int i;
+	int i, busywait = 1;
 	struct timespec t_exec;
 	rtapp_resource_access_list_t *lock, *last;
 
@@ -153,7 +158,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 
 	for (i = 0; i < nblockages; i++)
 	{
-		/* Lock resources */
+		/* Lock resources sequence including the busy wait */
 		lock = blockages[i].acl;
 		while (lock != NULL) {
 			log_debug("[%d] locking %d", ind, lock->res->index);
@@ -161,19 +166,21 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] locking %d",
 						ind, lock->res->index);
-			lock_resource(lock);
+			busywait = get_resource(lock, &blockages[i].usage);
 			last = lock;
 			lock = lock->next;
 		}
 
-		/* Busy wait */
-		log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd,
-				   "[%d] busywait for %d",
-				   ind, timespec_to_usec(&blockages[i].usage));
-		loadwait(&blockages[i].usage);
-		t_exec = timespec_sub(&t_exec, &blockages[i].usage);
+		if (busywait) {
+			/* Busy wait */
+			log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
+			if (opts.ftrace)
+				log_ftrace(ft_data.marker_fd,
+					   "[%d] busywait for %d",
+					   ind, timespec_to_usec(&blockages[i].usage));
+			loadwait(&blockages[i].usage);
+			t_exec = timespec_sub(&t_exec, &blockages[i].usage);
+		}
 
 		/* Unlock resources */
 		lock = last;
@@ -183,7 +190,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] unlocking %d",
 						ind, lock->res->index);
-			unlock_resource(lock);
+			put_resource(lock);
 			lock = lock->prev;
 		}
 	}

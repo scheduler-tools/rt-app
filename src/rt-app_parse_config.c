@@ -205,6 +205,7 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 {
 	char *type, *target;
 	char def_type[RTAPP_RESOURCE_DESCR_LENGTH];
+	int duration;
 
 	log_info(PFX "Parsing resources %s [%d]", name, idx);
 
@@ -223,6 +224,9 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 	}
 
 	switch (data->type) {
+		case rtapp_mutex:
+			init_mutex_resource(data, opts);
+			break;
 		case rtapp_wait:
 			init_cond_resource(data, opts);
 			break;
@@ -231,9 +235,6 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 			target = get_string_value_from(obj, "target", FALSE, NULL);
 			init_signal_resource(data, opts, target);
 			break;
-		default:
-		init_mutex_resource(data, opts);
-
 	}
 }
 
