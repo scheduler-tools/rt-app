@@ -8,15 +8,16 @@
 		"m1" : { "type" : "mutex" },
 		"wake" : { "type" : "wait" },
 		"broad" : { "type" : "broadcast", "target" : "wake"  },
+		"m2" : { "type" : "mutex" },
 	},
 	"tasks" : {
 		"thread0" : { 
 		       "exec" : 5000, 
 		       "period" : 5000, 
 		       "deadline" : 5000, 
-		       "lock_order" : ["wait", "m0", "broad"],
+		       "lock_order" : ["wait", "m0", "broad", "m0", "broad"],
 		       "resources" : {
-			   "m0" : { "duration" : 1000 },
+			   "m0" : { "duration" : 500 },
 			   "wait" : { "duration" : 0, "access": ["sync_mutex"] },
 			   "broad" : { "duration" : 0, "access": ["m1"] }
 		       }
@@ -31,13 +32,15 @@
 			   "trig" : { "duration" : 0, "access": ["sync_mutex"] },
 		       }
 		},
-		"thread2" : { 
+		"thread2" : {
+			   "loop" : 100,
 		       "exec" : 1000, 
 		       "period" : 1000, 
 		       "deadline" : 1000, 
-		       "lock_order" : ["wake"],
+		       "lock_order" : [ "m2", "wake", "m2", "wake"],
 		       "resources" : {
-			   "wake" : { "duration" : 0, "access": ["m1"] }
+			   "wake" : { "duration" : 0, "access": ["m1"] },
+			   "m2" : { "duration" : 200 }
 		       }
 		},
 		"thread3" : { 
