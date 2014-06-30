@@ -109,6 +109,9 @@ timespec_sub(struct timespec *t1, struct timespec *t2);
 int
 timespec_lower(struct timespec *what, struct timespec *than);
 
+int64_t
+timespec_sub_to_ns(struct timespec *t1, struct timespec *t2);
+
 void
 log_timing(FILE *handler, timing_point_t *t);
 

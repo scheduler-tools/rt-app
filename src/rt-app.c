@@ -26,6 +26,7 @@ static int errno;
 static volatile int continue_running;
 static pthread_t *threads;
 static int nthreads;
+static int p_load;
 rtapp_options_t opts;
 
 static ftrace_data_t ft_data = {
@@ -33,6 +34,74 @@ static ftrace_data_t ft_data = {
 	.trace_fd = -1,
 	.marker_fd = -1,
 };
+
+/*
+ * Function: to do some useless operation.
+ *                      TODO: improve the waste loop with more heavy functions
+ */
+void waste_cpu_cycles(int load_loops)
+{
+	double param, result;
+	double n, i;
+
+	param = 0.95;
+	n = 4;
+	for (i = 0 ; i < load_loops ; i++) {
+		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+	}
+	return;
+}
+
+/*
+* calibrate_cpu_cycles()
+* collects the time that waste_cycles runs.
+*/
+int calibrate_cpu_cycles(int clock)
+{
+	struct timespec start, stop;
+	int max_load_loop = 10000;
+	unsigned int diff;
+	int nsec_per_loop, avg_per_loop = 0;
+	int ret, cal_trial = 1000;
+
+	while (cal_trial) {
+		cal_trial--;
+
+		clock_gettime(clock, &start);
+		waste_cpu_cycles(max_load_loop);
+		clock_gettime(clock, &stop);
+
+		diff = (int)timespec_sub_to_ns(&stop, &start);
+		nsec_per_loop = diff / max_load_loop;
+		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+
+		/* collect a critical mass of samples.*/
+		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+			return avg_per_loop;
+
+		/*
+		* use several loop duration in order to be sure to not
+		* fall into a specific platform loop duration
+		*(like the cpufreq period)
+		*/
+		/*randomize the number of loops and recheck 1000 times*/
+		max_load_loop += 33333;
+		max_load_loop %= 1000000;
+	}
+	return 0;
+}
+
+static inline loadwait(struct timespec *exec_time)
+{
+	unsigned long exec, load_count;
+
+	exec = timespec_to_usec(exec_time);
+	load_count = (exec * 1000)/p_load;
+	waste_cpu_cycles(load_count);
+}
 
 static inline busywait(struct timespec *to)
 {
@@ -48,15 +117,13 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	 rtapp_tasks_resource_list_t *blockages, int nblockages)
 {
 	int i;
-	struct timespec t_start, now, t_exec, t_totexec = *max;
+	struct timespec t_exec;
 	rtapp_resource_access_list_t *lock, *last;
 
-	/* Get the start time */
-	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
+	t_exec = *min;
 
 	for (i = 0; i < nblockages; i++)
 	{
-
 		/* Lock resources */
 		lock = blockages[i].acl;
 		while (lock != NULL) {
@@ -71,14 +138,13 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		}
 
 		/* Busy wait */
-		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
-		t_exec = timespec_add(&now, &blockages[i].usage);
 		log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
 				   "[%d] busywait for %d",
 				   ind, timespec_to_usec(&blockages[i].usage));
-		busywait(&t_exec);
+		loadwait(&blockages[i].usage);
+		t_exec = timespec_sub(&t_exec, &blockages[i].usage);
 
 		/* Unlock resources */
 		lock = last;
@@ -94,13 +160,12 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	}
 
 	/* Compute finish time for CPUTIME_ID clock */
-	t_exec = timespec_add(&t_start, &t_totexec);
 	log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&t_exec));
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd,
 				"[%d] busywait for %d",
 				ind, timespec_to_usec(&t_exec));
-	busywait(&t_exec);
+	loadwait(&t_exec);
 }
 
 static void
@@ -475,6 +540,7 @@ int main(int argc, char* argv[])
 
 	continue_running = 1;
 
+	p_load = calibrate_cpu_cycles(CLOCK_THREAD_CPUTIME_ID);
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
