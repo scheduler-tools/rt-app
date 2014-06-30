@@ -326,7 +326,7 @@ void *thread_body(void *arg)
 	t_next = t_now;
 	data->deadline = timespec_add(&t_now, &data->deadline);
 
-	while (continue_running) {
+	while (continue_running &&  (i != data->loop)) {
 		struct timespec t_start, t_end, t_diff, t_slack;
 
 		if (opts.ftrace)
