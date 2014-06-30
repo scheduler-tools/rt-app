@@ -343,6 +343,9 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->cpuset = NULL;
 	data->cpuset_str = NULL;
 
+	/* loop */
+	data->loop = get_int_value_from(obj, "loop", TRUE, -1);
+
 	/* period */
 	period = get_int_value_from(obj, "period", FALSE, 0);
 	if (period <= 0) {
