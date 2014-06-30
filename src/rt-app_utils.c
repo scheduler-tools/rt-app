@@ -116,6 +116,23 @@ timespec_lower(struct timespec *what, struct timespec *than)
 	return 0;
 }
 
+int64_t
+timespec_sub_to_ns(struct timespec *t1, struct timespec *t2)
+{
+	int64_t diff;
+
+	if (t1->tv_nsec < t2->tv_nsec) {
+		diff = 1E9 * (int64_t)((int) t1->tv_sec -
+			(int) t2->tv_sec - 1);
+		diff += ((int) t1->tv_nsec + 1E9 - (int) t2->tv_nsec);
+	} else {
+		diff = 1E9 * (int64_t)((int) t1->tv_sec - (int) t2->tv_sec);
+		diff += ((int) t1->tv_nsec - (int) t2->tv_nsec);
+	}
+	return diff;
+}
+
+
 void
 log_timing(FILE *handler, timing_point_t *t)
 {
