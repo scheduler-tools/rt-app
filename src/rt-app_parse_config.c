@@ -395,8 +395,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
 	if (cpuset_obj) {
 		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
-		data->cpuset_str = json_object_to_json_string(cpuset_obj);
-		log_info(PIN "key: cpus %s", data->cpuset_str);
+		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
 		data->cpuset = malloc(sizeof(cpu_set_t));
 		cpuset = json_object_get_array(cpuset_obj);
 		CPU_ZERO(data->cpuset);
@@ -408,8 +407,8 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	} else {
 		data->cpuset_str = strdup("-");
 		data->cpuset = NULL;
-		log_info(PIN "key: cpus %s", data->cpuset_str);
 	}
+	log_info(PIN "key: cpus %s", data->cpuset_str);
 
 	/* resources */
 	resources = get_in_object(obj, "resources", TRUE);
