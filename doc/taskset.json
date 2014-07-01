@@ -19,6 +19,7 @@
 		       "exec" : 1000,
 		       "period" : 20000,
 		       "deadline" : 8000,
+			   "cpus" : [0],
 		       "lock_order" : ["r1", "m0", "trig"],
 		       "resources" : {
 			   "r1" : { "duration" : 200 },
@@ -28,22 +29,22 @@
 		},
 		"thread1" : { 
 		       "exec" : 5000,
-		       "period" : 5000,
-		       "deadline" : 5000,
+		       "period" : 20000,
+			   "sleep" : false,
 		       "lock_order" : ["wait", "m0", "broad", "r1", "broad"],
 		       "resources" : {
 			   "wait" : { "duration" : 0, "access": ["sync_mutex"] },
-			   "m0" : { "duration" : 500 },
-			   "broad" : { "duration" : 0, "access": ["m1"] },
+			   "m0" : { "duration" : 1000 },
+			   "broad" : { "duration" : 0},
 			   "r1" : { "duration" : 1000 },
 		       }
 		},
 		"thread2" : {
 			   "loop" : 100,
 		       "exec" : 1000, 
-		       "period" : 1000, 
-		       "deadline" : 1000, 
-		       "lock_order" : [ "m2", "wake", "m2", "wake"],
+		       "period" : 20000, 
+			   "sleep" : false,
+		       "lock_order" : ["wake", "m2", "wake", "m2"],
 		       "resources" : {
 			   "wake" : { "duration" : 0, "access": ["m1"] },
 			   "m2" : { "duration" : 200 },
@@ -51,14 +52,17 @@
 		},
 		"thread3" : { 
 		       "exec" : 1000, 
-		       "period" : 1000, 
-		       "deadline" : 1000, 
-		       "lock_order" : ["wake", "r1", "s1", "r2" ],
+		       "period" : 20000, 
+		       "deadline" : 15000,
+			   "delay" : 15000,
+			   "sleep" : true,
+		       "lock_order" : ["r1", "s1", "r1", "s2", "r2" ],
 		       "resources" : {
 			   "wake" : { "duration" : 0, "access": ["m1"] },
 			   "r1" : { "duration" : 200 },
 			   "s1" : { "duration" : 2000 },
 			   "r2" : { "duration" : 200 },
+			   "s2" : { "duration" : 1000 },
 		       }
 		},
 	},
