@@ -159,13 +159,11 @@ log_timing(FILE *handler, timing_point_t *t)
 	fprintf(handler, "\n");
 }
 
-#ifdef DLSCHED
 pid_t
 gettid(void)
 {
 	return syscall(__NR_gettid);
 }
-#endif
 
 int
 string_to_policy(const char *policy_name, policy_t *policy)

@@ -39,6 +39,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <json/json.h>
 
 #define DEFAULT_THREAD_PRIORITY 10
+#define DEFAULT_THREAD_NICE	0
 #define PATH_LENGTH 256
 
 void

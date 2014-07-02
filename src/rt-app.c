@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <fcntl.h>
 #include "rt-app.h"
 #include "rt-app_utils.h"
+#include "pthread.h"
 
 static int errno;
 static volatile int continue_running;
@@ -244,11 +245,9 @@ void *thread_body(void *arg)
 	qres_time_t prev_abs_used_budget = 0;
 	qres_time_t abs_used_budget;
 #endif
-#ifdef DLSCHED
 	pid_t tid;
 	struct sched_attr attr;
 	unsigned int flags = 0;
-#endif
 	int ret, i = 0;
 	int j;
 
@@ -296,14 +295,42 @@ void *thread_body(void *arg)
 		case other:
 			fprintf(data->log_handler, "# Policy : SCHED_OTHER\n");
 
-			/* add priority setting */
+			ret = sched_getattr(0, &attr, sizeof(attr), 0);
+			if (ret != 0) {
+				log_critical("[%d] sched_getattr "
+				     "returned %d", data->ind, ret);
+				errno = ret;
+				perror("sched_getattr");
+				exit(EXIT_FAILURE);
+			}
+			attr.sched_policy = data->sched_policy;
+			if (data->sched_prio > 19 || data->sched_prio < -20) {
+				log_critical("[%d] sched_getattr "
+					"%d nice invalid. "
+					"Valid between -20 and 19",
+					data->ind, data->sched_prio);
+				perror("sched_getattr");
+				exit(EXIT_FAILURE);
+			}
+
+			attr.sched_nice = data->sched_prio;
+
+			ret = sched_setattr(0, &attr, 0);
+			if (ret != 0) {
+				log_critical("[%d] sched_setattr"
+				     "returned %d", data->ind, ret);
+				errno = ret;
+				perror("sched_setattr");
+				exit(EXIT_FAILURE);
+			}
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-					"deadline: %lu",
+					"deadline: %lu, nice: %d",
 					data->ind,
 					timespec_to_usec(&data->period),
 					timespec_to_usec(&data->min_et),
-					timespec_to_usec(&data->deadline));
+					timespec_to_usec(&data->deadline),
+					data->sched_prio);
 
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;

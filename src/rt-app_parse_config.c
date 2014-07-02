@@ -451,7 +451,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
 	struct array_list *cpuset;
 	struct json_object *cpuset_obj, *cpu, *resources, *locks;
-	int i, cpu_idx;
+	int i, cpu_idx, prior_def;
 
 	log_info(PFX "Parsing thread %s [%d]", name, idx);
 
@@ -459,7 +459,6 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->ind = idx;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
-	data->sched_prio = DEFAULT_THREAD_PRIORITY;
 	data->cpuset = NULL;
 	data->cpuset_str = NULL;
 
@@ -511,8 +510,13 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	policy_to_string(data->sched_policy, data->sched_policy_descr);
 
 	/* priority */
+	if (data->sched_policy == other)
+		prior_def = DEFAULT_THREAD_NICE;
+	else
+		prior_def = DEFAULT_THREAD_PRIORITY;
+
 	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
-			DEFAULT_THREAD_PRIORITY);
+				 prior_def);
 
 	/* delay */
 	data->wait_before_start = get_int_value_from(obj, "delay", TRUE, 0);
