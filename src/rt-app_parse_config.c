@@ -517,6 +517,9 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	/* delay */
 	data->wait_before_start = get_int_value_from(obj, "delay", TRUE, 0);
 
+	/* sleep */
+	data->sleep = get_bool_value_from(obj, "sleep", TRUE, 1);
+
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
 	if (cpuset_obj) {

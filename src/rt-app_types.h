@@ -115,7 +115,7 @@ typedef struct _thread_data_t {
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
 	struct timespec main_app_start;
-	int loop;
+	int loop, sleep;
 
 	FILE *log_handler;
 	policy_t sched_policy;

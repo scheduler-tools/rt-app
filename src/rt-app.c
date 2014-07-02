@@ -494,7 +494,7 @@ void *thread_body(void *arg)
 		}
 
 		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		if (timespec_lower(&t_now, &t_next))
+		if (data->sleep && timespec_lower(&t_now, &t_next))
 			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
 
 		i++;
