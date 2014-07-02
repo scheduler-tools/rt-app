@@ -148,7 +148,7 @@ void put_resource(rtapp_resource_access_list_t *lock)
 }
 
 void run(int ind, struct timespec *min, struct timespec *max,
-	 rtapp_tasks_resource_list_t *blockages, int nblockages)
+	 rtapp_tasks_resource_list_t *blockages, int nblockages, struct timespec *t_start)
 {
 	int i, busywait = 1;
 	struct timespec t_exec;
@@ -170,6 +170,9 @@ void run(int ind, struct timespec *min, struct timespec *max,
 			last = lock;
 			lock = lock->next;
 		}
+
+		if (!i && t_start)
+			clock_gettime(CLOCK_MONOTONIC, t_start);
 
 		if (busywait) {
 			/* Busy wait */
@@ -435,7 +438,7 @@ void *thread_body(void *arg)
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
 		run(data->ind, &data->min_et, &data->max_et, data->blockages,
-		    data->nblockages);
+		    data->nblockages, data->sleep ? NULL: &t_start);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		t_diff = timespec_sub(&t_end, &t_start);
