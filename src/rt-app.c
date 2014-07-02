@@ -369,7 +369,7 @@ void *thread_body(void *arg)
 		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
 			 data->wait_before_start);
 		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		t_next = msec_to_timespec(data->wait_before_start);
+		t_next = usec_to_timespec(data->wait_before_start);
 		t_next = timespec_add(&t_now, &t_next);
 		clock_nanosleep(CLOCK_MONOTONIC, 
 				TIMER_ABSTIME, 
