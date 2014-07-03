@@ -161,7 +161,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	{
 		/* Lock resources sequence including the busy wait */
 		lock = blockages[i].acl;
-		while (lock != NULL) {
+		while (lock != NULL && continue_running) {
 			log_debug("[%d] locking %d", ind, lock->res->index);
 			if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
@@ -214,6 +214,16 @@ shutdown(int sig)
 	int i;
 	// notify threads, join them, then exit
 	continue_running = 0;
+
+	for (i = 0; i <  opts.nresources; i++) {
+		switch (opts.resources[i].type) {
+		case rtapp_signal:
+		case rtapp_broadcast:
+			pthread_cond_broadcast(opts.resources[i].res.signal.target);
+		}
+	}
+
+	// wait up all waiting threads
 	for (i = 0; i < nthreads; i++)
 	{
 		pthread_join(threads[i], NULL);
