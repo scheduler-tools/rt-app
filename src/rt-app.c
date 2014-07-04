@@ -18,9 +18,11 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */ 
 
+#define _GNU_SOURCE
 #include <fcntl.h>
 #include "rt-app.h"
 #include "rt-app_utils.h"
+#include <sched.h>
 
 static int errno;
 static volatile int continue_running;
@@ -597,6 +599,7 @@ int main(int argc, char* argv[])
 	int i, res;
 	thread_data_t *tdata;
 	char tmp[PATH_LENGTH];
+	static cpu_set_t orig_set;
 
 	parse_command_line(argc, argv, &opts);
 
@@ -635,7 +638,22 @@ int main(int argc, char* argv[])
 
 	continue_running = 1;
 
-	p_load = calibrate_cpu_cycles(CLOCK_THREAD_CPUTIME_ID);
+	/* Needs to calibrate 'calib_cpu' core */
+	if (opts.calib_ns_per_loop == 0) {
+		cpu_set_t calib_set;
+
+		CPU_ZERO(&calib_set);
+		CPU_SET(opts.calib_cpu, &calib_set);
+		sched_getaffinity(0, sizeof(cpu_set_t), &orig_set);
+		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
+		p_load = calibrate_cpu_cycles(CLOCK_THREAD_CPUTIME_ID);
+		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
+		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+	} else {
+		p_load = opts.calib_ns_per_loop;
+		log_notice("pLoad = %dns", p_load);
+	}
+
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
