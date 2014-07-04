@@ -153,6 +153,8 @@ typedef struct _rtapp_options_t {
 	char *logdir;
 	char *logbasename;
 	int gnuplot;
+	int calib_cpu;
+	int calib_ns_per_loop;
 
 	rtapp_resource_t *resources;
 	int nresources;

@@ -581,7 +581,10 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
-	char *policy;
+	char *policy, *cal_str;
+	struct json_object *cal_obj;
+	int scan_cnt;
+
 	log_info(PFX "Parsing global section");
 	opts->spacing = get_int_value_from(global, "spacing", TRUE, 0);
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
@@ -592,6 +595,30 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		log_critical(PFX "Invalid policy %s", policy);
 		exit(EXIT_INV_CONFIG);
 	}
+
+	cal_obj = get_in_object(global, "calibration", TRUE);
+	if (cal_obj == NULL) {
+		/*no setting? Calibrate CPU0*/
+		opts->calib_cpu = 0;
+		opts->calib_ns_per_loop = 0;
+		log_error("missing calibration setting force CPU0");
+	} else {
+		if (json_object_is_type(cal_obj, json_type_int)) {
+			/*integer (no " ") detected.*/
+			opts->calib_ns_per_loop = json_object_get_int(cal_obj);
+			log_debug("ns_per_loop %d", opts->calib_ns_per_loop);
+		} else {
+			cal_str = get_string_value_from(global, "calibration",
+					 TRUE, "CPU0");
+			scan_cnt = sscanf(cal_str, "CPU%d", &opts->calib_cpu);
+			if (!scan_cnt) {
+				log_critical(PFX "Invalid calibration CPU%d", opts->calib_cpu);
+				exit(EXIT_INV_CONFIG);
+			}
+			log_debug("calibrating CPU%d", opts->calib_cpu);
+		}
+	}
+
 	opts->logdir = get_string_value_from(global, "logdir", TRUE, NULL);
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->logbasename = get_string_value_from(global, "log_basename",
