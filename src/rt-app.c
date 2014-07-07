@@ -132,6 +132,11 @@ int get_resource(rtapp_resource_access_list_t *lock, struct timespec *usage)
 	case rtapp_signal:
 		pthread_cond_signal(lock->res->res.signal.target);
 		break;
+	case rtapp_sig_and_wait:
+		pthread_cond_signal(lock->res->res.signal.target);
+		prev = lock->prev;
+		pthread_cond_wait(lock->res->res.signal.target, &(prev->res->res.mtx.obj));
+		break;
 	case rtapp_broadcast:
 		pthread_cond_broadcast(lock->res->res.signal.target);
 		break;
@@ -219,6 +224,7 @@ shutdown(int sig)
 
 	for (i = 0; i <  opts.nresources; i++) {
 		switch (opts.resources[i].type) {
+		case rtapp_sig_and_wait:
 		case rtapp_signal:
 		case rtapp_broadcast:
 			pthread_cond_broadcast(opts.resources[i].res.signal.target);

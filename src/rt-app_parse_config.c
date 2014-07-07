@@ -232,6 +232,7 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 			break;
 		case rtapp_signal:
 		case rtapp_broadcast:
+		case rtapp_sig_and_wait:
 			target = get_string_value_from(obj, "target", FALSE, NULL);
 			init_signal_resource(data, opts, target);
 			break;

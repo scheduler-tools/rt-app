@@ -62,7 +62,8 @@ typedef enum resource_t
 	rtapp_signal,
 	rtapp_broadcast,
 	rtapp_sleep,
-	rtapp_run
+	rtapp_run,
+	rtapp_sig_and_wait,
 } resource_t;
 
 struct _rtapp_mutex {
