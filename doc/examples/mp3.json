@@ -1,0 +1,76 @@
+{
+	"tasks" : {
+		"AudioOut" : { 
+			"exec" : 5000,
+			"period" : 24000,
+			"priority" : -19,
+			"lock_order" : ["r0", "trigA"],
+			"resources" : {
+				"r0" : { "duration" : 275 },
+				"trigA" : { "duration" : 0 },
+		    }
+		},
+		"AudioTrack" : { 
+			"exec" : 300,
+			"period" : 24000,
+			"priority" : -16,
+			"sleep" : false,
+			"lock_order" : ["waitA", "r0", "trigB"],
+			"resources" : {
+				"waitA" : { "duration" : 0, "access": ["trigA_mutex"] },
+				"r0" : { "duration" : 300 },
+				"trigB" : { "duration" : 0 },
+		    }
+		},
+		"mp3.decoder" : {
+			"exec" : 1150, 
+			"period" : 24000,
+			"deadline" : 24000,
+			"priority" : -2,
+			"sleep" : false,
+			"lock_order" : ["waitB", "r0", "syncC"],
+			"resources" : {
+				"waitB" : { "duration" : 0, "access": ["trigB_mutex"] },
+				"r0" : { "duration" : 1000 },
+				"syncC" : { "duration" : 0, "access": ["trigC_mutex"] },
+			}
+		},
+		"OMXCall" : {
+			"exec" : 300, 
+			"period" : 24000,
+			"deadline" : 24000,
+			"priority" : -2,
+			"sleep" : false,
+			"lock_order" : ["waitC", "r0", "trigC"],
+			"resources" : {
+				"waitC" : { "duration" : 0, "access": ["trigC_mutex"] },
+				"r0" : { "duration" : 300 },
+				"trigC" : { "duration" : 0, "access": ["trigC_mutex"] },
+		    }
+		},
+	},
+	"resources" : {
+		"trigA_mutex" : { "type" : "mutex" },
+		"waitA" : { "type" : "wait" },
+		"trigA" : { "type" : "signal", "target" : "waitA" },
+		"trigB_mutex" : { "type" : "mutex" },
+		"waitB" : { "type" : "wait" },
+		"trigB" : { "type" : "signal", "target" : "waitB" },
+		"trigC_mutex" : { "type" : "mutex" },
+		"waitC" : { "type" : "wait" },
+		"trigC" : { "type" : "signal", "target" : "waitC" },
+		"syncC" : { "type" : "sync", "target" : "waitC" },
+		"r0" : { "type" : "run" },
+	},
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"duration" : 5,
+		"ftrace" : false,
+		"gnuplot" : false,
+		"logdir" : "./",
+		"log_basename" : "mp3",
+		"lock_pages" : true,
+		"frag" : 1,
+		"calibration" : "CPU0",
+	}
+}
