@@ -318,8 +318,7 @@ void *thread_body(void *arg)
 				log_critical("[%d] sched_getattr "
 				     "returned %d", data->ind, ret);
 				errno = ret;
-				perror("sched_getattr");
-				exit(EXIT_FAILURE);
+				perror("sched_getattr not supported in kernel");
 			}
 			attr.sched_policy = data->sched_policy;
 			if (data->sched_prio > 19 || data->sched_prio < -20) {
@@ -327,8 +326,7 @@ void *thread_body(void *arg)
 					"%d nice invalid. "
 					"Valid between -20 and 19",
 					data->ind, data->sched_prio);
-				perror("sched_getattr");
-				exit(EXIT_FAILURE);
+				perror("sched_getattr incorrect nice value");
 			}
 
 			attr.sched_nice = data->sched_prio;
@@ -338,8 +336,7 @@ void *thread_body(void *arg)
 				log_critical("[%d] sched_setattr"
 				     "returned %d", data->ind, ret);
 				errno = ret;
-				perror("sched_setattr");
-				exit(EXIT_FAILURE);
+				perror("sched_setattr not supported in kernel");
 			}
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
