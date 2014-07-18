@@ -148,6 +148,12 @@ void *thread_body(void *arg)
 	int ret, i = 0;
 	int j;
 
+	/* set thread name */
+	ret = pthread_setname_np(pthread_self(), data->name);
+	if (ret !=  0) {
+		perror("pthread_setname_np thread name over 16 characters");
+	}
+
 	/* set thread affinity */
 	if (data->cpuset != NULL)
 	{
