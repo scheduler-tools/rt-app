@@ -24,6 +24,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 #include <sched.h>
 #include "pthread.h"
+#include <sys/time.h>
+#include <sys/resource.h>
 
 static int errno;
 static volatile int continue_running;
@@ -319,30 +321,24 @@ void *thread_body(void *arg)
 		case other:
 			fprintf(data->log_handler, "# Policy : SCHED_OTHER\n");
 
-			ret = sched_getattr(0, &attr, sizeof(attr), 0);
-			if (ret != 0) {
-				log_critical("[%d] sched_getattr "
-				     "returned %d", data->ind, ret);
-				errno = ret;
-				perror("sched_getattr not supported in kernel");
-			}
-			attr.sched_policy = data->sched_policy;
 			if (data->sched_prio > 19 || data->sched_prio < -20) {
-				log_critical("[%d] sched_getattr "
+				log_critical("[%d] setpriority "
 					"%d nice invalid. "
 					"Valid between -20 and 19",
 					data->ind, data->sched_prio);
-				perror("sched_getattr incorrect nice value");
+				exit(EXIT_FAILURE);
 			}
 
-			attr.sched_nice = data->sched_prio;
-
-			ret = sched_setattr(0, &attr, 0);
-			if (ret != 0) {
-				log_critical("[%d] sched_setattr"
-				     "returned %d", data->ind, ret);
-				errno = ret;
-				perror("sched_setattr not supported in kernel");
+			if (data->sched_prio) {
+				ret = setpriority(PRIO_PROCESS, 0,
+						data->sched_prio);
+				if (ret != 0) {
+					log_critical("[%d] setpriority"
+					     "returned %d", data->ind, ret);
+					errno = ret;
+					perror("setpriority");
+					exit(EXIT_FAILURE);
+				}
 			}
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
