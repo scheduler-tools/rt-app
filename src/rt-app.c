@@ -430,16 +430,22 @@ void *thread_body(void *arg)
 	}
 
 	/* if we know the duration we can calculate how many periods we will
-	 * do at most, and the log to memory, instead of logging to file.
+	 * do at most, and log to memory, instead of logging to file.
 	 */
-	timings = NULL;
-	if (data->duration > 0) {
-		my_duration_usec = (data->duration * 10e6) - 
-				(data->wait_before_start * 1000);
-		nperiods = (int) ceil( my_duration_usec / 
-				(double) timespec_to_usec(&data->period));
-		timings = malloc ( nperiods * sizeof(timing_point_t));
+	nperiods = 0;
+	if ((data->duration > 0) && (data->duration > data->wait_before_start)) {
+		my_duration_usec = (data->duration * 1000000) - data->wait_before_start;
+		nperiods = (my_duration_usec + timespec_to_usec(&data->period) - 1)  / timespec_to_usec(&data->period) + 1;
 	}
+
+	if ((data->loop > 0)  && (data->loop < nperiods)) {
+		nperiods = data->loop + 1 ;
+	}
+
+	if (nperiods)
+		timings = malloc ( nperiods * sizeof(timing_point_t));
+	else
+		timings = NULL;
 
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
 				"\t\tend\t\tdeadline\tdur.\tslack"
@@ -655,7 +661,7 @@ int main(int argc, char* argv[])
 			 * to its position. We don't sleep here anymore as
 			 * this would mean that
 			 * duration = spacing * nthreads + duration */
-			tdata->wait_before_start = opts.spacing * (i+1);
+			tdata->wait_before_start = opts.spacing * 1000 * (i+1);
 		}
 
 		tdata->duration = opts.duration;
