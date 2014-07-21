@@ -417,13 +417,13 @@ void *thread_body(void *arg)
 	}
 
 	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
+		log_notice("[%d] Waiting %ld usecs... ", data->ind,
 			 data->wait_before_start);
 		clock_gettime(CLOCK_MONOTONIC, &t_now);
 		t_next = usec_to_timespec(data->wait_before_start);
 		t_next = timespec_add(&t_now, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC, 
-				TIMER_ABSTIME, 
+		clock_nanosleep(CLOCK_MONOTONIC,
+				TIMER_ABSTIME,
 				&t_next,
 				NULL);
 		log_notice("[%d] Starting...", data->ind);
