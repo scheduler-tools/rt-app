@@ -393,7 +393,7 @@ void *thread_body(void *arg)
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
 					(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
-			attr.sched_deadline = timespec_to_nsec(&data->period);
+			attr.sched_deadline = timespec_to_nsec(&data->deadline);
 			attr.sched_period = timespec_to_nsec(&data->period);
 		break;
 #endif
