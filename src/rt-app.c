@@ -416,19 +416,6 @@ void *thread_body(void *arg)
 		}
 	}
 
-	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind,
-			 data->wait_before_start);
-		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		t_next = usec_to_timespec(data->wait_before_start);
-		t_next = timespec_add(&t_now, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC,
-				TIMER_ABSTIME,
-				&t_next,
-				NULL);
-		log_notice("[%d] Starting...", data->ind);
-	}
-
 	/* if we know the duration we can calculate how many periods we will
 	 * do at most, and log to memory, instead of logging to file.
 	 */
@@ -450,6 +437,20 @@ void *thread_body(void *arg)
 	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
 				"\t\tend\t\tdeadline\tdur.\tslack"
 				"\tBudget\tUsed Budget\n");
+
+
+	if (data->wait_before_start > 0) {
+		log_notice("[%d] Waiting %ld usecs... ", data->ind,
+			 data->wait_before_start);
+		clock_gettime(CLOCK_MONOTONIC, &t_now);
+		t_next = usec_to_timespec(data->wait_before_start);
+		t_next = timespec_add(&t_now, &t_next);
+		clock_nanosleep(CLOCK_MONOTONIC,
+				TIMER_ABSTIME,
+				&t_next,
+				NULL);
+		log_notice("[%d] Starting...", data->ind);
+	}
 
 #ifdef DLSCHED
 	/* TODO find a better way to handle that constraint */
