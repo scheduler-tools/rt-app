@@ -262,6 +262,9 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	int i;
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
+	if (!resources)
+		return;
+
 	log_info(PFX "Parsing resource section");
 
 	if (json_object_is_type(resources, json_type_int)) {
@@ -302,6 +305,9 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 	struct json_object *access, *res, *next_res;
 	rtapp_resource_access_list_t *tmp;
 	char * next_name;
+
+	if (!task_resources)
+		return;
 
 	idx = get_resource_index(name, resources);
 
@@ -557,6 +563,8 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 				  json_object_to_json_string(resources));
 		}
 		parse_thread_resources(opts, locks, resources, data);
+	} else {
+		data->nblockages = 0;
 	}
 
 }
@@ -651,8 +659,9 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	tasks = get_in_object(root, "tasks", FALSE);
 	log_info(PFX "tasks    : %s", json_object_to_json_string(tasks));
 
-	resources = get_in_object(root, "resources", FALSE);
-	log_info(PFX "resources: %s", json_object_to_json_string(resources));
+	resources = get_in_object(root, "resources", TRUE);
+	if (resources)
+		log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
 	parse_global(global, opts);
 	json_object_put(global);
