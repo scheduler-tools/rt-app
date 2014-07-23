@@ -1,0 +1,34 @@
+{
+	"resources" : {
+		"mutex1" : { "type" : "mutex" },
+	},
+	"tasks" : {
+		"thread0" : {
+			"exec" : 300,
+			"period" : 8000,
+			"lock_order" : ["mutex1"],
+			"resources" : {
+				"mutex1" : { "duration" : 275 },
+		    }
+		},
+		"thread1" : {
+		   "exec" : 5000,
+		   "period" : 33000,
+			"lock_order" : ["mutex1"],
+			"resources" : {
+				"mutex1" : { "duration" : 4000 },
+		    }
+		},
+	},
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"duration" : 10,
+		"ftrace" : false,
+		"gnuplot" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app",
+		"lock_pages" : false,
+		"frag" : 0,
+		"calibration" : "CPU1",
+	}
+}
