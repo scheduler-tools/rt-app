@@ -1,0 +1,23 @@
+{
+	"tasks" : {
+		"thread0" : {
+			"exec" : 300,
+			"period" : 8000,
+		},
+		"thread1" : {
+			"exec" : 5000,
+			"period" : 33000,
+		},
+	},
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"duration" : 10,
+		"ftrace" : false,
+		"gnuplot" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app",
+		"lock_pages" : false,
+		"frag" : 0,
+		"calibration" : "CPU1",
+	}
+}
