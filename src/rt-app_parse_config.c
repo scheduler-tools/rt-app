@@ -2,6 +2,7 @@
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
+Copyright (C) 2014  Vincent Guittot <vincent.guittot@linaro.org>
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

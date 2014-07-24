@@ -21,7 +21,6 @@ rt-app runs on GNU/Linux. It needs autoconf, automake, libtool and a recent
 compiler (mainly: gcc) for basic features.
 
 For advanced usage, the following optional libraries are needed:
-- qreslib for AQuoSA support (and, obviously a GENS_SCHED patched kernel)
 - a SCHED_DEADLINE patched kernel to support SCHED_DEADLINE policy.
 - json-c installed for reading config files. In case libjson is not available
   for your target, you can download and compile json-c from
@@ -40,13 +39,6 @@ $ make install
 Last step is optional, rt-app is generated in the src/ directory.
 
 Typical usage:
-$ ./configure --with-aquosa
-	adds support for the AQuoSA framework.
-	qreslib MUST be installed in the system to compile this feature
-
-$ ./configure --with-deadline
-	adds support for SCHED_DEADLINE.
-	There are no compile-time requirements for this feature.
 
 $ ./configure --with-json
 	adds support for reading taskset definitions from JSON files
