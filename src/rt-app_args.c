@@ -42,23 +42,11 @@ usage (const char* msg, int ex_code)
 	printf("-T, --ftrace\t\t:\tenable ftrace prints\n");
 	printf("-P, --pi_enabled\t:\tenable priority inheritance on resources\n");
 	printf("-M, --die_on_dmiss\t:\texit with an error if a task misses a deadline\n");
-
-#ifdef AQUOSA
-	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
-	printf("-g, --frag\t:\tfragment for the reservation\n\n");
-#else
-#endif
 	printf("\nPOLICY: f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER");
 #ifdef DLSCHED
 	printf(", d=SCHED_DEADLINE");
 #endif
-#ifdef AQUOSA
-	printf(", q=AQuoSA\n");
-	printf("when using AQuoSA scheduling, priority is used as"
-		" percent increment \nfor budget over exec time\n");
-#else
 	printf("\n");
-#endif
 	printf("AFFINITY: comma-separated cpu index (starting from 0)\n");
 	printf("\ti.e. 0,2,3 for first, third and fourth CPU\n");
 
@@ -117,11 +105,6 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			break;
 
 		case 2:
-#ifdef AQUOSA
-			if (strcmp(token,"q") == 0)
-				tdata->sched_policy = aquosa;
-			else
-#endif
 #ifdef DLSCHED
 			if (strcmp(token,"d") == 0)
 				tdata->sched_policy = deadline;
@@ -224,9 +207,6 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->pi_enabled = 0;
 	opts->policy = other;
 	opts->threads_data = malloc(sizeof(thread_data_t));
-#ifdef AQUOSA
-	opts->fragment = 1;
-#endif
 
 	static struct option long_options[] = {
 				{"help", 0, 0, 'h'},
@@ -241,20 +221,11 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				{"ftrace", 0, 0, 'T'},
 				{"pi_enabled", 0, 0, 'T'},
 				{"die_on_dmiss", 0, 0, 'M'},
-#ifdef AQUOSA
-				{"qos", 0, 0, 'q'},
-				{"frag",1, 0, 'g'},
-#endif
 				{0, 0, 0, 0}
 	};
 
-#ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM",
-				  long_options, &longopt_idx)) != -1)
-#else
 	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM",
 				  long_options, &longopt_idx)) != -1)
-#endif
 	{
 		switch (ch)
 		{
@@ -325,20 +296,6 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 'M':
 				opts->die_on_dmiss = 1;
 				break;
-#ifdef AQUOSA
-			case 'q':
-				if (opts->policy != other)
-					usage("Cannot set multiple policies",
-							EXIT_INV_COMMANDLINE);
-				opts->policy = aquosa;
-				break;
-			case 'g':
-				opts->fragment = strtol(optarg, NULL, 10);
-				if (opts->fragment < 1 || opts->fragment > 16)
-					usage("Fragment divisor must be between"
-							"1 and 16", EXIT_INV_COMMANDLINE);
-				break;
-#endif
 			default:
 				log_error("Invalid option %c", ch);
 				usage(NULL, EXIT_INV_COMMANDLINE);

@@ -262,10 +262,6 @@ void *thread_body(void *arg)
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
 	timing_point_t *curr_timing;
-#ifdef AQUOSA
-	qres_time_t prev_abs_used_budget = 0;
-	qres_time_t abs_used_budget;
-#endif
 	pid_t tid;
 	struct sched_attr attr;
 	unsigned int flags = 0;
@@ -352,33 +348,6 @@ void *thread_body(void *arg)
 
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
-
-#ifdef AQUOSA
-		case aquosa:
-			fprintf(data->log_handler, "# Policy : AQUOSA\n");
-			data->params.Q_min = round((timespec_to_usec(&data->min_et)
-						* (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
-			data->params.Q = round((timespec_to_usec(&data->max_et)
-						* (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
-			data->params.P = round(timespec_to_usec(&data->period)
-						/ (data->fragment * 1.0));
-			data->params.flags = 0;
-
-			log_notice("[%d] Creating QRES Server with Q=%ld, P=%ld",
-					data->ind,data->params.Q, data->params.P);
-
-			qos_chk_ok_exit(qres_init());
-			qos_chk_ok_exit(qres_create_server(&data->params, 
-					&data->sid));
-			log_notice("[%d] AQuoSA server ID: %d", data->ind, data->sid);
-			log_notice("[%d] attaching thread (deadline: %lu) to server %d",
-					data->ind,
-					timespec_to_usec(&data->deadline),
-					data->sid);
-
-			qos_chk_ok_exit(qres_attach_thread(data->sid, 0, 0));
-		break;
-#endif
 
 #ifdef DLSCHED
 		case deadline:
@@ -514,21 +483,7 @@ void *thread_body(void *arg)
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
 
-#ifdef AQUOSA
-		if (data->sched_policy == aquosa) {
-			curr_timing->budget = data->params.Q;
-			qres_get_exec_time(data->sid,
-					&abs_used_budget,
-					NULL);
-			curr_timing->used_budget =
-					abs_used_budget - prev_abs_used_budget;
-			prev_abs_used_budget = abs_used_budget;
 
-		} else {
-			curr_timing->budget = 0;
-			curr_timing->used_budget = 0;
-		}
-#endif
 		if (!timings)
 			log_timing(data->log_handler, curr_timing);
 
@@ -574,13 +529,6 @@ exit_miss:
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 	log_notice("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
-
-#ifdef AQUOSA
-	if (data->sched_policy == aquosa) {
-		qres_destroy_server(data->sid);
-		qres_cleanup();
-	}
-#endif
 
 	pthread_exit(NULL);
 }
@@ -665,9 +613,6 @@ int main(int argc, char* argv[])
 		tdata->duration = opts.duration;
 		tdata->main_app_start = t_start;
 		tdata->lock_pages = opts.lock_pages;
-#ifdef AQUOSA
-		tdata->fragment = opts.fragment;
-#endif
 
 		if (opts.logdir) {
 			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",

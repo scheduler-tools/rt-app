@@ -150,13 +150,6 @@ log_timing(FILE *handler, timing_point_t *t)
 		t->duration,
 		t->slack
 	);
-#ifdef AQUOSA
-	fprintf(handler,
-		"\t" QRES_TIME_FMT "\t" QRES_TIME_FMT,
-		t->budget,
-		t->used_budget
-	);
-#endif
 	fprintf(handler, "\n");
 }
 
@@ -179,11 +172,6 @@ string_to_policy(const char *policy_name, policy_t *policy)
 	else if (strcmp(policy_name, "SCHED_DEADLINE") == 0)
 		*policy =  deadline;
 #endif
-#ifdef AQUOSA
-	else if ( (strcmp(policy_name, "AQUOSA") == 0) || \
-		  (strcmp(policy_name, "AQuoSA") == 0))
-		*policy =  aquosa;
-#endif
 	else
 		return 1;
 	return 0;
@@ -205,11 +193,6 @@ policy_to_string(policy_t policy, char *policy_name)
 #ifdef DLSCHED
 		case deadline:
 			strcpy(policy_name, "SCHED_DEADLINE");
-			break;
-#endif
-#ifdef AQUOSA
-		case aquosa:
-			strcpy(policy_name, "AQuoSA");
 			break;
 #endif
 		default:

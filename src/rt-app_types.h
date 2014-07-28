@@ -29,9 +29,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <time.h>
 #include <stdio.h>
 #include <sched.h>
-#ifdef AQUOSA
-#include <aquosa/qres_lib.h>
-#endif /* AQUOSA */
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
 #define RTAPP_RESOURCE_DESCR_LENGTH 16
@@ -48,9 +45,6 @@ typedef enum policy_t
 	other = SCHED_OTHER,
 	rr = SCHED_RR,
 	fifo = SCHED_FIFO
-#ifdef AQUOSA
-	, aquosa = 1000
-#endif
 #ifdef DLSCHED
 	, deadline = SCHED_DEADLINE
 #endif
@@ -125,12 +119,6 @@ typedef struct _thread_data_t {
 	rtapp_tasks_resource_list_t *blockages;
 	int nblockages;
 
-#ifdef AQUOSA
-	int fragment;
-	int sid;
-	qres_params_t params;
-#endif
-
 #ifdef DLSCHED
 	struct sched_attr dl_params;
 #endif
@@ -164,10 +152,6 @@ typedef struct _rtapp_options_t {
 
 	int ftrace;
 	int die_on_dmiss;
-
-#ifdef AQUOSA
-	int fragment;
-#endif
 } rtapp_options_t;
 
 typedef struct _timing_point_t {
@@ -181,10 +165,6 @@ typedef struct _timing_point_t {
 	unsigned long deadline;
 	unsigned long duration;
 	long slack;
-#ifdef AQUOSA
-	qres_time_t budget;
-	qres_time_t used_budget;
-#endif
 } timing_point_t;
 
 #endif // _RTAPP_TYPES_H_ 

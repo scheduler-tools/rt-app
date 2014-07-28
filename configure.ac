@@ -13,23 +13,6 @@ AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
 AC_CHECK_LIB([rt], [clock_gettime])
 
-AC_ARG_WITH([aquosa],
-            [AS_HELP_STRING([--with-aquosa],
-              [Add support for the AQuoSA framework])],
-            [],
-            [with_aquosa=no])
-          
-          QRESLIB=
-          AS_IF([test "x$with_aquosa" != xno],
-            [AC_CHECK_LIB([qreslib], [qres_init],
-              [AC_SUBST([QRESLIB], ["-lqreslib"])
-               AC_DEFINE([AQUOSA], [1],
-                         [Define if you have libqreslib])
-              ],
-              [AC_MSG_FAILURE(
-                 [qreslib test failed (--without-aquosa to disable)])],
-              [-lqreslib])])
-
 AC_ARG_WITH([deadline],
 	[AS_HELP_STRING([--with-deadline], 
          [Add support for SCHED_DEADLINE])],

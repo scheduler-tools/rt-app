@@ -105,9 +105,6 @@ Options:
 	duration of execution,  i.e. each thread is started every $spacing ms
 	and the total runtime is $duration.
 
-* --frag (AQuoSA only): fragments the reservation period by $fragmentation, i.e.
-	reservation period is $frag times smaller than thread's period.
-
 * --no-mlock: do not lock threads' memory pages when using realtime scheduling
 	classes
 
@@ -120,8 +117,7 @@ exec     : thread WCET in microseconds
 policy   : one of f=SCHED_FIFO, r=SCHED_RR, o=SCHED_OTHER, q=AQuoSA (if enabled)
 affinity : comma-separated cpu index (starting from 0) i.e. 0,2,3 for first,
 	   third and fourth CPU
-prio     : thread priority in SCHED_FIFO/SCHED_RR/SCHED_OTHER, percentile
-           increment for AQuoSA reservation budget w.r.t. WCET.
+prio     : thread priority in SCHED_FIFO/SCHED_RR/SCHED_OTHER.
 deadline : deadline in microseconds (used ONLY for plotting!)
 
 
