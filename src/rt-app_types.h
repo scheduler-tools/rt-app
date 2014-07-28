@@ -98,6 +98,14 @@ typedef struct _rtapp_tasks_resource_list_t {
 	struct _rtapp_resource_access_list_t *acl;
 } rtapp_tasks_resource_list_t;
 
+typedef struct _phase_data_t {
+	struct timespec min_et;
+	struct timespec period, deadline;
+	int loop, sleep;
+	rtapp_tasks_resource_list_t *blockages;
+	int nblockages;
+} phase_data_t;
+
 typedef struct _thread_data_t {
 	int ind;
 	char *name;
@@ -106,18 +114,17 @@ typedef struct _thread_data_t {
 	cpu_set_t *cpuset;
 	char *cpuset_str;
 	unsigned long wait_before_start;
-	struct timespec min_et, max_et;
-	struct timespec period, deadline;
+
+	int nphases;
+	phase_data_t *phases_data;
+	int loop;
+
 	struct timespec main_app_start;
-	int loop, sleep;
 
 	FILE *log_handler;
 	policy_t sched_policy;
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
-
-	rtapp_tasks_resource_list_t *blockages;
-	int nblockages;
 
 #ifdef DLSCHED
 	struct sched_attr dl_params;

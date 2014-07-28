@@ -86,7 +86,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			if (period <= 0 )
 				usage("Cannot set negative period.", 
 				      EXIT_INV_COMMANDLINE);
-			tdata->period = usec_to_timespec(period);
+			tdata->phases_data->period = usec_to_timespec(period);
 			i++;
 			break;
 
@@ -99,8 +99,8 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			if (exec <= 0 )
 				usage("Cannot set negative exec time",
 						EXIT_INV_COMMANDLINE);
-			tdata->min_et = usec_to_timespec(exec);
-			tdata->max_et = usec_to_timespec(exec);
+			tdata->phases_data->min_et = usec_to_timespec(exec);
+			tdata->phases_data->max_et = usec_to_timespec(exec);
 			i++;
 			break;
 
@@ -152,7 +152,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			if (dline <= 0 )
 				usage("Cannot set negative deadline",
 				      EXIT_INV_COMMANDLINE);
-			tdata->deadline = usec_to_timespec(dline);
+			tdata->phases_data->deadline = usec_to_timespec(dline);
 			i++;
 			break;
 		}
@@ -165,7 +165,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 	}
 
 	if (dline == 0)
-		tdata->deadline = tdata->period;
+		tdata->phases_data->deadline = tdata->phases_data->period;
 
 	/* set cpu affinity mask */
 	if (tdata->cpuset_str)
@@ -207,6 +207,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	opts->pi_enabled = 0;
 	opts->policy = other;
 	opts->threads_data = malloc(sizeof(thread_data_t));
+	opts->threads_data->phases_data = malloc(sizeof(rtapp_tasks_phases_t));
 
 	static struct option long_options[] = {
 				{"help", 0, 0, 'h'},
@@ -269,6 +270,8 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 							opts->threads_data,
 							(opts->nthreads+1) * \
 							sizeof(thread_data_t));
+					opts->threads_data[opts->nthreads+1].phases_data =
+							malloc(sizeof(rtapp_tasks_phases_t));
 				}
 				parse_thread_args(optarg, opts->nthreads,
 						&opts->threads_data[opts->nthreads],
