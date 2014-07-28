@@ -1,0 +1,225 @@
+{
+	"tasks" : {
+		"BrowserMain" : {
+			"loop" : 3,
+			"delay" : 400000,
+			"phases" : {
+				"start" : {
+					"loop" : 1,
+					"exec" :   22000,
+					"period" : 30000,
+					"lock_order" : [ "r0", "trig0"],
+					"resources" : {
+						"r0" : { "duration" : 15000 },
+						"trig0" : { "duration" : 0, "access": ["trig0_mutex"]},
+					}
+				},
+				"render1" : {
+					"loop" : 50,
+					"exec" : 3000,
+					"sleep" : false,
+					"lock_order" : [ "trig00"],
+					"resources" : {
+						"trig00" : { "duration" : 0, "access": ["trig00_mutex"]},
+					}
+				},
+				"render2" : {
+					"loop" : 1,
+					"exec" : 150000,
+					"sleep" : false,
+					"lock_order" : [ "wait0", "r0", "trig0" ],
+					"resources" : {
+						"wait0" : { "duration" : 0, "access": ["trig0_mutex"] },
+						"r0" : { "duration" : 100000 },
+						"trig0" : { "duration" : 0, "access": ["trig0_mutex"]},
+					}
+				},
+				"render3" : {
+					"loop" : 20,
+					"exec" : 3000,
+					"sleep" : false,
+					"lock_order" : [ "trig00"],
+					"resources" : {
+						"trig00" : { "duration" : 0, "access": ["trig00_mutex"]},
+					}
+				},
+				"stop" : {
+					"loop" : 1,
+					"exec" :     2000,
+					"period" : 800000,
+					"lock_order" : ["r0", "s0", "wait0"],
+					"resources" : {
+						"r0" : { "duration" : 2000 },
+						"s0" : { "duration" : 200000 },
+						"wait0" : { "duration" : 0, "access": ["trig0_mutex"] },
+					}
+				},
+				"scroll" : {
+					"loop" : 4,
+					"exec" : 1000,
+					"sleep" : false,
+					"lock_order" : [ "trig0", "wait000"],
+					"resources" : {
+						"trig0" : { "duration" : 0, "access": ["trig0_mutex"]},
+						"wait000" : { "duration" : 0, "access": ["trig000_mutex"] },
+					}
+				},
+				"stop2" : {
+					"loop" : 1,
+					"exec" :      200,
+					"period" : 800000,
+					"lock_order" : ["wait0"],
+					"resources" : {
+						"wait0" : { "duration" : 0, "access": ["trig0_mutex"] },
+					}
+				},
+			}
+		},
+		"BrowserSub1" : {
+			"priority" : -6,
+			"delay" : 1000,
+			"exec" :   100,
+			"period" : 100,
+			"sleep" : false,
+			"lock_order" : [ "wait00", "r0", "trig00" ],
+			"resources" : {
+				"wait00" : { "duration" : 0, "access": ["trig00_mutex"] },
+				"r0" : { "duration" : 100 },
+				"trig00" : { "duration" : 0, "access": ["trig00_mutex"]},
+		    }
+		},
+		"BrowserSub2" : { 
+			"priority" : -6,
+			"delay" : 2000,
+			"exec" :   100,
+			"period" : 100,
+			"sleep" : false,
+			"lock_order" : [ "wait00", "r0" ],
+			"resources" : {
+				"wait00" : { "duration" : 0, "access": ["trig00_mutex"] },
+				"r0" : { "duration" : 100 },
+		    }
+		},
+		"BrowserDisplay" : { 
+			"priority" : -6,
+			"exec" :   13000,
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : [ "wait0", "r0", "trig000", "r1", "sync11", "r2", "trig1" ],
+			"resources" : {
+				"wait0" : { "duration" : 0, "access": ["trig0_mutex"] },
+				"r0" : { "duration" : 300 },
+				"trig000" : { "duration" : 0, "access": ["trig000_mutex"]},
+				"r1" : { "duration" : 12000 },
+				"sync11" : { "duration" : 0, "access": ["trig11_mutex"]},
+				"r2" : { "duration" : 300 },
+				"trig1" : { "duration" : 0, "access": ["trig1_mutex"]},
+			}
+		},
+		"Binder-dummy" : {
+			"priority" : -6,
+			"exec" :     300,
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : [ "wait11", "r0", "trig11" ],
+			"resources" : {
+				"wait11" : { "duration" : 0, "access": ["trig11_mutex"] },
+				"r0" : { "duration" : 200 },
+				"trig11" : { "duration" : 0, "access": ["trig11_mutex"] },
+			}
+		},
+		"Binder-display" : { 
+			"priority" : -6,
+			"exec" :     300,
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : [ "wait1", "r0", "trig2", "trig22" ],
+			"resources" : {
+				"wait1" : { "duration" : 0, "access": ["trig1_mutex"] },
+				"r0" : { "duration" : 300 },
+				"trig2" : { "duration" : 0, "access": ["trig2_mutex"] },
+				"trig22" : { "duration" : 0, "access": ["trig22_mutex"] },
+			}
+		},
+		"Event-Browser" : {
+			"priority" : -9,
+			"exec" :     100, 
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : ["wait2", "r0", "s0", "r1", "trig0"],
+			"resources" : {
+				"wait2" : { "duration" : 0, "access": ["trig2_mutex"] },
+				"r0" : { "duration" : 50 },
+				"s0" : { "duration" : 16000 },
+				"trig0" : { "duration" : 0, "access": ["trig0_mutex"] },
+				"r1" : { "duration" : 50 },
+		    }
+		},
+		"Event-Display" : {
+			"priority" : -9,
+			"exec" :     100,
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : ["wait22", "r0", "s0", "r1", "trig3"],
+			"resources" : {
+				"wait22" : { "duration" : 0, "access": ["trig22_mutex"] },
+				"r0" : { "duration" : 50 },
+				"s0" : { "duration" : 16000 },
+				"trig3" : { "duration" : 0, "access": ["trig3_mutex"] },
+				"r1" : { "duration" : 50 },
+		    }
+		},
+		"Display" : {
+			"priority" : -8,
+			"exec" :   16000, 
+			"period" : 25000,
+			"sleep" : false,
+			"lock_order" : ["wait3"],
+			"resources" : {
+				"wait3" : { "duration" : 0, "access": ["trig3_mutex"] },
+		    }
+		},
+	},
+	"resources" : {
+		"trig0_mutex" : { "type" : "mutex" },
+		"wait0" : { "type" : "wait" },
+		"trig0" : { "type" : "signal", "target" : "wait0" },
+		"trig00_mutex" : { "type" : "mutex" },
+		"wait00" : { "type" : "wait" },
+		"trig00" : { "type" : "signal", "target" : "wait00" },
+		"trig000_mutex" : { "type" : "mutex" },
+		"wait000" : { "type" : "wait" },
+		"trig000" : { "type" : "signal", "target" : "wait000" },
+		"trig1_mutex" : { "type" : "mutex" },
+		"wait1" : { "type" : "wait" },
+		"trig1" : { "type" : "signal", "target" : "wait1" },
+		"trig11_mutex" : { "type" : "mutex" },
+		"wait11" : { "type" : "wait" },
+		"trig11" : { "type" : "signal", "target" : "wait11" },
+		"sync11" : { "type" : "sync", "target" : "wait11" },
+		"trig2_mutex" : { "type" : "mutex" },
+		"wait2" : { "type" : "wait" },
+		"trig2" : { "type" : "signal", "target" : "wait2" },
+		"trig22_mutex" : { "type" : "mutex" },
+		"wait22" : { "type" : "wait" },
+		"trig22" : { "type" : "signal", "target" : "wait22" },
+		"trig3_mutex" : { "type" : "mutex" },
+		"wait3" : { "type" : "wait" },
+		"trig3" : { "type" : "signal", "target" : "wait3" },
+		"r0" : { "type" : "run" },
+		"r1" : { "type" : "run" },
+		"r2" : { "type" : "run" },
+		"s0" : { "type" : "sleep" },
+	},
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"duration" : 10,
+		"ftrace" : false,
+		"gnuplot" : false,
+		"logdir" : "./",
+		"log_basename" : "web",
+		"lock_pages" : false,
+		"frag" : 1,
+		"calibration" : "CPU0",
+	}
+}
