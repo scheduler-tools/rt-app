@@ -170,6 +170,9 @@ void run(int ind, struct timespec *min, struct timespec *max,
 
 	for (i = 0; i < nblockages; i++)
 	{
+		if (!continue_running)
+			return;
+
 		/* Lock resources sequence including the busy wait */
 		lock = blockages[i].acl;
 		while (lock != NULL && continue_running) {
@@ -186,7 +189,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		if (!i && t_start)
 			clock_gettime(CLOCK_MONOTONIC, t_start);
 
-		if (busywait) {
+		if (continue_running && busywait) {
 			/* Busy wait */
 			log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
 			if (opts.ftrace)
@@ -208,7 +211,11 @@ void run(int ind, struct timespec *min, struct timespec *max,
 			put_resource(lock);
 			lock = lock->prev;
 		}
+
 	}
+
+	if (!continue_running)
+		return;
 
 	/* Compute finish time for CPUTIME_ID clock */
 	log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&t_exec));
