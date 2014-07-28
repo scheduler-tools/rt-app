@@ -166,6 +166,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	rtapp_resource_access_list_t *lock, *last;
 
 	t_exec = *min;
+	log_debug("[%d] loop for %lu", ind, timespec_to_usec(&t_exec));
 
 	for (i = 0; i < nblockages; i++)
 	{
@@ -268,7 +269,7 @@ void *thread_body(void *arg)
 	unsigned int flags = 0;
 	int ret, i, j, loop;
 
-	/* set thread name */
+	/* Set thread name */
 	ret = pthread_setname_np(pthread_self(), data->name);
 	if (ret !=  0) {
 		perror("pthread_setname_np thread name over 16 characters");
@@ -291,14 +292,14 @@ void *thread_body(void *arg)
 		}
 	}
 
-	/* set scheduling policy and print pretty info on stdout */
-	log_notice("[%d] Using %s policy:", data->ind, data->sched_policy_descr);
+	/* Set scheduling policy and print pretty info on stdout */
+	log_notice("[%d] Using %s policy with priority %d", data->ind, data->sched_policy_descr, data->sched_prio);
 	switch (data->sched_policy)
 	{
 		case rr:
 		case fifo:
-			fprintf(data->log_handler, "# Policy : %s\n",
-					(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"));
+			fprintf(data->log_handler, "# Policy : %s priority : %d\n",
+					(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"), data->sched_prio);
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(),
 					data->sched_policy,
@@ -308,11 +309,10 @@ void *thread_body(void *arg)
 				perror("pthread_setschedparam");
 				exit(EXIT_FAILURE);
 			}
-
 			break;
 
 		case other:
-			fprintf(data->log_handler, "# Policy : SCHED_OTHER\n");
+			fprintf(data->log_handler, "# Policy : SCHED_OTHER priority : %d\n", data->sched_prio);
 
 			if (data->sched_prio > 19 || data->sched_prio < -20) {
 				log_critical("[%d] setpriority "
@@ -403,7 +403,7 @@ void *thread_body(void *arg)
 				"\t\tend\t\tdeadline\tdur.\tslack"
 				"\tBudget\tUsed Budget\n");
 
-
+	/* Delay the start of the pattern if required */
 	if (data->wait_before_start > 0) {
 		log_notice("[%d] Waiting %ld usecs... ", data->ind,
 			 data->wait_before_start);
@@ -416,6 +416,9 @@ void *thread_body(void *arg)
 				NULL);
 		log_notice("[%d] Starting...", data->ind);
 	}
+
+	if (opts.ftrace)
+		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
 
 #ifdef DLSCHED
 	/* TODO find a better way to handle that constraint */
@@ -442,9 +445,6 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
-
-	if (opts.ftrace)
-		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
 
 	clock_gettime(CLOCK_MONOTONIC, &t_now);
 	t_next = t_now;
