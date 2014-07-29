@@ -109,16 +109,6 @@ static inline loadwait(struct timespec *exec_time)
 	waste_cpu_cycles(load_count);
 }
 
-static inline busywait(struct timespec *to)
-{
-	struct timespec t_step;
-	while (1) {
-		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_step);
-		if (!timespec_lower(&t_step, to))
-			break;
-	}
-}
-
 int get_resource(rtapp_resource_access_list_t *lock, struct timespec *usage)
 {
 	int busywait = 1;
@@ -158,14 +148,15 @@ void put_resource(rtapp_resource_access_list_t *lock)
 		pthread_mutex_unlock(&(lock->res->res.mtx.obj));
 }
 
-void run(int ind, struct timespec *min, struct timespec *max,
-	 rtapp_tasks_resource_list_t *blockages, int nblockages, struct timespec *t_start)
+void run(int ind, struct timespec *min, rtapp_tasks_resource_list_t *blockages,
+		int nblockages, struct timespec *t_start)
 {
 	int i, busywait = 1;
 	struct timespec t_exec;
 	rtapp_resource_access_list_t *lock, *last;
 
 	t_exec = *min;
+
 	log_debug("[%d] loop for %lu", ind, timespec_to_usec(&t_exec));
 
 	for (i = 0; i < nblockages; i++)
@@ -196,6 +187,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				log_ftrace(ft_data.marker_fd,
 					   "[%d] busywait for %d",
 					   ind, timespec_to_usec(&blockages[i].usage));
+
 			loadwait(&blockages[i].usage);
 
 			/* Check consistency between exec and sum of usage */
@@ -235,9 +227,10 @@ static void
 shutdown(int sig)
 {
 	int i;
-	// notify threads, join them, then exit
+	/* notify threads, join them, then exit */
 	continue_running = 0;
 
+	/* Force wake up of all waiting threads */
 	for (i = 0; i <  opts.nresources; i++) {
 		switch (opts.resources[i].type) {
 		case rtapp_sig_and_wait:
@@ -247,7 +240,7 @@ shutdown(int sig)
 		}
 	}
 
-	// wait up all waiting threads
+	/* wait up all waiting threads */
 	for (i = 0; i < nthreads; i++)
 	{
 		pthread_join(threads[i], NULL);
@@ -357,8 +350,8 @@ void *thread_body(void *arg)
 			attr.sched_flags = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
-			attr.sched_runtime = timespec_to_nsec(&pdata->max_et) +
-					(timespec_to_nsec(&pdata->max_et) /100) * BUDGET_OVERP;
+			attr.sched_runtime = timespec_to_nsec(&pdata->min_et) +
+					(timespec_to_nsec(&pdata->min_et) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&pdata->deadline);
 			attr.sched_period = timespec_to_nsec(&pdata->period);
 		break;
@@ -371,6 +364,7 @@ void *thread_body(void *arg)
 			exit(EXIT_FAILURE);
 	}
 
+	/* Lock pages */
 	if (data->lock_pages == 1)
 	{
 		log_notice("[%d] Locking pages in memory", data->ind);
@@ -392,14 +386,16 @@ void *thread_body(void *arg)
 	/*
 	 * If we know the duration we can calculate how many periods we will
 	 * do at most, and log to memory, instead of logging to file.
-	 * In case of several phase, we still use the logging file instead of
-	 * memory.
-	 * TODO: parse all the phase to compute the memory phase
+	 * In case of several phase, we use the logging file until we fix the way
+	 * to compute the number of period
+	 * TODO: parse all phases to compute the memory size
 	 */
 	nperiods = 0;
-	if ((data->duration > 0) && (data->duration > data->wait_before_start) && (data->nphases < 2)) {
+	if ((data->duration > 0) && (data->duration > data->wait_before_start) &&
+														(data->nphases < 2)) {
 		my_duration_usec = (data->duration * 1000000) - data->wait_before_start;
-		nperiods = (my_duration_usec + timespec_to_usec(&data->phases_data->period) - 1)  / timespec_to_usec(&data->phases_data->period) + 1;
+		nperiods = (my_duration_usec + timespec_to_usec(&data->phases_data->period) - 1) /
+			timespec_to_usec(&data->phases_data->period) + 1;
 	}
 
 	if ((pdata->loop > 0)  && (pdata->loop < nperiods)) {
@@ -411,9 +407,8 @@ void *thread_body(void *arg)
 	else
 		timings = NULL;
 
-	fprintf(data->log_handler, "#idx\tperiod\tmin_et\tmax_et\trel_st\tstart"
-				"\t\tend\t\tdeadline\tdur.\tslack"
-				"\tBudget\tUsed Budget\n");
+	fprintf(data->log_handler, "#idx\tperiod\tmin_et\trel_st\tstart"
+				"\t\tend\t\tdur.\tslack\n");
 
 	/* Delay the start of the pattern if required */
 	if (data->wait_before_start > 0) {
@@ -458,9 +453,8 @@ void *thread_body(void *arg)
 	}
 #endif
 
-	clock_gettime(CLOCK_MONOTONIC, &t_now);
-	t_next = t_now;
-	pdata->deadline = timespec_add(&t_now, &pdata->deadline);
+	/* Get the start time  */
+	clock_gettime(CLOCK_MONOTONIC, &t_next);
 
 	i = j = loop = 0;
 	while (continue_running && (i != data->loop)) {
@@ -470,36 +464,35 @@ void *thread_body(void *arg)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		run(data->ind, &pdata->min_et, &pdata->max_et, pdata->blockages,
-		    pdata->nblockages, pdata->sleep ? NULL: &t_start);
+		run(data->ind, &pdata->min_et, pdata->blockages, pdata->nblockages,
+					pdata->sleep ? NULL: &t_start);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		t_diff = timespec_sub(&t_end, &t_start);
-		t_slack = timespec_sub(&pdata->deadline, &t_end);
+
+		t_slack = timespec_sub(&pdata->deadline, &t_diff);
 
 		t_start_usec = timespec_to_usec(&t_start);
+
 		if (timings)
-			curr_timing = &timings[i];
+			curr_timing = &timings[loop];
 		else
 			curr_timing = &tmp_timing;
 
 		curr_timing->ind = data->ind;
 		curr_timing->period = timespec_to_usec(&pdata->period);
 		curr_timing->min_et = timespec_to_usec(&pdata->min_et);
-		curr_timing->max_et = timespec_to_usec(&pdata->max_et);
 		curr_timing->rel_start_time =
 			t_start_usec - timespec_to_usec(&data->main_app_start);
 		curr_timing->abs_start_time = t_start_usec;
 		curr_timing->end_time = timespec_to_usec(&t_end);
-		curr_timing->deadline = timespec_to_usec(&pdata->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
 
-//		if (!timings)
-//			log_timing(data->log_handler, curr_timing);
+		if (!timings)
+			log_timing(data->log_handler, curr_timing);
 
 		t_next = timespec_add(&t_next, &pdata->period);
-		pdata->deadline = timespec_add(&pdata->deadline, &pdata->period);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d phase %d step %d",
@@ -522,14 +515,11 @@ void *thread_body(void *arg)
 		if (loop == pdata->loop) {
 			loop = 0;
 
-			clock_gettime(CLOCK_MONOTONIC, &t_now);
-			t_next = t_now;
-			pdata->deadline = timespec_add(&t_now, &pdata->deadline);
+			clock_gettime(CLOCK_MONOTONIC, &t_next);
 
 			j++;
 			if (j == data->nphases) {
 				j = 0;
-
 				i++;
 			}
 
@@ -549,7 +539,7 @@ exit_miss:
 	}
 
 	if (timings)
-		for (j=0; j < i; j++)
+		for (j=0; j < loop; j++)
 			log_timing(data->log_handler, &timings[j]);
 
 	if (opts.ftrace)

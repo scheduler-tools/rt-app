@@ -165,7 +165,6 @@ typedef struct _timing_point_t {
 	int ind;
 	unsigned long period;
 	unsigned long min_et;
-	unsigned long max_et;
 	unsigned long rel_start_time;
 	unsigned long abs_start_time;
 	unsigned long end_time;
@@ -174,4 +173,4 @@ typedef struct _timing_point_t {
 	long slack;
 } timing_point_t;
 
-#endif // _RTAPP_TYPES_H_ 
+#endif // _RTAPP_TYPES_H_
