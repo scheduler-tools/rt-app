@@ -23,23 +23,14 @@ AS_IF([test "x$with_deadline" != xno],
 	[AC_DEFINE([DLSCHED], [1], [Define if you have SCHED_DEADLINE support])
      ])
 
-AC_ARG_WITH([json],
-	    [AS_HELP_STRING([--with-json],
-			    [Add support for reading json config file]
-			   )
-	    ], [], [with_json=no]
-	   )
 LIBJSON=
-AS_IF([test "x$with_json" != "xno"],
-      [AC_CHECK_LIB([json], [json_object_from_file],
+      AC_CHECK_LIB([json], [json_object_from_file],
 	      	    [AC_SUBST([LIBJSON], ["-ljson"])
         	     AC_DEFINE([JSON], [1], [Define if you have libjson])
        	            ],
        	            [AC_MSG_FAILURE([libjson test failed (use --without-json to disable or install json-c)])],
                     [-ljson]
-		   )
-      ]
-     ) 
+		   ) 
 
 AM_CONDITIONAL([AMJSON], [ test x$with_json != xno])
 

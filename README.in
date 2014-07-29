@@ -40,11 +40,6 @@ Last step is optional, rt-app is generated in the src/ directory.
 
 Typical usage:
 
-$ ./configure --with-json
-	adds support for reading taskset definitions from JSON files
-	(and from stdin).
-	json-c (libjson.so.0.0.1) is needed to compile this feature.
-
 $ ./configure --prefix=<directory>
 	installs the compiled program in  the given directory
 
@@ -59,7 +54,7 @@ cross-compiler, and provide the --host option (e.g., --host=arm).
 
 $ rt-app <config_file>
 where config file is a full/relative path to a json file (look under doc/ for
-an example config file) or "-" (without quotes) to read JSON data from stdin.
+examples config file) or "-" (without quotes) to read JSON data from stdin.
 
 OR you can use commandline to define the taskset.
 Keep in mind that on commandline it will never be possible to define resources
