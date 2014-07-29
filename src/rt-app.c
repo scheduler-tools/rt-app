@@ -197,7 +197,12 @@ void run(int ind, struct timespec *min, struct timespec *max,
 					   "[%d] busywait for %d",
 					   ind, timespec_to_usec(&blockages[i].usage));
 			loadwait(&blockages[i].usage);
-			t_exec = timespec_sub(&t_exec, &blockages[i].usage);
+
+			/* Check consistency between exec and sum of usage */
+			if (timespec_lower(&t_exec, &blockages[i].usage))
+				t_exec = usec_to_timespec(0);
+			else
+				t_exec = timespec_sub(&t_exec, &blockages[i].usage);
 		}
 
 		/* Unlock resources */
