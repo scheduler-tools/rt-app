@@ -572,7 +572,7 @@ int main(int argc, char* argv[])
 	signal(SIGHUP, shutdown);
 	signal(SIGINT, shutdown);
 
-	/* if using ftrace, open trace and marker fds */
+	/* If using ftrace, open trace and marker fds */
 	if (opts.ftrace) {
 		log_notice("configuring ftrace");
 		strcpy(tmp, ft_data.debugfs);
@@ -597,7 +597,7 @@ int main(int argc, char* argv[])
 
 	continue_running = 1;
 
-	/*Needs to calibrate 'calib_cpu' core*/
+	/* Needs to calibrate 'calib_cpu' core */
 	if (opts.calib_ns_per_loop == 0) {
 		cpu_set_t calib_set;
 
@@ -613,19 +613,9 @@ int main(int argc, char* argv[])
 		log_notice("pLoad = %dns", p_load);
 	}
 
-	/* Take the beginning time for everything */
-	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	/* start threads */
+	/* Prepare log file of each thread before starting the use case */
 	for (i = 0; i < nthreads; i++) {
-		tdata = &opts.threads_data[i];
-		if (!tdata->wait_before_start && (opts.spacing > 0)) {
-			/* start the thread, then it will sleep accordingly
-			 * to its position. We don't sleep here anymore as
-			 * this would mean that
-			 * duration = spacing * nthreads + duration */
-			tdata->wait_before_start = opts.spacing * 1000 * (i+1);
-		}
+			tdata = &opts.threads_data[i];
 
 		tdata->duration = opts.duration;
 		tdata->main_app_start = t_start;
@@ -644,15 +634,10 @@ int main(int argc, char* argv[])
 		} else {
 			tdata->log_handler = stdout;
 		}
-
-		if (pthread_create(&threads[i],
-				  NULL,
-				  thread_body,
-				  (void*) tdata))
-			goto exit_err;
 	}
 
-	/* print gnuplot files */
+
+	/* Prepare gnuplot files before starting the use case */
 	if (opts.logdir && opts.gnuplot) {
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 			 opts.logdir, opts.logbasename);
@@ -717,11 +702,24 @@ int main(int argc, char* argv[])
 				fprintf(gnuplot_script, ", 0 notitle\n");
 			else
 				fprintf(gnuplot_script, ", ");
-
 		}
 
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
+	}
+
+	/* Take the beginning time for everything */
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	/* Start the use case */
+	for (i = 0; i < nthreads; i++) {
+		tdata = &opts.threads_data[i];
+
+		if (pthread_create(&threads[i],
+				  NULL,
+				  thread_body,
+				  (void*) tdata))
+			goto exit_err;
 	}
 
 	if (opts.duration > 0) {
