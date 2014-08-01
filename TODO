@@ -1,5 +1,7 @@
-* build system: add log-level switch  (done)
-* build system: compile rtapp_config.{h,c} files only if --with-json is true. (done)
-* rt-app : add support for shared resources (both in app and in config)
-	- done in config, missing in app. (done both, to be tested)
-
+List of things to do for enhancing the synthetic workload generato
+* Use a .json file to create a file viewable on kernelshark
+* Use a record from trace-cmd and/or perf to generate a json file
+* simplify the grammar to descibe a pattern of a task
+* Add more details of the grammarin documentation
+* create different kind of busy loop : cpu intensive loop, memeory intensive
+* loop ...
