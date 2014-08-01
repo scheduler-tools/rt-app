@@ -99,7 +99,7 @@ typedef struct _rtapp_tasks_resource_list_t {
 } rtapp_tasks_resource_list_t;
 
 typedef struct _phase_data_t {
-	struct timespec min_et;
+	struct timespec exec;
 	struct timespec period, deadline;
 	int loop, sleep;
 	rtapp_tasks_resource_list_t *blockages;
@@ -164,7 +164,7 @@ typedef struct _rtapp_options_t {
 typedef struct _timing_point_t {
 	int ind;
 	unsigned long period;
-	unsigned long min_et;
+	unsigned long exec;
 	unsigned long rel_start_time;
 	unsigned long abs_start_time;
 	unsigned long end_time;

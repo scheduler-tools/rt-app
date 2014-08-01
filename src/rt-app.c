@@ -350,8 +350,8 @@ void *thread_body(void *arg)
 			attr.sched_flags = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
-			attr.sched_runtime = timespec_to_nsec(&pdata->min_et) +
-					(timespec_to_nsec(&pdata->min_et) /100) * BUDGET_OVERP;
+			attr.sched_runtime = timespec_to_nsec(&pdata->exec) +
+					(timespec_to_nsec(&pdata->exec) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&pdata->deadline);
 			attr.sched_period = timespec_to_nsec(&pdata->period);
 		break;
@@ -380,7 +380,7 @@ void *thread_body(void *arg)
 				"deadline: %lu",
 				data->ind,
 				timespec_to_usec(&pdata->period),
-				timespec_to_usec(&pdata->min_et),
+				timespec_to_usec(&pdata->exec),
 				timespec_to_usec(&pdata->deadline));
 
 	/*
@@ -464,7 +464,7 @@ void *thread_body(void *arg)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
 
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		run(data->ind, &pdata->min_et, pdata->blockages, pdata->nblockages,
+		run(data->ind, &pdata->exec, pdata->blockages, pdata->nblockages,
 					pdata->sleep ? NULL: &t_start);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
@@ -481,7 +481,7 @@ void *thread_body(void *arg)
 
 		curr_timing->ind = data->ind;
 		curr_timing->period = timespec_to_usec(&pdata->period);
-		curr_timing->min_et = timespec_to_usec(&pdata->min_et);
+		curr_timing->exec = timespec_to_usec(&pdata->exec);
 		curr_timing->rel_start_time =
 			t_start_usec - timespec_to_usec(&data->main_app_start);
 		curr_timing->abs_start_time = t_start_usec;

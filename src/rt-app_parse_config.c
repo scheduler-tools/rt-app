@@ -468,7 +468,7 @@ parse_thread_phase_data(struct json_object *obj, int idx,
 		log_critical(PIN2 "Cannot set negative exec time");
 		exit(EXIT_INV_CONFIG);
 	}
-	data->min_et = usec_to_timespec(exec);
+	data->exec = usec_to_timespec(exec);
 
 	/* period */
 	period = get_int_value_from(obj, "period", TRUE, exec);
