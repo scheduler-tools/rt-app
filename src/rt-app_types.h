@@ -99,7 +99,7 @@ typedef struct _thread_data_t {
 	unsigned long period_jitter;
 	unsigned exec_jitter;
 	struct timespec min_et, max_et;
-	struct timespec period, deadline;
+	struct timespec runtime, period, deadline;
 	struct timespec main_app_start;
     
 	FILE *log_handler;

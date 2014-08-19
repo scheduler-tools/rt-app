@@ -350,8 +350,12 @@ void *thread_body(void *arg)
 				fprintf(data->log_handler, "# Type : HARD_RSV\n");
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
-			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
-				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
+			if (timespec_to_nsec(&data->runtime))
+				attr.sched_runtime = timespec_to_nsec(&data->runtime);
+			else {
+				attr.sched_runtime = timespec_to_nsec(&data->max_et) +
+ 					(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
+			}
 			attr.sched_deadline = timespec_to_nsec(&data->period);
 			attr.sched_period = timespec_to_nsec(&data->period);
 				
@@ -407,14 +411,13 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
-		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-		       "deadline: %lu, priority: %d",
+		log_notice("[%d] starting thread with period: %llu, exec: %lu,"
+				" runtime: %llu, deadline: %llu",
 		       	data->ind,
 			attr.sched_period / 1000, 
+			timespec_to_usec(&data->max_et),
 			attr.sched_runtime / 1000,
-			attr.sched_deadline / 1000,
-			attr.sched_priority
-		);
+			attr.sched_deadline / 1000);
 
 		ret = sched_setattr(tid, &attr, flags);
 		if (ret != 0) {

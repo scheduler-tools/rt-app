@@ -372,7 +372,7 @@ static void
 parse_thread_data(char *name, struct json_object *obj, int idx, 
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
-	long exec, period, period_jitter, dline;
+	long exec, runtime, period, period_jitter, dline;
 	unsigned exec_jitter;
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
@@ -405,6 +405,19 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		exit(EXIT_INV_CONFIG);
 	}
 	data->period_jitter = period_jitter;
+
+	/* runtime */
+	runtime = get_int_value_from(obj, "runtime", TRUE, 0);
+	if (runtime > period) {
+		log_critical(PIN2 "Runtime must be smaller than period");
+		exit(EXIT_INV_CONFIG);
+	}
+	if (runtime < 0) {
+		log_critical(PIN2 "Cannot set negative runtime");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->runtime = usec_to_timespec(runtime);
+
 
 	/* exec time */
 	exec = get_int_value_from(obj, "exec", FALSE, 0);
