@@ -32,7 +32,7 @@ static int nthreads;
 static int p_load;
 rtapp_options_t opts;
 static ftrace_data_t ft_data = {
-	.debugfs = "/debug",
+	.debugfs = "/sys/kernel/debug",
 	.trace_fd = -1,
 	.marker_fd = -1,
 };
