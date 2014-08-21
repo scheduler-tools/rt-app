@@ -390,6 +390,14 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->cpuset_str = NULL;
 	data->sched_flags = 0;
 
+	/* phases */
+	phases = get_in_object(obj, "phases", TRUE);
+	if (phases) {
+		assure_type_is(phases, obj, "phases", json_type_object);
+		log_info(PIN "key: phases %s", json_object_to_json_string(phases));
+		parse_thread_phases(opts, phases, data);
+	}
+
 	/* period */
 	period = get_int_value_from(obj, "period", FALSE, 0);
 	if (period <= 0) {
@@ -418,9 +426,12 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	}
 	data->runtime = usec_to_timespec(runtime);
 
-
 	/* exec time */
-	exec = get_int_value_from(obj, "exec", FALSE, 0);
+	if (!phases)
+		exec = get_int_value_from(obj, "exec", FALSE, 0);
+	else
+		/* we are going to use what specified in the phases */
+		exec = get_int_value_from(obj, "exec", TRUE, 0);
 	if (exec > period) {
 		log_critical(PIN2 "Exec must be greather than period");
 		exit(EXIT_INV_CONFIG);
@@ -505,14 +516,6 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 				  json_object_to_json_string(resources));
 		}
 		parse_thread_resources(opts, locks, resources, data);
-	}
-
-	/* phases */
-	phases = get_in_object(obj, "phases", TRUE);
-	if (phases) {
-		assure_type_is(phases, obj, "phases", json_type_object);
-		log_info(PIN "key: phases %s", json_object_to_json_string(phases));
-		parse_thread_phases(opts, phases, data);
 	}
 
 }
