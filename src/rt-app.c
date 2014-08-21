@@ -190,7 +190,7 @@ void run(int ind, ...)
 	}
 
 	if (opts.ftrace)
-		log_ftrace(ft_data.marker_fd, "[%d] busywait for %d",
+		log_ftrace(ft_data.marker_fd, "[%d] busywait for %lu",
 			   ind, timespec_to_usec(&t_totexec));
 
 	/* compute finish time for CPUTIME_ID clock */
