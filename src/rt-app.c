@@ -166,7 +166,7 @@ void run(int ind, ...)
 				   "[%d] busywait for %d",
 				   ind, timespec_to_usec(&blockages[i].usage));
 		//busywait(&t_exec);
-		loadwait(&t_exec);
+		loadwait(&t_totexec);
 		lock = last;
 		while (lock != NULL) {
 			log_debug("[%d] unlocking %d", ind, lock->res->index);
@@ -196,7 +196,7 @@ void run(int ind, ...)
 	/* compute finish time for CPUTIME_ID clock */
 	t_exec = timespec_add(&t_start, &t_totexec);
 	//busywait(&t_exec);
-	loadwait(&t_exec);
+	loadwait(&t_totexec);
 }
 
 void sleep_for (int ind, ...)
