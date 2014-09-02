@@ -145,7 +145,6 @@ typedef struct _rtapp_options_t {
 
 	policy_t policy;
 	int duration;
-	unsigned long spacing;
 
 	char *logdir;
 	char *logbasename;
