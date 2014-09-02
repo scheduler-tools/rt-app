@@ -646,16 +646,17 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 
 	cal_obj = get_in_object(global, "calibration", TRUE);
 	if (cal_obj == NULL) {
-		/*no setting? Calibrate CPU0*/
+		/* no setting ? Calibrate CPU0 */
 		opts->calib_cpu = 0;
 		opts->calib_ns_per_loop = 0;
 		log_error("missing calibration setting force CPU0");
 	} else {
 		if (json_object_is_type(cal_obj, json_type_int)) {
-			/*integer (no " ") detected.*/
+			/* integer (no " ") detected. */
 			opts->calib_ns_per_loop = json_object_get_int(cal_obj);
 			log_debug("ns_per_loop %d", opts->calib_ns_per_loop);
 		} else {
+			/* Get CPU number */
 			cal_str = get_string_value_from(global, "calibration",
 					 TRUE, "CPU0");
 			scan_cnt = sscanf(cal_str, "CPU%d", &opts->calib_cpu);
