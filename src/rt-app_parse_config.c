@@ -674,9 +674,6 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 						  TRUE, "rt-app");
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
-#ifdef AQUOSA
-	opts->fragment = get_int_value_from(global, "fragment", TRUE, 1);
-#endif
 
 }
 
