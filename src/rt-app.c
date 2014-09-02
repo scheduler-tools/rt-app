@@ -613,6 +613,9 @@ int main(int argc, char* argv[])
 		log_notice("pLoad = %dns", p_load);
 	}
 
+	/* Take the beginning time for everything */
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
 	/* Prepare log file of each thread before starting the use case */
 	for (i = 0; i < nthreads; i++) {
 			tdata = &opts.threads_data[i];
@@ -707,9 +710,6 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 	}
-
-	/* Take the beginning time for everything */
-	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	/* Start the use case */
 	for (i = 0; i < nthreads; i++) {
