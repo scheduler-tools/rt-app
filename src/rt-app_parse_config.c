@@ -482,6 +482,9 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	/* reservation type */
 	if (!get_bool_value_from(obj, "hard_rsv", TRUE, 1))
 		data->sched_flags |= SCHED_FLAG_SOFT_RSV;
+
+	/* delay */
+	data->wait_before_start = get_int_value_from(obj, "delay", TRUE, 0);
 	
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);

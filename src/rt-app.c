@@ -672,14 +672,12 @@ int main(int argc, char* argv[])
 	for (i = 0; i < nthreads; i++)
 	{
 		tdata = &opts.threads_data[i];
-		if (opts.spacing > 0 ) {
+		if (!tdata->wait_before_start && (opts.spacing > 0)) {
 			/* start the thread, then it will sleep accordingly
 			 * to its position. We don't sleep here anymore as 
 			 * this would mean that 
 			 * duration = spacing * nthreads + duration */
 			tdata->wait_before_start = opts.spacing * (i+1);
-		} else {
-			tdata->wait_before_start = 0;
 		}
 		tdata->duration = opts.duration;
 		tdata->main_app_start = t_start;
