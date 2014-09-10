@@ -488,6 +488,10 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
 				 prior_def);
 
+	/* deadline params */
+	data->runtime = get_int_value_from(obj, "runtime", TRUE, 0);
+	data->period = get_int_value_from(obj, "period", TRUE, data->runtime);
+	data->deadline = get_int_value_from(obj, "period", TRUE, data->period);
 
 	/* cpuset */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);

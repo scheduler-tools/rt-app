@@ -138,15 +138,14 @@ void
 log_timing(FILE *handler, timing_point_t *t)
 {
 	fprintf(handler,
-		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld",
+		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu",
 		t->ind,
-		t->period,
-		t->exec,
-		t->rel_start_time,
-		t->abs_start_time,
-		t->end_time,
+		t->perf,
 		t->duration,
-		t->slack
+		t->period,
+		t->start_time,
+		t->end_time,
+		t->rel_start_time
 	);
 	fprintf(handler, "\n");
 }

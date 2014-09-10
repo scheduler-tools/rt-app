@@ -331,7 +331,13 @@ void *thread_body(void *arg)
 			attr.sched_flags = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
-		break;
+			attr.sched_runtime = data->runtime;
+			attr.sched_deadline = data->deadline;
+			attr.sched_period = data->period;
+
+			log_notice("[%d] period: %lu, exec: %lu, deadline: %lu",
+				data->ind, data->period, data->runtime, data->deadline);
+			break;
 #endif
 
 		default:
@@ -611,6 +617,48 @@ int main(int argc, char* argv[])
 
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
+
+		/* gnuplot of each task */
+		for (i=0; i<nthreads; i++) {
+			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.plot",
+				 opts.logdir, opts.logbasename, opts.threads_data[i].name);
+			gnuplot_script = fopen(tmp, "w+");
+			snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
+				opts.logbasename, opts.threads_data[i].name);
+			fprintf(gnuplot_script,
+				"set terminal postscript enhanced color\n"
+				"set output '%s'\n"
+				"set grid\n"
+				"set key outside right\n"
+				"set title \"Measured %s Loop stats\"\n"
+				"set xlabel \"Loop start time [msec]\"\n"
+				"set ylabel \"Run Time [msec]\"\n"
+				"set y2label \"Load [nb loop]\"\n"
+				"set y2tics  \n"
+				"plot ", tmp, opts.threads_data[i].name);
+
+			fprintf(gnuplot_script,
+				"\"%s-%s.log\" u ($5/1000000):2 w l"
+				" title \"load \" axes x1y2, ",
+				opts.logbasename, opts.threads_data[i].name);
+
+			fprintf(gnuplot_script,
+				"\"%s-%s.log\" u ($5/1000000):3 w l"
+				" title \"run \", ",
+				opts.logbasename, opts.threads_data[i].name);
+
+			fprintf(gnuplot_script,
+				"\"%s-%s.log\" u ($5/1000000):4 w l"
+				" title \"period \" ",
+				opts.logbasename, opts.threads_data[i].name);
+
+			fprintf(gnuplot_script, "\n");
+
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+		fclose(gnuplot_script);
+		}
+
+	}
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);

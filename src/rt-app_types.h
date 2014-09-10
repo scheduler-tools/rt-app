@@ -116,6 +116,8 @@ typedef struct _thread_data_t {
 	cpu_set_t *cpuset;
 	char *cpuset_str;
 
+	unsigned long runtime, deadline, period;
+
 	int loop;
 	int nphases;
 	phase_data_t *phases;
@@ -163,14 +165,12 @@ typedef struct _rtapp_options_t {
 
 typedef struct _timing_point_t {
 	int ind;
-	unsigned long period;
-	unsigned long exec;
-	unsigned long rel_start_time;
-	unsigned long abs_start_time;
-	unsigned long end_time;
-	unsigned long deadline;
+	unsigned long perf;
 	unsigned long duration;
-	long slack;
+	unsigned long period;
+	unsigned long start_time;
+	unsigned long end_time;
+	unsigned long rel_start_time;
 } timing_point_t;
 
 #endif // _RTAPP_TYPES_H_
