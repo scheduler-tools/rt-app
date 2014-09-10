@@ -166,6 +166,17 @@ static int run_event(event_data_t *event, int dry_run,
 			*duration += timespec_to_usec(&t_end);
 		}
 		break;
+	case rtapp_timer:
+		{
+			struct timespec t_period, t_now;
+			log_debug("timer %d ", event->duration);
+
+			t_period = usec_to_timespec(event->duration);
+			event->res->res.timer.t_next = timespec_add(&event->res->res.timer.t_next, &t_period);
+			clock_gettime(CLOCK_MONOTONIC, &t_now);
+			if (timespec_lower(&t_now, &event->res->res.timer.t_next))
+				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &event->res->res.timer.t_next, NULL);
+		}
 		break;
 	}
 
@@ -600,6 +611,14 @@ int main(int argc, char* argv[])
 
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
+
+	/* Sync timer resources with start time */
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	for (i = 0; i < nresources; i++) {
+		rdata = &opts.resources[i];
+		if (rdata->type == rtapp_timer) 
+			rdata->res.timer.t_next = t_start;
 	}
 
 	/* Start the use case */

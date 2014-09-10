@@ -216,6 +216,8 @@ string_to_resource(const char *name, resource_t *resource)
 		*resource = rtapp_sleep;
 	else if (strcmp(name, "run") == 0)
 		*resource = rtapp_run;
+	else if (strcmp(name, "timer") == 0)
+		*resource = rtapp_timer;
 	else
 		return 1;
 	return 0;
@@ -245,6 +247,9 @@ resource_to_string(resource_t resource, char *resource_name)
 			break;
 		case rtapp_run:
 			strcpy(resource_name, "run");
+			break;
+		case rtapp_timer:
+			strcpy(resource_name, "timer");
 			break;
 		default:
 			return 1;

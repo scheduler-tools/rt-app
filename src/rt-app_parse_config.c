@@ -175,6 +175,13 @@ static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *op
 			&data->res.mtx.attr);
 }
 
+static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN "Init: %s timer", data->name);
+	clock_gettime(CLOCK_MONOTONIC, &data->res.timer.t_next);
+}
+
+
 static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN "Init: %s wait", data->name);
@@ -225,6 +232,9 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 	switch (data->type) {
 		case rtapp_mutex:
 			init_mutex_resource(data, opts);
+			break;
+		case rtapp_timer:
+			init_timer_resource(data, opts);
 			break;
 		case rtapp_wait:
 			init_cond_resource(data, opts);
@@ -358,7 +368,18 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "timer", strlen("timer"))) {
+		i = get_resource_index(get_string_value_from(obj, "ref", TRUE, "unknown"), opts->resources);
+		if (i >= opts->nresources)
+			goto unknown_event;
+		data->res = &opts->resources[i];
 
+		data->duration = get_int_value_from(obj, "period", TRUE, 0);
+
+		data->type = rtapp_timer;
+
+		log_info(PIN2 "type %d target %s period %d", data->type, data->res->name, data->duration);
+		return;
 	}
 
 unknown_event:
@@ -386,6 +407,8 @@ obj_is_event(char *name)
 	if (!strncmp(name, "sleep", strlen("sleep")))
 			return 1;
 	if (!strncmp(name, "run", strlen("run")))
+			return 1;
+	if (!strncmp(name, "timer", strlen("timer")))
 			return 1;
 
 	return 0;

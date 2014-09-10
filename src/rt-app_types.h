@@ -77,12 +77,17 @@ struct _rtapp_signal {
 	pthread_cond_t *target;
 };
 
+struct _rtapp_timer {
+	struct timespec t_next;
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	union {
 		struct _rtapp_mutex mtx;
 		struct _rtapp_cond cond;
 		struct _rtapp_signal signal;
+		struct _rtapp_timer timer;
 	} res;
 	int index;
 	resource_t type;
