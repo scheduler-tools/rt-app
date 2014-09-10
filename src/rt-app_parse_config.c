@@ -217,11 +217,9 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 	/* resource type */
 	resource_to_string(0, def_type);
 	type = get_string_value_from(obj, "type", TRUE, def_type);
-	if (type) {
-		if (string_to_resource(type, &data->type) != 0) {
-			log_critical(PIN2 "Invalid type of resource %s", type);
-			exit(EXIT_INV_CONFIG);
-		}
+	if (string_to_resource(type, &data->type) != 0) {
+		log_critical(PIN2 "Invalid type of resource %s", type);
+		exit(EXIT_INV_CONFIG);
 	}
 
 	switch (data->type) {
