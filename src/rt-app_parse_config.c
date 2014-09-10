@@ -645,12 +645,16 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	if (resources)
 		log_info(PFX "resources: %s", json_object_to_json_string(resources));
 
+	log_info(PFX "Parsing global");
 	parse_global(global, opts);
 	json_object_put(global);
+	log_info(PFX "Parsing ressources");
 	parse_resources(resources, opts);
 	json_object_put(resources);
+	log_info(PFX "Parsing tasks");
 	parse_tasks(tasks, opts);
 	json_object_put(tasks);
+	log_info(PFX "Free json objects");
 
 }
 
