@@ -47,5 +47,7 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 		parse_config_stdin(opts);
 		return;
 	}
+
+	usage(NULL, EXIT_SUCCESS);
 }
 
