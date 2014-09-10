@@ -100,127 +100,98 @@ int calibrate_cpu_cycles(int clock)
 	return 0;
 }
 
-static inline loadwait(struct timespec *exec_time)
+static inline loadwait(unsigned long exec)
 {
-	unsigned long exec, load_count;
+	unsigned long load_count;
 
-	exec = timespec_to_usec(exec_time);
 	load_count = (exec * 1000)/p_load;
 	waste_cpu_cycles(load_count);
+
+	return load_count;
 }
 
-int get_resource(rtapp_resource_access_list_t *lock, struct timespec *usage)
+static int run_event(event_data_t *event, int dry_run,
+		unsigned long *perf, unsigned long *duration)
 {
-	int busywait = 1;
-	rtapp_resource_access_list_t *prev;
+	unsigned long lock = 0;
 
-	switch(lock->res->type) {
-	case rtapp_mutex:
-		pthread_mutex_lock(&(lock->res->res.mtx.obj));
+	switch(event->type) {
+	case rtapp_lock:
+		log_debug("lock %s ", event->res->name);
+		pthread_mutex_lock(&(event->res->res.mtx.obj));
+		lock = 1;
 		break;
+	case rtapp_unlock:
+		log_debug("unlock %s ", event->res->name);
+		pthread_mutex_unlock(&(event->res->res.mtx.obj));
+		lock = -1;
+		break;
+	}
+
+	if (dry_run)
+		return lock;
+
+	switch(event->type) {
 	case rtapp_wait:
-		prev = lock->prev;
-		pthread_cond_wait(&(lock->res->res.cond.obj), &(prev->res->res.mtx.obj));
+		log_debug("wait %s ", event->res->name);
+		pthread_cond_wait(&(event->res->res.cond.obj), &(event->dep->res.mtx.obj));
 		break;
 	case rtapp_signal:
-		pthread_cond_signal(lock->res->res.signal.target);
+		log_debug("signal %s ", event->res->name);
+		pthread_cond_signal(event->res->res.signal.target);
 		break;
 	case rtapp_sig_and_wait:
-		pthread_cond_signal(lock->res->res.signal.target);
-		prev = lock->prev;
-		pthread_cond_wait(lock->res->res.signal.target, &(prev->res->res.mtx.obj));
+		log_debug("signal and wait %s", event->res->name);
+		pthread_cond_signal(event->res->res.signal.target);
+		pthread_cond_wait(event->res->res.signal.target, &(event->dep->res.mtx.obj));
 		break;
 	case rtapp_broadcast:
-		pthread_cond_broadcast(lock->res->res.signal.target);
+		pthread_cond_broadcast(event->res->res.signal.target);
 		break;
 	case rtapp_sleep:
-		nanosleep(usage, NULL);
-		busywait = 0;
+		{
+		struct timespec sleep = usec_to_timespec(event->duration);
+		log_debug("sleep %d ", event->duration);
+		nanosleep(&sleep, NULL);
+		}
+		break;
+	case rtapp_run:
+		{
+			struct timespec t_start, t_end;
+			log_debug("run %d ", event->duration);
+			clock_gettime(CLOCK_MONOTONIC, &t_start);
+			*perf += loadwait(event->duration);
+			clock_gettime(CLOCK_MONOTONIC, &t_end);
+			t_end = timespec_sub(&t_end, &t_start);
+			*duration += timespec_to_usec(&t_end);
+		}
+		break;
 		break;
 	}
 
-	return busywait;
+	return lock;
 }
 
-void put_resource(rtapp_resource_access_list_t *lock)
+int run(int ind, event_data_t *events,
+		int nbevents, unsigned long *duration)
 {
-	if (lock->res->type == rtapp_mutex)
-		pthread_mutex_unlock(&(lock->res->res.mtx.obj));
-}
+	int i, lock = 0;
+	unsigned long perf = 0;
 
-void run(int ind, struct timespec *min, rtapp_tasks_resource_list_t *blockages,
-		int nblockages, struct timespec *t_start)
-{
-	int i, busywait = 1;
-	struct timespec t_exec;
-	rtapp_resource_access_list_t *lock, *last;
-
-	t_exec = *min;
-
-	log_debug("[%d] loop for %lu", ind, timespec_to_usec(&t_exec));
-
-	for (i = 0; i < nblockages; i++)
+	for (i = 0; i < nbevents; i++)
 	{
-		if (!continue_running)
+		if (!continue_running && !lock)
 			return;
 
-		/* Lock resources sequence including the busy wait */
-		lock = blockages[i].acl;
-		while (lock != NULL && continue_running) {
-			log_debug("[%d] locking %d", ind, lock->res->index);
-			if (opts.ftrace)
+		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
+		if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
 						"[%d] locking %d",
-						ind, lock->res->index);
-			busywait = get_resource(lock, &blockages[i].usage);
-			last = lock;
-			lock = lock->next;
-		}
-
-		if (!i && t_start)
-			clock_gettime(CLOCK_MONOTONIC, t_start);
-
-		if (continue_running && busywait) {
-			/* Busy wait */
-			log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
-			if (opts.ftrace)
-				log_ftrace(ft_data.marker_fd,
-					   "[%d] busywait for %d",
-					   ind, timespec_to_usec(&blockages[i].usage));
-
-			loadwait(&blockages[i].usage);
-
-			/* Check consistency between exec and sum of usage */
-			if (timespec_lower(&t_exec, &blockages[i].usage))
-				t_exec = usec_to_timespec(0);
-			else
-				t_exec = timespec_sub(&t_exec, &blockages[i].usage);
-		}
-
-		/* Unlock resources */
-		lock = last;
-		while (lock != NULL) {
-			log_debug("[%d] unlocking %d", ind, lock->res->index);
-			if (opts.ftrace)
-				log_ftrace(ft_data.marker_fd,
-						"[%d] unlocking %d",
-						ind, lock->res->index);
-			put_resource(lock);
-			lock = lock->prev;
-		}
-
+						ind, events[i].type);
+		lock += run_event(&events[i], !continue_running, &perf, duration);
 	}
 
-	if (!continue_running)
-		return;
-
-	/* Compute finish time for CPUTIME_ID clock */
-	log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&t_exec));
-	if (opts.ftrace)
-		log_ftrace(ft_data.marker_fd,
-				"[%d] busywait for %d",
-				ind, timespec_to_usec(&t_exec));
-	loadwait(&t_exec);
+	return perf;
 }
 
 static void
@@ -262,13 +233,12 @@ void *thread_body(void *arg)
 	thread_data_t *data = (thread_data_t*) arg;
 	phase_data_t *pdata;
 	struct sched_param param;
-	struct timespec t_now, t_next;
+	struct timespec t_start, t_end;
 	unsigned long t_start_usec;
-	unsigned long my_duration_usec;
-	int nperiods;
+	unsigned long perf, duration;
+	timing_point_t *curr_timing;
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
-	timing_point_t *curr_timing;
 	pid_t tid;
 	struct sched_attr attr;
 	unsigned int flags = 0;
@@ -281,7 +251,7 @@ void *thread_body(void *arg)
 	}
 
 	/* Get the 1st phase's data */
-	pdata = &data->phases_data[0];
+	pdata = &data->phases[0];
 
 	/* Set thread affinity */
 	if (data->cpuset != NULL)
@@ -350,10 +320,6 @@ void *thread_body(void *arg)
 			attr.sched_flags = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
-			attr.sched_runtime = timespec_to_nsec(&pdata->exec) +
-					(timespec_to_nsec(&pdata->exec) /100) * BUDGET_OVERP;
-			attr.sched_deadline = timespec_to_nsec(&pdata->deadline);
-			attr.sched_period = timespec_to_nsec(&pdata->period);
 		break;
 #endif
 
@@ -376,53 +342,11 @@ void *thread_body(void *arg)
 		}
 	}
 
-	log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-				"deadline: %lu",
-				data->ind,
-				timespec_to_usec(&pdata->period),
-				timespec_to_usec(&pdata->exec),
-				timespec_to_usec(&pdata->deadline));
+	log_notice("[%d] starting thread ...\n", data->ind);
 
-	/*
-	 * If we know the duration we can calculate how many periods we will
-	 * do at most, and log to memory, instead of logging to file.
-	 * In case of several phase, we use the logging file until we fix the way
-	 * to compute the number of period
-	 * TODO: parse all phases to compute the memory size
-	 */
-	nperiods = 0;
-	if ((data->duration > 0) && (data->duration > data->wait_before_start) &&
-														(data->nphases < 2)) {
-		my_duration_usec = (data->duration * 1000000) - data->wait_before_start;
-		nperiods = (my_duration_usec + timespec_to_usec(&data->phases_data->period) - 1) /
-			timespec_to_usec(&data->phases_data->period) + 1;
-	}
+	timings = NULL;
 
-	if ((pdata->loop > 0)  && (pdata->loop < nperiods)) {
-		nperiods = data->loop + 1 ;
-	}
-
-	if (nperiods)
-		timings = malloc(nperiods * sizeof(timing_point_t));
-	else
-		timings = NULL;
-
-	fprintf(data->log_handler, "#idx\tperiod\tmin_et\trel_st\tstart"
-				"\t\tend\t\tdur.\tslack\n");
-
-	/* Delay the start of the pattern if required */
-	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind,
-			 data->wait_before_start);
-		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		t_next = usec_to_timespec(data->wait_before_start);
-		t_next = timespec_add(&t_now, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC,
-				TIMER_ABSTIME,
-				&t_next,
-				NULL);
-		log_notice("[%d] Starting...", data->ind);
-	}
+	fprintf(data->log_handler, "#idx\tperf\trun\tperiod\tstart\t\tend\t\trel_st\n");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -434,14 +358,6 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
-		log_notice("[%d] starting thread with period: %llu, exec: %llu,"
-				"deadline: %llu, priority: %d",
-				data->ind,
-				attr.sched_period / 1000,
-				attr.sched_runtime / 1000,
-				attr.sched_deadline / 1000,
-				attr.sched_priority);
-
 		ret = sched_setattr(tid, &attr, flags);
 		if (ret != 0) {
 			log_critical("[%d] sched_setattr "
@@ -452,70 +368,48 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
-
-	/* Get the start time  */
-	clock_gettime(CLOCK_MONOTONIC, &t_next);
-
 	i = j = loop = 0;
+
 	while (continue_running && (i != data->loop)) {
-		struct timespec t_start, t_end, t_diff, t_slack;
+		struct timespec t_diff;
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
+		log_debug("[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);;
 
+		duration = 0;
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		run(data->ind, &pdata->exec, pdata->blockages, pdata->nblockages,
-					pdata->sleep ? NULL: &t_start);
+		perf = run(data->ind, pdata->events, pdata->nbevents, &duration);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
-
-		t_diff = timespec_sub(&t_end, &t_start);
-
-		t_slack = timespec_sub(&pdata->deadline, &t_diff);
-
-		t_start_usec = timespec_to_usec(&t_start);
 
 		if (timings)
 			curr_timing = &timings[loop];
 		else
 			curr_timing = &tmp_timing;
 
+		t_diff = timespec_sub(&t_end, &t_start);
+
+		t_start_usec = timespec_to_usec(&t_start);
+
 		curr_timing->ind = data->ind;
-		curr_timing->period = timespec_to_usec(&pdata->period);
-		curr_timing->exec = timespec_to_usec(&pdata->exec);
 		curr_timing->rel_start_time =
 			t_start_usec - timespec_to_usec(&data->main_app_start);
-		curr_timing->abs_start_time = t_start_usec;
+		curr_timing->start_time = t_start_usec;
 		curr_timing->end_time = timespec_to_usec(&t_end);
-		curr_timing->duration = timespec_to_usec(&t_diff);
-		curr_timing->slack =  timespec_to_lusec(&t_slack);
+		curr_timing->period = timespec_to_usec(&t_diff);
+		curr_timing->duration = duration;
+		curr_timing->perf = perf;
 
 		if (!timings)
 			log_timing(data->log_handler, curr_timing);
-
-		t_next = timespec_add(&t_next, &pdata->period);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d phase %d step %d",
 				   data->ind, i, j, loop);
 
-		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
-			log_critical("[%d] DEADLINE MISS !!!", data->ind);
-			if (opts.ftrace)
-				log_ftrace(ft_data.marker_fd,
-					   "[%d] DEADLINE MISS!!", data->ind);
-			shutdown(SIGTERM);
-			goto exit_miss;
-		}
-
-		clock_gettime(CLOCK_MONOTONIC, &t_now);
-		if (pdata->sleep && timespec_lower(&t_now, &t_next))
-			clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
-
 		loop++;
 		if (loop == pdata->loop) {
 			loop = 0;
-
-			clock_gettime(CLOCK_MONOTONIC, &t_next);
 
 			j++;
 			if (j == data->nphases) {
@@ -523,11 +417,10 @@ void *thread_body(void *arg)
 				i++;
 			}
 
-			pdata = &data->phases_data[j];
+			pdata = &data->phases[j];
 		}
 	}
 
-exit_miss:
 	param.sched_priority = 0;
 	ret = pthread_setschedparam(pthread_self(),
 				    SCHED_OTHER,
@@ -553,10 +446,11 @@ exit_miss:
 
 int main(int argc, char* argv[])
 {
-	struct timespec t_curr, t_next, t_start;
+	struct timespec t_start;
 	FILE *gnuplot_script = NULL;
-	int i, res;
+	int i, res, nresources;
 	thread_data_t *tdata;
+	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
 
@@ -618,7 +512,7 @@ int main(int argc, char* argv[])
 
 	/* Prepare log file of each thread before starting the use case */
 	for (i = 0; i < nthreads; i++) {
-			tdata = &opts.threads_data[i];
+		tdata = &opts.threads_data[i];
 
 		tdata->duration = opts.duration;
 		tdata->main_app_start = t_start;
@@ -639,30 +533,27 @@ int main(int argc, char* argv[])
 		}
 	}
 
-
 	/* Prepare gnuplot files before starting the use case */
 	if (opts.logdir && opts.gnuplot) {
-		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
+		/* gnuplot plot of the period */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-period.plot",
 			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-duration.eps",
+		snprintf(tmp, PATH_LENGTH, "%s-period.eps",
 			 opts.logbasename);
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
 			"set output '%s'\n"
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Measured exec time per period\"\n"
-			"set xlabel \"Cycle start time [usec]\"\n"
-			"set ylabel \"Exec Time [usec]\"\n"
+			"set title \"Measured time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Period Time [usec]\"\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
-				 opts.logdir, opts.logbasename);
-
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000):9 w l"
+				"\"%s-%s.log\" u ($5/1000):4 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].name,
@@ -677,32 +568,32 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 
-		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot",
+		/* gnuplot of the run time */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-run.plot",
 			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-slack.eps",
+		snprintf(tmp, PATH_LENGTH, "%s-run.eps",
 			 opts.logbasename);
-
 		fprintf(gnuplot_script,
 			"set terminal postscript enhanced color\n"
 			"set output '%s'\n"
 			"set grid\n"
 			"set key outside right\n"
-			"set title \"Slack (negative = tardiness)\"\n"
-			"set xlabel \"Cycle start time [msec]\"\n"
-			"set ylabel \"Slack/Tardiness [usec]\"\n"
+			"set title \"Measured run time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Run Time [usec]\"\n"
 			"plot ", tmp);
 
-		for (i=0; i < nthreads; i++) {
+		for (i=0; i<nthreads; i++) {
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000):10 w l"
+				"\"%s-%s.log\" u ($5/1000):3 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1)
-				fprintf(gnuplot_script, ", 0 notitle\n");
+				fprintf(gnuplot_script, "\n");
 			else
 				fprintf(gnuplot_script, ", ");
 		}

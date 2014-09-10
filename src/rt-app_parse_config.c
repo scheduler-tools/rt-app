@@ -275,224 +275,159 @@ static int get_resource_index(char *name, rtapp_resource_t *resources)
 }
 
 static void
-serialize_acl(rtapp_resource_access_list_t **acl,
-	      char *name,
-	      struct json_object *task_resources,
-	      rtapp_resource_t *resources)
+parse_thread_event_data(char *name, struct json_object *obj,
+		  event_data_t *data, const rtapp_options_t *opts)
 {
-	int i, idx, found;
-	struct json_object *access, *res, *next_res;
-	rtapp_resource_access_list_t *tmp;
-	char * next_name;
+	int i;
 
-	if (!task_resources)
+	if (!strncmp(name, "run", strlen("run")) ||
+			!strncmp(name, "sleep", strlen("sleep"))) {
+		if (!json_object_is_type(obj, json_type_int))
+			goto unknown_event;
+
+		data->duration = json_object_get_int(obj);
+
+		if (!strncmp(name, "sleep", strlen("sleep")))
+			data->type = rtapp_sleep;
+		else
+			data->type = rtapp_run;
+
+		log_info(PIN2 "type %d duration %d", data->type, data->duration);
 		return;
-
-	idx = get_resource_index(name, resources);
-
-	if (!(*acl)) {
-		*acl = malloc( sizeof(rtapp_resource_access_list_t));
-		(*acl)->res = &resources[idx];
-		(*acl)->next = NULL;
-		(*acl)->prev = NULL;
-		tmp = *acl;
-	} else {
-		found = 0;
-		tmp = *acl;
-		while (tmp->next != NULL) {
-			if (tmp->res->index == idx)
-				found = 1;
-			tmp = tmp->next;
-		}
-		if (found == 0) {
-			/* add the resource to the acl only if it is not already
-			 * present in the list */
-			tmp->next = malloc ( sizeof (rtapp_resource_access_list_t));
-			tmp->next->next = NULL;
-			tmp->next->prev = tmp;
-			tmp->next->res = &resources[idx];
-		}
 	}
 
-	res = get_in_object(task_resources, name, TRUE);
-	if (!res)
+	if (!strncmp(name, "lock", strlen("lock")) ||
+			!strncmp(name, "unlock", strlen("unlock"))) {
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		i = get_resource_index(json_object_get_string(obj), opts->resources);
+
+		if (i >= opts->nresources)
+			goto unknown_event;
+
+		data->res = &opts->resources[i];
+
+		if (!strncmp(name, "lock", strlen("lock")))
+			data->type = rtapp_lock;
+		else
+			data->type = rtapp_unlock;
+
+		log_info(PIN2 "type %d target %s", data->type, data->res->name);
 		return;
-	assure_type_is(res, task_resources, name, json_type_object);
-
-	access = get_in_object(res, "access", TRUE);
-	if (!access)
-		return;
-	assure_type_is(access, res, "access", json_type_array);
-
-	for (i=0; i<json_object_array_length(access); i++)
-	{
-		char res_name[5];
-
-		next_res = json_object_array_get_idx(access, i);
-		if (!json_object_is_type(next_res, json_type_string)){
-			if (!json_object_is_type(next_res, json_type_int)){
-				log_critical("Invalid resource index");
-				exit(EXIT_INV_CONFIG);
-			} else {
-				snprintf(res_name, 5, "%d", json_object_get_int(next_res));
-				next_name = res_name;
-			}
-			log_critical("Legacy resource index");
-		} else
-			next_name = json_object_get_string(next_res);
-		/* recurse on the rest of resources */
-		serialize_acl(&(*acl), next_name, task_resources, resources);
 	}
+
+	if (!strncmp(name, "signal", strlen("signal")) ||
+			!strncmp(name, "broad", strlen("broad"))) {
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		i = get_resource_index(json_object_get_string(obj), opts->resources);
+
+		if (i >= opts->nresources)
+			goto unknown_event;
+
+		data->res = &opts->resources[i];
+
+		if (!strncmp(name, "signal", strlen("signal")))
+			data->type = rtapp_signal;
+		else
+			data->type = rtapp_broadcast;
+
+		log_info(PIN2 "type %d target %s", data->type, data->res->name);
+		return;
+	}
+
+	if (!strncmp(name, "sync", strlen("sync")) ||
+			!strncmp(name, "wait", strlen("wait"))) {
+		i = get_resource_index(get_string_value_from(obj, "ref", TRUE, "unknown"), opts->resources);
+		if (i >= opts->nresources)
+			goto unknown_event;
+		data->res = &opts->resources[i];
+
+		i = get_resource_index(get_string_value_from(obj, "mutex", TRUE, "unknown"), opts->resources);
+		if (i >= opts->nresources)
+			goto unknown_event;
+		data->dep = &opts->resources[i];
+
+		if (!strncmp(name, "wait", strlen("wait")))
+			data->type = rtapp_wait;
+		else
+			data->type = rtapp_sig_and_wait;
+		log_info(PIN2 "type %d target %s mutex %s", data->type, data->res->name, data->dep->name);
+		return;
+	}
+
+
+	}
+
+unknown_event:
+	data->duration = 0;
+	data->type = rtapp_run;
+	log_info(PIN2 "unknown type %d duration %d", data->type, data->duration);
+
+}
+
+static int
+obj_is_event(char *name)
+{
+	if (!strncmp(name, "lock", strlen("lock")))
+			return 1;
+	if (!strncmp(name, "unlock", strlen("unlock")))
+			return 1;
+	if (!strncmp(name, "wait", strlen("wait")))
+			return 1;
+	if (!strncmp(name, "signal", strlen("signal")))
+			return 1;
+	if (!strncmp(name, "broad", strlen("broad")))
+			return 1;
+	if (!strncmp(name, "sync", strlen("sync")))
+			return 1;
+	if (!strncmp(name, "sleep", strlen("sleep")))
+			return 1;
+	if (!strncmp(name, "run", strlen("run")))
+			return 1;
+
+	return 0;
 }
 
 static void
-parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
-		       struct json_object *task_resources, phase_data_t *data)
-{
-	int i, j, usage_usec;
-	struct json_object *res;
-	int res_dur;
-	char res_name[5];
-	char *cur_res_name;
-
-	rtapp_resource_access_list_t *tmp, *head, *last;
-	char debug_msg[512], tmpmsg[512];
-
-	data->nblockages = json_object_array_length(locks);
-	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
-			data->nblockages);
-
-	for (i = 0; i< data->nblockages; i++)
-	{
-		res = json_object_array_get_idx(locks, i);
-		if (!json_object_is_type(res, json_type_string)){
-			if (!json_object_is_type(res, json_type_int)){
-				log_critical("Invalid resource index");
-				exit(EXIT_INV_CONFIG);
-			} else {
-				snprintf(res_name, 5, "%d", json_object_get_int(res));
-				cur_res_name = res_name;
-			}
-			log_critical("Legacy resource index");
-		} else
-			cur_res_name = json_object_get_string(res);
-
-		data->blockages[i].usage = usec_to_timespec(0);
-		data->blockages[i].acl = NULL;
-		serialize_acl(&data->blockages[i].acl, cur_res_name,
-				task_resources, opts->resources);
-
-		/* since the "current" resource is returned as the first
-		 * element in the list, we move it to the back  */
-		tmp = data->blockages[i].acl;
-		head = data->blockages[i].acl;
-		do {
-			last = tmp;
-			tmp = tmp->next;
-		} while (tmp != NULL);
-
-		/* move first element to list end */
-		if (last != head) {
-			data->blockages[i].acl = head->next;
-			data->blockages[i].acl->prev = NULL;
-			last->next = head;
-			head->next = NULL;
-			head->prev = last;
-		}
-
-		tmp = data->blockages[i].acl;
-		debug_msg[0] = '\0';
-		do  {
-			snprintf(tmpmsg, 512, "%s %d", debug_msg, tmp->res->index);
-			strncpy(debug_msg, tmpmsg, 512);
-			last = tmp;
-			tmp = tmp->next;
-		} while (tmp != NULL);
-
-		log_info(PIN "key: acl %s", debug_msg);
-
-		res = get_in_object(task_resources, cur_res_name, TRUE);
-		if (!res) {
-			usage_usec = 0;
-			data->blockages[i].usage = usec_to_timespec(0);
-		} else {
-			assure_type_is(res, task_resources, res_name,
-					json_type_object);
-			usage_usec = get_int_value_from(res, "duration", TRUE, 0);
-			data->blockages[i].usage = usec_to_timespec(usage_usec);
-		}
-		log_info(PIN "res %s, usage: %d acl: %s", cur_res_name,
-				usage_usec, debug_msg);
-	}
-}
-
-static void
-parse_thread_phase_data(struct json_object *obj, int idx,
+parse_thread_phase_data(struct json_object *obj,
 		  phase_data_t *data, const rtapp_options_t *opts)
 {
-	long exec, period, dline;
-	struct json_object *resources, *locks;
+	/* used in the foreach macro */
+	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	int i;
 
 	/* loop */
-	data->loop = get_int_value_from(obj, "loop", TRUE, -1);
+	data->loop = get_int_value_from(obj, "loop", TRUE, 1);
 
-	/* exec time */
-	exec = get_int_value_from(obj, "exec", FALSE, 0);
-	if (exec < 0) {
-		log_critical(PIN2 "Cannot set negative exec time");
-		exit(EXIT_INV_CONFIG);
+	/* Count number of events */
+	data->nbevents = 0;
+	foreach(obj, entry, key, val, idx) {
+		if (obj_is_event(key))
+				data->nbevents++;
 	}
-	data->exec = usec_to_timespec(exec);
+	log_info(PIN "Found %d events", data->nbevents);
 
-	/* period */
-	period = get_int_value_from(obj, "period", TRUE, exec);
-	if (period <= 0) {
-		log_critical(PIN2 "Cannot set negative period");
-		exit(EXIT_INV_CONFIG);
-	}
-	if (exec > period) {
-		log_critical(PIN2 "Period must be greater or equal than period");
-		exit(EXIT_INV_CONFIG);
-	}
+	if (data->nbevents == 0)
+		return;
 
-	data->period = usec_to_timespec(period);
+	data->events = malloc(data->nbevents * sizeof(event_data_t));
 
-	/* deadline */
-	dline = get_int_value_from(obj, "deadline", TRUE, period);
-	if (dline < exec) {
-		log_critical(PIN2 "Deadline cannot be less than exec time");
-		exit(EXIT_INV_CONFIG);
-	}
-	if (dline > period) {
-		log_critical(PIN2 "Deadline cannot be greater than period");
-		exit(EXIT_INV_CONFIG);
-	}
-	data->deadline = usec_to_timespec(dline);
-
-	/* sleep */
-	data->sleep = get_bool_value_from(obj, "sleep", TRUE, 1);
-
-	/* resources */
-	resources = get_in_object(obj, "resources", TRUE);
-	locks = get_in_object(obj, "lock_order", TRUE);
-	if (locks) {
-		assure_type_is(locks, obj, "lock_order", json_type_array);
-		log_info(PIN "key: lock_order %s", json_object_to_json_string(locks));
-		if (resources) {
-			assure_type_is(resources, obj, "resources",
-					json_type_object);
-			log_info(PIN "key: resources %s",
-				  json_object_to_json_string(resources));
+	/* Parse events */
+	i = 0;
+	foreach(obj, entry, key, val, idx) {
+		if (obj_is_event(key)) {
+			log_info(PIN "Parsing event %s", key);
+			parse_thread_event_data(key, val, &data->events[i], opts);
+			i++;
 		}
-		parse_thread_resources(opts, locks, resources, data);
-	} else {
-		data->nblockages = 0;
 	}
-
 }
 
 static void
-parse_thread_data(char *name, struct json_object *obj, int idx,
+parse_thread_data(char *name, struct json_object *obj, int index,
 		  thread_data_t *data, const rtapp_options_t *opts)
 {
 	char *policy;
@@ -501,10 +436,10 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	struct json_object *cpuset_obj, *phases_obj, *cpu, *resources, *locks;
 	int i, cpu_idx, prior_def;
 
-	log_info(PFX "Parsing thread %s [%d]", name, idx);
+	log_info(PFX "Parsing thread %s [%d]", name, index);
 
 	/* common and defaults */
-	data->ind = idx;
+	data->ind = index;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
 	data->cpuset = NULL;
@@ -530,10 +465,8 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
 				 prior_def);
 
-	/* delay */
-	data->wait_before_start = get_int_value_from(obj, "delay", TRUE, 0);
 
-	/* cpu set */
+	/* cpuset */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
 	if (cpuset_obj) {
 		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
@@ -541,7 +474,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		data->cpuset = malloc(sizeof(cpu_set_t));
 		cpuset = json_object_get_array(cpuset_obj);
 		CPU_ZERO(data->cpuset);
-		for (i=0; i < json_object_array_length(cpuset_obj); i++) {
+		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
 			CPU_SET(cpu_idx, data->cpuset);
@@ -552,10 +485,7 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	}
 	log_info(PIN "key: cpus %s", data->cpuset_str);
 
-
-	data->loop = get_int_value_from(obj, "loop", TRUE, -1);
-
-	/* phases */
+	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
 		/* used in the foreach macro */
@@ -569,18 +499,25 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 		foreach(phases_obj, entry, key, val, idx) {
 			data->nphases++;
 		}
+
 		log_info(PIN "Found %d phases", data->nphases);
-		data->phases_data = malloc(sizeof(phase_data_t) * data->nphases);
+		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
-			parse_thread_phase_data(val, idx, &data->phases_data[idx], opts);
+			parse_thread_phase_data(val, &data->phases[idx], opts);
 		}
+
+		/* Get loop number */
+		data->loop = get_int_value_from(obj, "loop", TRUE, -1);
+
 	} else {
 		data->nphases = 1;
-		data->phases_data = malloc(sizeof(phase_data_t) * data->nphases);
+		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
+		parse_thread_phase_data(obj,  &data->phases[0], opts);
+		/* Get loop number */
 		data->loop = 1;
-		parse_thread_phase_data(obj, 0, data->phases_data, opts);
 	}
+
 }
 
 static void

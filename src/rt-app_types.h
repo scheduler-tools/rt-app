@@ -59,6 +59,8 @@ typedef enum resource_t
 	rtapp_sleep,
 	rtapp_run,
 	rtapp_sig_and_wait,
+	rtapp_lock,
+	rtapp_unlock,
 } resource_t;
 
 struct _rtapp_mutex {
@@ -87,23 +89,17 @@ typedef struct _rtapp_resource_t {
 	char *name;
 } rtapp_resource_t;
 
-typedef struct _rtapp_resource_access_list_t {
+typedef struct _event_data_t {
+	resource_t type;
 	rtapp_resource_t *res;
-	struct _rtapp_resource_access_list_t *next;
-	struct _rtapp_resource_access_list_t *prev;
-} rtapp_resource_access_list_t;
-
-typedef struct _rtapp_tasks_resource_list_t {
-	struct timespec usage;
-	struct _rtapp_resource_access_list_t *acl;
-} rtapp_tasks_resource_list_t;
+	rtapp_resource_t *dep;
+	int duration;
+} event_data_t;
 
 typedef struct _phase_data_t {
-	struct timespec exec;
-	struct timespec period, deadline;
-	int loop, sleep;
-	rtapp_tasks_resource_list_t *blockages;
-	int nblockages;
+	int loop;
+	event_data_t *events;
+	int nbevents;
 } phase_data_t;
 
 typedef struct _thread_data_t {
@@ -113,11 +109,10 @@ typedef struct _thread_data_t {
 	int duration;
 	cpu_set_t *cpuset;
 	char *cpuset_str;
-	unsigned long wait_before_start;
 
-	int nphases;
-	phase_data_t *phases_data;
 	int loop;
+	int nphases;
+	phase_data_t *phases;
 
 	struct timespec main_app_start;
 
