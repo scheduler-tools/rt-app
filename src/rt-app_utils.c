@@ -205,17 +205,17 @@ string_to_resource(const char *name, resource_t *resource)
 	if (strcmp(name, "mutex") == 0)
 		*resource = rtapp_mutex;
 	else if (strcmp(name, "signal") == 0)
-		*resource =  rtapp_signal;
+		*resource = rtapp_signal;
 	else if (strcmp(name, "wait") == 0)
-		*resource =  rtapp_wait;
+		*resource = rtapp_wait;
 	else if (strcmp(name, "broadcast") == 0)
-		*resource =  rtapp_broadcast;
+		*resource = rtapp_broadcast;
 	else if (strcmp(name, "sync") == 0)
-		*resource =  rtapp_sig_and_wait;
+		*resource = rtapp_sig_and_wait;
 	else if (strcmp(name, "sleep") == 0)
-		*resource =  rtapp_sleep;
+		*resource = rtapp_sleep;
 	else if (strcmp(name, "run") == 0)
-		*resource =  rtapp_run;
+		*resource = rtapp_run;
 	else
 		return 1;
 	return 0;
