@@ -121,7 +121,6 @@ get_int_value_from(struct json_object *where,
 	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_int);
 	i_value = json_object_get_int(value);
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %d, type <int>", key, i_value);
 	return i_value;
 }
@@ -138,7 +137,6 @@ get_bool_value_from(struct json_object *where,
 	set_default_if_needed(key, value, have_def, def_value);
 	assure_type_is(value, where, key, json_type_boolean);
 	b_value = json_object_get_boolean(value);
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %d, type <bool>", key, b_value);
 	return b_value;
 }
@@ -154,13 +152,11 @@ get_string_value_from(struct json_object *where,
 	value = get_in_object(where, key, have_def);
 	set_default_if_needed_str(key, value, have_def, def_value);
 	if (json_object_is_type(value, json_type_null)) {
-		json_object_put(value);
 		log_info(PIN "key: %s, value: NULL, type <string>", key);
 		return NULL;
 	}
 	assure_type_is(value, where, key, json_type_string);
 	s_value = strdup(json_object_get_string(value));
-	json_object_put(value);
 	log_info(PIN "key: %s, value: %s, type <string>", key, s_value);
 	return s_value;
 }
@@ -705,7 +701,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	parse_resources(resources, opts);
 	json_object_put(resources);
 	parse_tasks(tasks, opts);
-//	json_object_put(tasks);
+	json_object_put(tasks);
 
 }
 
