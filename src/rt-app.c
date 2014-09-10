@@ -344,10 +344,17 @@ void *thread_body(void *arg)
 			tid = gettid();
 			attr.size = sizeof(attr);
 			attr.sched_flags = data->sched_flags;
-			if (data->sched_flags && SCHED_FLAG_SOFT_RSV)
+			switch (data->sched_flags) {
+			case SCHED_FLAG_SOFT_RSV:
 				fprintf(data->log_handler, "# Type : SOFT_RSV\n");
-			else
+				break;
+			case SCHED_FLAG_GRUB:
+				fprintf(data->log_handler, "# Type : GRUB\n");
+				break;
+			default:
 				fprintf(data->log_handler, "# Type : HARD_RSV\n");
+				break;
+			}
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			if (timespec_to_nsec(&data->runtime))

@@ -39,7 +39,8 @@
 #define __NR_sched_getattr		381
 #endif
 
-#define SCHED_FLAG_SOFT_RSV		0x02
+#define SCHED_FLAG_GRUB			0x02
+#define SCHED_FLAG_SOFT_RSV		0x04
 
 struct sched_attr {
 	__u32 size;
