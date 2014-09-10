@@ -549,15 +549,22 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	log_info(PFX "Parsing threads section");
+	int i, instance;
+
+	log_info(PFX "Parsing tasks section");
 	opts->nthreads = 0;
 	foreach(tasks, entry, key, val, idx) {
-		opts->nthreads++;
+		instance = get_int_value_from(val, "instance", TRUE, 1);
+		opts->nthreads += instance;
 	}
-	log_info(PFX "Found %d threads", opts->nthreads);
+
+	log_info(PFX "Found %d tasks", opts->nthreads);
 	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
+	i = instance = 0;
 	foreach (tasks, entry, key, val, idx) {
-		parse_thread_data(key, val, idx, &opts->threads_data[idx], opts);
+		instance += get_int_value_from(val, "instance", TRUE, 1);
+		for (; i < instance; i++)
+			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
 	}
 }
 
