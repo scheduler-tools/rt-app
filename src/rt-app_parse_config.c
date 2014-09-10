@@ -238,23 +238,6 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 	}
 }
 
-static void parse_legacy_resources(int nresources, rtapp_options_t *opts)
-{
-	int i;
-	char name[5];
-
-	log_info(PIN "Creating %d mutex resources", nresources);
-
-	opts->resources = malloc(sizeof(rtapp_resource_t) * nresources);
-	for (i = 0; i < nresources; i++) {
-		opts->resources[i].index = i;
-		snprintf(name, 5, "%d", i);
-		opts->resources[i].name = strdup(name);
-		init_mutex_resource(&opts->resources[i], opts);
-	}
-	opts->nresources = nresources;
-}
-
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
@@ -266,10 +249,7 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 
 	log_info(PFX "Parsing resource section");
 
-	if (json_object_is_type(resources, json_type_int)) {
-		parse_legacy_resources(json_object_get_int(resources), opts);
-	}
-	else {
+	if (json_object_is_type(resources, json_type_object)) {
 		opts->nresources = 0;
 		foreach(resources, entry, key, val, idx) {
 			opts->nresources++;
