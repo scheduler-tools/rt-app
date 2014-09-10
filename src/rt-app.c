@@ -226,7 +226,6 @@ shutdown(int sig)
 	if (opts.ftrace) {
 		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
 		close(ft_data.trace_fd);
 		close(ft_data.marker_fd);
 	}
@@ -648,7 +647,6 @@ int main(int argc, char* argv[])
 			exit(EXIT_FAILURE);
 		}
 
-		log_ftrace(ft_data.trace_fd, "1");
 		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
@@ -801,7 +799,6 @@ int main(int argc, char* argv[])
 	if (opts.ftrace) {
 		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
 		close(ft_data.trace_fd);
 		close(ft_data.marker_fd);
 	}
