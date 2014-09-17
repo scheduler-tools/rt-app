@@ -4,20 +4,20 @@
 	},
 	"tasks" : {
 		"thread0" : {
-			"exec" : 300,
-			"period" : 8000,
-			"lock_order" : ["mutex1"],
-			"resources" : {
-				"mutex1" : { "duration" : 275 },
-		    }
+			"loop" : -1,
+			"lock" : "mutex1",
+			"run" : 275,
+			"unlock" : "mutex1",
+			"run_end" : 25,
+			"sleep" : 7700,
 		},
 		"thread1" : {
-		   "exec" : 5000,
-		   "period" : 33000,
-			"lock_order" : ["mutex1"],
-			"resources" : {
-				"mutex1" : { "duration" : 4000 },
-		    }
+			"loop" : 100,
+			"lock" : "mutex1",
+			"run" : 4000,
+			"unlock" : "mutex1",
+			"runend" : 1000,
+			"sleep" : 28000,
 		},
 	},
 	"global" : {

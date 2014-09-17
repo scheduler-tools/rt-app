@@ -1,12 +1,13 @@
 {
 	"tasks" : {
 		"thread0" : {
-			"exec" : 300,
-			"period" : 8000,
+			"run" : 300,
+			"sleep" : 8000,
 		},
 		"thread1" : {
-			"exec" : 5000,
-			"period" : 33000,
+			"loop" : -1,
+			"run" : 5000,
+			"sleep" : 33000,
 		},
 	},
 	"global" : {
