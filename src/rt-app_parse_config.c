@@ -580,6 +580,21 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	int scan_cnt;
 
 	log_info(PFX "Parsing global section");
+
+	if (!global) {
+		opts->duration = -1;
+		opts->gnuplot = 0;
+		opts->policy = other; 
+		opts->calib_cpu = 0;
+		opts->calib_ns_per_loop = 0;
+		opts->logdir = strdup(".");
+		opts->lock_pages = 1;
+		opts->logbasename = strdup("rt-app");
+		opts->ftrace = 0;
+		opts->pi_enabled = 0;
+		return;
+	}
+
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
 	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
 	policy = get_string_value_from(global, "default_policy",
@@ -635,7 +650,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	log_info(PFX "Successfully parsed input JSON");
 	log_info(PFX "root     : %s", json_object_to_json_string(root));
 
-	global = get_in_object(root, "global", FALSE);
+	global = get_in_object(root, "global", TRUE);
 	log_info(PFX "global   : %s", json_object_to_json_string(global));
 
 	tasks = get_in_object(root, "tasks", FALSE);
