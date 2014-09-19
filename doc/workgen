@@ -3,45 +3,27 @@
 import os
 import sys
 import getopt
+import subprocess
+import signal
 
-outfile = "unikid.json"
-selfupdate = 0
-verbose = 0
-
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "o:av")
-except getopt.GetoptError as err:
-    print str(err) # will print something like "option -a not recognized"
-    sys.exit(2)
-
-for o, a in opts:
-    if o == "-o":
-        outfile = a
-    if o == "-a":
-        selfupate = 1
-    if o == "-v":
-        verbose = 1
-
-for f in args:
-    if not os.path.exists(f):
-        print "WARN: %s does not exist", f
+def check_unikid_json(infile, outfile, verbose=0):
+    if not os.path.exists(infile):
+        print "WARN: %s does not exist", infile
 
     try:
-        fp = open(f, "r")
+        fi = open(infile, "r")
     except IOError:
-        print "WARN: Unable to open %s", f
+        print "WARN: Unable to open %s", infile
         sys.exit(2)
 
-    if selfupdate:
-        outfile = f
     try:
         fo = open(outfile, "w+")
     except IOError:
         print "WARN: Unable to open %s", f
         sys.exit(2)
 
-    lines = fp.readlines()
-    fp.close()
+    lines = fi.readlines()
+    fi.close()
 
     curid = 1
     refcount = 0
@@ -90,8 +72,43 @@ for f in args:
 
         fo.write(myline)
 
-fp.close()
-fo.close()
+    fo.close()
+
+    return
+
+if __name__ == '__main__':
+
+    def handleSigTERM(signum, frame):
+        sys.exit
+
+    signal.signal(signal.SIGTERM, handleSigTERM)
+    signal.signal(signal.SIGINT, handleSigTERM)
+
+    outfile = "unikid.json"
+    selfupdate = 0
+    verbose = 0
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "o:av")
+    except getopt.GetoptError as err:
+        print str(err) # will print something like "option -a not recognized"
+        sys.exit(2)
+
+    for o, a in opts:
+        if o == "-o":
+            outfile = a
+        if o == "-a":
+            selfupate = 1
+        if o == "-v":
+            verbose = 1
+
+        if selfupdate:
+            outfile = f
+
+    for f in args:
+        check_unikid_json(f, outfile)
+
+        subprocess.call(["rt-app", outfile])
 
 
 
