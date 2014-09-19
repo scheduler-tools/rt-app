@@ -52,7 +52,8 @@ typedef enum policy_t
 
 typedef enum resource_t
 {
-	rtapp_mutex = 0,
+	rtapp_unknown = 0,
+	rtapp_mutex,
 	rtapp_wait,
 	rtapp_signal,
 	rtapp_broadcast,
@@ -97,8 +98,8 @@ typedef struct _rtapp_resource_t {
 
 typedef struct _event_data_t {
 	resource_t type;
-	rtapp_resource_t *res;
-	rtapp_resource_t *dep;
+	int res;
+	int dep;
 	int duration;
 } event_data_t;
 
@@ -113,6 +114,7 @@ typedef struct _thread_data_t {
 	char *name;
 	int lock_pages;
 	int duration;
+	rtapp_resource_t **resources;
 	cpu_set_t *cpuset;
 	char *cpuset_str;
 

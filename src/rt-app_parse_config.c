@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define PFL "         "PFX
 #define PIN PFX"    "
 #define PIN2 PIN"    "
+#define PIN3 PIN2"    "
 #define JSON_FILE_BUF_SIZE 4096
 
 /* redefine foreach as in <json/json_object.h> but to be ANSI
@@ -163,7 +164,7 @@ get_string_value_from(struct json_object *where,
 
 static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
-	log_info(PIN "Init: %s mutex", data->name);
+	log_info(PIN3 "Init: %s mutex", data->name);
 
 	pthread_mutexattr_init(&data->res.mtx.attr);
 	if (opts->pi_enabled) {
@@ -177,57 +178,29 @@ static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *op
 
 static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
-	log_info(PIN "Init: %s timer", data->name);
+	log_info(PIN3 "Init: %s timer", data->name);
 	clock_gettime(CLOCK_MONOTONIC, &data->res.timer.t_next);
 }
 
-
 static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
-	log_info(PIN "Init: %s wait", data->name);
+	log_info(PIN3 "Init: %s wait", data->name);
 
 	pthread_condattr_init(&data->res.cond.attr);
 	pthread_cond_init(&data->res.cond.obj,
 			&data->res.cond.attr);
 }
 
-static int init_signal_resource(rtapp_resource_t *data, const rtapp_options_t *opts, char *target)
-{
-	log_info(PIN "Init: %s signal", data->name);
-
-	int i = 0;
-	while (strcmp(opts->resources[i].name, target) != 0) {
-		if (data->index == i) {
-			log_critical(PIN2 "Invalid target %s", target);
-			exit(EXIT_INV_CONFIG);
-		}
-		i++;
-	}
-
-	data->res.signal.target = &(opts->resources[i].res.cond.obj);
-}
-
 static void
-parse_resource_data(char *name, struct json_object *obj, int idx,
-		  rtapp_resource_t *data, const rtapp_options_t *opts)
+init_resource_data(char *name, int type, int idx, const rtapp_options_t *opts)
 {
-	char *type, *target;
-	char def_type[RTAPP_RESOURCE_DESCR_LENGTH];
-	int duration;
-
-	log_info(PFX "Parsing resources %s [%d]", name, idx);
+	rtapp_resource_t *data = &(opts->resources[idx]);
+	char *target;
 
 	/* common and defaults */
 	data->index = idx;
 	data->name = strdup(name);
-
-	/* resource type */
-	resource_to_string(0, def_type);
-	type = get_string_value_from(obj, "type", TRUE, def_type);
-	if (string_to_resource(type, &data->type) != 0) {
-		log_critical(PIN2 "Invalid type of resource %s", type);
-		exit(EXIT_INV_CONFIG);
-	}
+	data->type = type;
 
 	switch (data->type) {
 		case rtapp_mutex:
@@ -239,13 +212,44 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 		case rtapp_wait:
 			init_cond_resource(data, opts);
 			break;
-		case rtapp_signal:
-		case rtapp_broadcast:
-		case rtapp_sig_and_wait:
-			target = get_string_value_from(obj, "target", FALSE, NULL);
-			init_signal_resource(data, opts, target);
-			break;
 	}
+}
+
+static void
+parse_resource_data(char *name, struct json_object *obj, int idx,
+		  rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	char *type, *target;
+	char def_type[RTAPP_RESOURCE_DESCR_LENGTH];
+
+	log_info(PFX "Parsing resources %s [%d]", name, idx);
+
+	/* resource type */
+	resource_to_string(0, def_type);
+	type = get_string_value_from(obj, "type", TRUE, def_type);
+	if (string_to_resource(type, &data->type) != 0) {
+		log_critical(PIN2 "Invalid type of resource %s", type);
+		exit(EXIT_INV_CONFIG);
+	}
+
+	init_resource_data(name, data->type, idx, opts);
+}
+
+static int
+add_resource_data(char *name, int type, rtapp_options_t *opts)
+{
+	int idx;
+
+	idx = opts->nresources;
+
+	log_info(PIN2 "Add new resource %s [%d] type %d", name, idx, type);
+
+	opts->nresources++;
+	opts->resources = realloc(opts->resources, sizeof(rtapp_resource_t) * opts->nresources);
+
+	init_resource_data(name, type, idx, opts);
+
+	return idx;
 }
 
 static void
@@ -254,10 +258,12 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	int i;
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	if (!resources)
-		return;
-
 	log_info(PFX "Parsing resource section");
+
+	if (!resources) {
+		log_info(PFX "No resource section Found");
+		return;
+	}
 
 	if (json_object_is_type(resources, json_type_object)) {
 		opts->nresources = 0;
@@ -274,12 +280,17 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	}
 }
 
-static int get_resource_index(char *name, rtapp_resource_t *resources)
+static int get_resource_index(char *name, int type, const rtapp_options_t *opts)
 {
-	int i=0;
+	rtapp_resource_t *resources = opts->resources;
+	int nresources = opts->nresources;
+	int i = 0;
 
-	while (strcmp(resources[i].name, name) != 0)
+	while ((i < nresources) && ((strcmp(resources[i].name, name) != 0) || (resources[i].type != type)))
 		i++;
+
+	if (i >= nresources)
+		i = add_resource_data(name, type, opts);
 
 	return i;
 }
@@ -288,10 +299,13 @@ static void
 parse_thread_event_data(char *name, struct json_object *obj,
 		  event_data_t *data, const rtapp_options_t *opts)
 {
+	rtapp_resource_t *rdata, *ddata;
+	char *ref;
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
 			!strncmp(name, "sleep", strlen("sleep"))) {
+
 		if (!json_object_is_type(obj, json_type_int))
 			goto unknown_event;
 
@@ -308,84 +322,100 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 	if (!strncmp(name, "lock", strlen("lock")) ||
 			!strncmp(name, "unlock", strlen("unlock"))) {
+
 		if (!json_object_is_type(obj, json_type_string))
 			goto unknown_event;
 
-		i = get_resource_index(json_object_get_string(obj), opts->resources);
+		ref = json_object_get_string(obj);
+		i = get_resource_index(ref, rtapp_mutex, opts);
 
-		if (i >= opts->nresources)
-			goto unknown_event;
-
-		data->res = &opts->resources[i];
+		data->res = i;
 
 		if (!strncmp(name, "lock", strlen("lock")))
 			data->type = rtapp_lock;
 		else
 			data->type = rtapp_unlock;
 
-		log_info(PIN2 "type %d target %s", data->type, data->res->name);
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
 		return;
 	}
 
 	if (!strncmp(name, "signal", strlen("signal")) ||
-			!strncmp(name, "broad", strlen("broad"))) {
-		if (!json_object_is_type(obj, json_type_string))
-			goto unknown_event;
-
-		i = get_resource_index(json_object_get_string(obj), opts->resources);
-
-		if (i >= opts->nresources)
-			goto unknown_event;
-
-		data->res = &opts->resources[i];
+			!strncmp(name, "broad", strlen("broad")) || 
+			!strncmp(name, "sync", strlen("sync"))) {
 
 		if (!strncmp(name, "signal", strlen("signal")))
 			data->type = rtapp_signal;
-		else
+		else if (!strncmp(name, "broad", strlen("broad")))
 			data->type = rtapp_broadcast;
+		else
+			data->type = rtapp_sig_and_wait;
 
-		log_info(PIN2 "type %d target %s", data->type, data->res->name);
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = strdup(json_object_get_string(obj));
+		i = get_resource_index(ref, rtapp_wait, opts);
+
+		data->res = i;
+
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
 		return;
 	}
 
-	if (!strncmp(name, "sync", strlen("sync")) ||
-			!strncmp(name, "wait", strlen("wait"))) {
-		i = get_resource_index(get_string_value_from(obj, "ref", TRUE, "unknown"), opts->resources);
-		if (i >= opts->nresources)
-			goto unknown_event;
-		data->res = &opts->resources[i];
+	if (!strncmp(name, "wait", strlen("wait"))) {
 
-		i = get_resource_index(get_string_value_from(obj, "mutex", TRUE, "unknown"), opts->resources);
-		if (i >= opts->nresources)
-			goto unknown_event;
-		data->dep = &opts->resources[i];
+		data->type = rtapp_wait;
 
-		if (!strncmp(name, "wait", strlen("wait")))
-			data->type = rtapp_wait;
-		else
-			data->type = rtapp_sig_and_wait;
-		log_info(PIN2 "type %d target %s mutex %s", data->type, data->res->name, data->dep->name);
+		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
+		i = get_resource_index(ref, rtapp_wait, opts);
+
+		data->res = i;
+
+		ref = get_string_value_from(obj, "mutex", TRUE, "unknown");
+		i = get_resource_index(ref, rtapp_mutex, opts);
+
+		data->dep = i;
+
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
 		return;
 	}
 
 	if (!strncmp(name, "timer", strlen("timer"))) {
-		i = get_resource_index(get_string_value_from(obj, "ref", TRUE, "unknown"), opts->resources);
-		if (i >= opts->nresources)
-			goto unknown_event;
-		data->res = &opts->resources[i];
+
+		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
+		i = get_resource_index(ref, rtapp_timer, opts);
+
+		data->res = i;
 
 		data->duration = get_int_value_from(obj, "period", TRUE, 0);
 
 		data->type = rtapp_timer;
 
-		log_info(PIN2 "type %d target %s period %d", data->type, data->res->name, data->duration);
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d] period %d", data->type, rdata->name, rdata->index, data->duration);
 		return;
 	}
+
+unknown_resource:
+	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
+	log_error(PIN2 "Please check the resource name or the resource section");
 
 unknown_event:
 	data->duration = 0;
 	data->type = rtapp_run;
-	log_info(PIN2 "unknown type %d duration %d", data->type, data->duration);
+	log_error(PIN2 "Unknown or mismatch %s event type !!!", name);
 
 }
 
@@ -393,23 +423,23 @@ static int
 obj_is_event(char *name)
 {
 	if (!strncmp(name, "lock", strlen("lock")))
-			return 1;
+			return rtapp_mutex;
 	if (!strncmp(name, "unlock", strlen("unlock")))
-			return 1;
+			return rtapp_lock;
 	if (!strncmp(name, "wait", strlen("wait")))
-			return 1;
+			return rtapp_unlock;
 	if (!strncmp(name, "signal", strlen("signal")))
-			return 1;
+			return rtapp_signal;
 	if (!strncmp(name, "broad", strlen("broad")))
-			return 1;
+			return rtapp_broadcast;
 	if (!strncmp(name, "sync", strlen("sync")))
-			return 1;
+			return rtapp_sig_and_wait;
 	if (!strncmp(name, "sleep", strlen("sleep")))
-			return 1;
+			return rtapp_sleep;
 	if (!strncmp(name, "run", strlen("run")))
-			return 1;
+			return rtapp_run;
 	if (!strncmp(name, "timer", strlen("timer")))
-			return 1;
+			return rtapp_timer;
 
 	return 0;
 }
@@ -462,6 +492,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	log_info(PFX "Parsing thread %s [%d]", name, index);
 
 	/* common and defaults */
+	data->resources = &opts->resources;
 	data->ind = index;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
@@ -582,6 +613,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	log_info(PFX "Parsing global section");
 
 	if (!global) {
+		log_info(PFX " No global section Found: Use default value");
 		opts->duration = -1;
 		opts->gnuplot = 0;
 		opts->policy = other; 
@@ -651,7 +683,8 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	log_info(PFX "root     : %s", json_object_to_json_string(root));
 
 	global = get_in_object(root, "global", TRUE);
-	log_info(PFX "global   : %s", json_object_to_json_string(global));
+	if (global)
+		log_info(PFX "global   : %s", json_object_to_json_string(global));
 
 	tasks = get_in_object(root, "tasks", FALSE);
 	log_info(PFX "tasks    : %s", json_object_to_json_string(tasks));
@@ -663,7 +696,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	log_info(PFX "Parsing global");
 	parse_global(global, opts);
 	json_object_put(global);
-	log_info(PFX "Parsing ressources");
+	log_info(PFX "Parsing resources");
 	parse_resources(resources, opts);
 	json_object_put(resources);
 	log_info(PFX "Parsing tasks");

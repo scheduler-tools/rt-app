@@ -111,19 +111,21 @@ static inline loadwait(unsigned long exec)
 }
 
 static int run_event(event_data_t *event, int dry_run,
-		unsigned long *perf, unsigned long *duration)
+		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources)
 {
+	rtapp_resource_t *rdata = &(resources[event->res]);
+	rtapp_resource_t *ddata = &(resources[event->dep]);
 	unsigned long lock = 0;
 
 	switch(event->type) {
 	case rtapp_lock:
-		log_debug("lock %s ", event->res->name);
-		pthread_mutex_lock(&(event->res->res.mtx.obj));
+		log_debug("lock %s ", rdata->name);
+		pthread_mutex_lock(&(rdata->res.mtx.obj));
 		lock = 1;
 		break;
 	case rtapp_unlock:
-		log_debug("unlock %s ", event->res->name);
-		pthread_mutex_unlock(&(event->res->res.mtx.obj));
+		log_debug("unlock %s ", rdata->name);
+		pthread_mutex_unlock(&(rdata->res.mtx.obj));
 		lock = -1;
 		break;
 	}
@@ -133,20 +135,20 @@ static int run_event(event_data_t *event, int dry_run,
 
 	switch(event->type) {
 	case rtapp_wait:
-		log_debug("wait %s ", event->res->name);
-		pthread_cond_wait(&(event->res->res.cond.obj), &(event->dep->res.mtx.obj));
+		log_debug("wait %s ", rdata->name);
+		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
 		break;
 	case rtapp_signal:
-		log_debug("signal %s ", event->res->name);
-		pthread_cond_signal(event->res->res.signal.target);
+		log_debug("signal %s ", rdata->name);
+		pthread_cond_signal(&(rdata->res.cond.obj));
 		break;
 	case rtapp_sig_and_wait:
-		log_debug("signal and wait %s", event->res->name);
-		pthread_cond_signal(event->res->res.signal.target);
-		pthread_cond_wait(event->res->res.signal.target, &(event->dep->res.mtx.obj));
+		log_debug("signal and wait %s", rdata->name);
+		pthread_cond_signal(&(rdata->res.cond.obj));
+		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
 		break;
 	case rtapp_broadcast:
-		pthread_cond_broadcast(event->res->res.signal.target);
+		pthread_cond_broadcast(&(rdata->res.cond.obj));
 		break;
 	case rtapp_sleep:
 		{
@@ -172,10 +174,10 @@ static int run_event(event_data_t *event, int dry_run,
 			log_debug("timer %d ", event->duration);
 
 			t_period = usec_to_timespec(event->duration);
-			event->res->res.timer.t_next = timespec_add(&event->res->res.timer.t_next, &t_period);
+			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
-			if (timespec_lower(&t_now, &event->res->res.timer.t_next))
-				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &event->res->res.timer.t_next, NULL);
+			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
+				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
 		}
 		break;
 	}
@@ -184,7 +186,8 @@ static int run_event(event_data_t *event, int dry_run,
 }
 
 int run(int ind, event_data_t *events,
-		int nbevents, unsigned long *duration)
+		int nbevents, unsigned long *duration,
+		rtapp_resource_t *resources)
 {
 	int i, lock = 0;
 	unsigned long perf = 0;
@@ -199,7 +202,7 @@ int run(int ind, event_data_t *events,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] locking %d",
 						ind, events[i].type);
-		lock += run_event(&events[i], !continue_running, &perf, duration);
+		lock += run_event(&events[i], !continue_running, &perf, duration, resources);
 	}
 
 	return perf;
@@ -214,11 +217,8 @@ shutdown(int sig)
 
 	/* Force wake up of all waiting threads */
 	for (i = 0; i <  opts.nresources; i++) {
-		switch (opts.resources[i].type) {
-		case rtapp_sig_and_wait:
-		case rtapp_signal:
-		case rtapp_broadcast:
-			pthread_cond_broadcast(opts.resources[i].res.signal.target);
+		if (opts.resources[i].type == rtapp_wait) {
+			pthread_cond_broadcast(&opts.resources[i].res.cond.obj);
 		}
 	}
 
@@ -396,7 +396,7 @@ void *thread_body(void *arg)
 
 		duration = 0;
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		perf = run(data->ind, pdata->events, pdata->nbevents, &duration);
+		perf = run(data->ind, pdata->events, pdata->nbevents, &duration, *(data->resources));
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
@@ -454,8 +454,9 @@ void *thread_body(void *arg)
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
+
 	log_notice("[%d] Exiting.", data->ind);
-	fclose(data->log_handler);
+//	fclose(data->log_handler);
 
 	pthread_exit(NULL);
 }
