@@ -1,0 +1,25 @@
+{
+	"tasks": {
+		"thread0": {
+			"instance" : 1,
+			"priority": -19,
+			"cpus": [ 0 ],
+			"loop": 2,
+			"lock": "mutex",
+			"signal": "queue",
+			"run" : 10000,
+			"unlock": "mutex",
+			"run": 10000,
+			"timer": { "ref" : "tick", "period" : 200000},
+		},
+		"thread1": {
+			"priority": -19,
+			"cpus": [ 1 ],
+			"loop": 1,
+			"lock": "mutex",
+			"wait": { "ref": "queue", "mutex": "mutex" },
+			"unlock": "mutex",
+			"run": 10000
+		},
+	},
+}
