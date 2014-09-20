@@ -180,6 +180,22 @@ static int run_event(event_data_t *event, int dry_run,
 				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
 		}
 		break;
+	case rtapp_suspend:
+		{
+		log_debug("suspend %s ", rdata->name);
+		pthread_mutex_lock(&(ddata->res.mtx.obj));
+		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+		break;
+		}
+	case rtapp_resume:
+		{
+		log_debug("resume %s ", rdata->name);
+		pthread_mutex_lock(&(ddata->res.mtx.obj));
+		pthread_cond_signal(&(rdata->res.cond.obj));
+		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+		break;
+		}
 	}
 
 	return lock;

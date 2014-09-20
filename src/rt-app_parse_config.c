@@ -357,7 +357,7 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		if (!json_object_is_type(obj, json_type_string))
 			goto unknown_event;
 
-		ref = strdup(json_object_get_string(obj));
+		ref = json_object_get_string(obj);
 		i = get_resource_index(ref, rtapp_wait, opts);
 
 		data->res = i;
@@ -408,6 +408,54 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "resume", strlen("resume"))) {
+
+		data->type = rtapp_resume;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+
+		i = get_resource_index(ref, rtapp_wait, opts);
+
+		data->res = i;
+
+		i = get_resource_index(ref, rtapp_mutex, opts);
+
+		data->dep = i;
+
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		return;
+	}
+
+	if (!strncmp(name, "suspend", strlen("suspend"))) {
+
+		data->type = rtapp_suspend;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+
+		i = get_resource_index(ref, rtapp_wait, opts);
+
+		data->res = i;
+
+		i = get_resource_index(ref, rtapp_mutex, opts);
+
+		data->dep = i;
+
+		rdata = &(opts->resources[data->res]);
+		ddata = &(opts->resources[data->dep]);
+
+		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		return;
+	}
+
 unknown_resource:
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
@@ -440,6 +488,10 @@ obj_is_event(char *name)
 			return rtapp_run;
 	if (!strncmp(name, "timer", strlen("timer")))
 			return rtapp_timer;
+	if (!strncmp(name, "suspend", strlen("suspend")))
+			return rtapp_suspend;
+	if (!strncmp(name, "resume", strlen("resume")))
+			return rtapp_resume;
 
 	return 0;
 }

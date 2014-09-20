@@ -63,6 +63,8 @@ typedef enum resource_t
 	rtapp_lock,
 	rtapp_unlock,
 	rtapp_timer,
+	rtapp_suspend,
+	rtapp_resume,
 } resource_t;
 
 struct _rtapp_mutex {
