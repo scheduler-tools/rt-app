@@ -344,15 +344,12 @@ parse_thread_event_data(char *name, struct json_object *obj,
 	}
 
 	if (!strncmp(name, "signal", strlen("signal")) ||
-			!strncmp(name, "broad", strlen("broad")) || 
-			!strncmp(name, "sync", strlen("sync"))) {
+			!strncmp(name, "broad", strlen("broad"))) {
 
 		if (!strncmp(name, "signal", strlen("signal")))
 			data->type = rtapp_signal;
-		else if (!strncmp(name, "broad", strlen("broad")))
-			data->type = rtapp_broadcast;
 		else
-			data->type = rtapp_sig_and_wait;
+			data->type = rtapp_broadcast;
 
 		if (!json_object_is_type(obj, json_type_string))
 			goto unknown_event;
@@ -369,9 +366,13 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
-	if (!strncmp(name, "wait", strlen("wait"))) {
+	if (!strncmp(name, "wait", strlen("wait")) || 
+			!strncmp(name, "sync", strlen("sync"))) {
 
-		data->type = rtapp_wait;
+		if (!strncmp(name, "wait", strlen("wait")))
+			data->type = rtapp_wait;
+		else
+			data->type = rtapp_sig_and_wait;
 
 		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
 		i = get_resource_index(ref, rtapp_wait, opts);
