@@ -16,14 +16,14 @@ def check_unikid_json(infile, outfile, verbose=0):
         print "WARN: Unable to open %s", infile
         sys.exit(2)
 
+    lines = fi.readlines()
+    fi.close()
+
     try:
         fo = open(outfile, "w+")
     except IOError:
         print "WARN: Unable to open %s", f
         sys.exit(2)
-
-    lines = fi.readlines()
-    fi.close()
 
     curid = 1
     refcount = 0
@@ -35,11 +35,9 @@ def check_unikid_json(infile, outfile, verbose=0):
             refcount +=1
             myid.append(curid)
             curid = 1
-            #print "-->Entering level ", refcount
             idlist[refcount] = {}
 
         if "}" in myline:
-            #print "<--Leaving level ", refcount
             del idlist[refcount]
             curid = myid.pop()
             refcount -=1
@@ -47,7 +45,6 @@ def check_unikid_json(infile, outfile, verbose=0):
         try:
             key_id, value = myline.split(":", 1)
         except ValueError:
-            #print "Nothing to do"
             fo.write(myline)       
             continue
 
@@ -62,12 +59,11 @@ def check_unikid_json(infile, outfile, verbose=0):
                 newkey_id = key_id + str(curid)
 
             if verbose:
-                print "key ", key_id, " changed into ", newkey_id
+                print "level ", refcount, " : key ", key_id, " changed into ", newkey_id
 
             myline = myline.replace(key_id, newkey_id, 1)
             key_id = newkey_id
 
-        #print "Add <", key_id, "> has value <", value, ">"
         idlist[refcount][key_id] = value
 
         fo.write(myline)
@@ -75,6 +71,73 @@ def check_unikid_json(infile, outfile, verbose=0):
     fo.close()
 
     return
+
+def check_suspend_json(infile, outfile, verbose=0):
+    if not os.path.exists(infile):
+        print "WARN: %s does not exist", infile
+
+    try:
+        fi = open(infile, "r")
+    except IOError:
+        print "WARN: Unable to open %s", infile
+        sys.exit(2)
+
+    lines = fi.readlines()
+    fi.close()
+
+    try:
+        fo = open(outfile, "w+")
+    except IOError:
+        print "WARN: Unable to open %s", f
+        sys.exit(2)
+
+
+    taskobj = 0
+    curid = ""
+    for myline in lines:
+
+        exception = 0
+        key_id = "exception"
+
+        try:
+            key_id, value = myline.split(":", 1)
+        except ValueError:
+            if "suspend" in myline:
+                key_id = "suspend"
+                exception = 1
+        
+        key_id = key_id.strip('\"\t\n\r ')
+        
+        if not "tasks" in key_id and \
+           taskobj == 0:
+            fo.write(myline)
+            continue
+
+        if "{" in myline:
+            taskobj += 1
+            if taskobj == 2:
+                curid = key_id
+
+        if "}" in myline:
+            taskobj -= 1
+
+        if "suspend" in key_id and \
+           exception == 1:
+      
+            if verbose:
+                print "value ", curid, " added to suspend key"
+
+            if "," in myline:
+                myline = myline.replace(",", " : " + "\"" + curid + "\",", 1)
+            else:
+                myline = myline.replace("\n", " : " + "\"" + curid + "\",\n", 1)
+
+        fo.write(myline)
+
+    fo.close()
+
+    return
+
 
 if __name__ == '__main__':
 
@@ -106,7 +169,8 @@ if __name__ == '__main__':
             outfile = f
 
     for f in args:
-        check_unikid_json(f, outfile)
+        check_suspend_json(f, outfile)
+        check_unikid_json(outfile, outfile)
 
         subprocess.call(["rt-app", outfile])
 
