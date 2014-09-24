@@ -1,0 +1,20 @@
+{
+	/*
+	 * Simple use case with 2 threads that runs for 10 ms and wake up each
+	 * other until the use case is stopped with Ctrl+C
+	 */
+	"tasks" : {
+		"thread0" : {
+			"loop" : -1,
+			"run" :     10000,
+			"resume" : "thread1",
+			"suspend", 
+		},
+		"thread1" : {
+			"loop" : -1,
+			"run" :     10000,
+			"resume" : "thread0",
+			"suspend", 
+		},
+	},
+}

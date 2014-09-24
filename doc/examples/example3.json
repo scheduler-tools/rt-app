@@ -1,0 +1,23 @@
+{
+	/*
+	 * Simple use case which starts with a 10% load during 1sec (100 loops)
+	 * and then increase to 90% for the next sec (100 loops)
+	 */
+	"tasks" : {
+		"thread0" : {
+			"loop" : 1,
+			"phases" : {
+				"light" : {
+					"loop" : 100,
+					"run" :   1000,
+					"timer" : { "ref" : "tick", "period" : 10000 },
+				},
+				"heavy" : {
+					"loop" : 100,
+					"run" :   9000,
+					"timer" : { "ref" : "tick", "period" : 10000 },
+				}
+			}
+		},
+	},
+}

@@ -1,24 +1,13 @@
 {
+	/*
+	 * Simple use case which creates a thread that run 1ms then sleep 9ms
+	 * until the use case is stopped with Ctrl+C
+	 */
 	"tasks" : {
 		"thread0" : {
-			"run" : 300,
-			"sleep" : 8000,
-		},
-		"thread1" : {
 			"loop" : -1,
-			"run" : 5000,
-			"sleep" : 33000,
+			"run" :   1000,
+			"sleep" : 9000,
 		},
 	},
-	"global" : {
-		"default_policy" : "SCHED_OTHER",
-		"duration" : 10,
-		"ftrace" : false,
-		"gnuplot" : false,
-		"logdir" : "./",
-		"log_basename" : "rt-app",
-		"lock_pages" : false,
-		"frag" : 0,
-		"calibration" : "CPU1",
-	}
 }
