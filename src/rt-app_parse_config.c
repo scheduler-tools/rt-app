@@ -672,7 +672,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->policy = other; 
 		opts->calib_cpu = 0;
 		opts->calib_ns_per_loop = 0;
-		opts->logdir = strdup(".");
+		opts->logdir = strdup("./");
 		opts->lock_pages = 1;
 		opts->logbasename = strdup("rt-app");
 		opts->ftrace = 0;
@@ -713,7 +713,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		}
 	}
 
-	opts->logdir = get_string_value_from(global, "logdir", TRUE, NULL);
+	opts->logdir = get_string_value_from(global, "logdir", TRUE, "./");
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->logbasename = get_string_value_from(global, "log_basename",
 						  TRUE, "rt-app");
