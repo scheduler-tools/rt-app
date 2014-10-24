@@ -1,6 +1,6 @@
 {
 	"tasks" : {
-		"AudioTick" : { 
+		"AudioTick" : {
 			"priority" : -19,
 			"loop" : -1,
 			"phases" : {
@@ -21,19 +21,19 @@
 			"run" :  275,
 			"resume" : "AudioTrack",
 			"run" : 4725,
-			"suspend",
+			"suspend" : "AudioOut",
 		},
 		"AudioTrack" : { 
 			"priority" : -16,
 			"loop" : -1,
-				"suspend",
+				"suspend" : "AudioTrack",
 				"run" :  300,
 				"resume" : "mp3.decoder",
 		},
 		"mp3.decoder" : {
 			"priority" : -2,
 			"loop" : -1,
-				"suspend",
+				"suspend" : "mp3.decoder",
 				"run" :  1000,
 				"lock" : "mutex",
 				"signal" : "queue",

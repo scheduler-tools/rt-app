@@ -90,7 +90,7 @@
 		"Binder-display" : {
 			"priority" : -6,
 			"loop" : -1,
-			"suspend",
+			"suspend" : "Binder-display",
 			"run" : 300,
 			"resume" : "Event-Browser",
 			"resume" : "Event-Display",
@@ -98,7 +98,7 @@
 		"Event-Browser" : {
 			"priority" : -9,
 			"loop" : -1,
-			"suspend",
+			"suspend" : "Event-Browser",
 			"run" : 50,
 			"sleep" : 16000,
 			"run" : 50,
@@ -107,7 +107,7 @@
 		"Event-Display" : {
 			"priority" : -9,
 			"loop" : -1,
-			"suspend",
+			"suspend" : "Event-Display",
 			"run" : 50,
 			"sleep" : 16000,
 			"run" : 50,
@@ -116,7 +116,7 @@
 		"Display" : {
 			"priority" : -8,
 			"loop" : -1,
-			"suspend",
+			"suspend" : "Display",
 			"run" : 16000,
 		},
 	},
