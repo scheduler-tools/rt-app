@@ -24,13 +24,13 @@ AS_IF([test "x$with_deadline" != xno],
      ])
 
 LIBJSON=
-      AC_CHECK_LIB([json], [json_object_from_file],
-	      	    [AC_SUBST([LIBJSON], ["-ljson"])
-        	     AC_DEFINE([JSON], [1], [Define if you have libjson])
+      AC_CHECK_LIB([json-c], [json_object_from_file],
+	      	    [AC_SUBST([LIBJSON], ["-ljson-c"])
+        	     AC_DEFINE([JSON], [1], [Define if you have libjson-c])
        	            ],
-       	            [AC_MSG_FAILURE([libjson test failed (use --without-json to disable or install json-c)])],
-                    [-ljson]
-		   ) 
+       	            [AC_MSG_FAILURE([libjson-c test failed (use --without-json-c to disable or install json-c)])],
+                    [-ljson-c]
+		   )
 
 AM_CONDITIONAL([AMJSON], [ test x$with_json != xno])
 

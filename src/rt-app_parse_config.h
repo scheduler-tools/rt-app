@@ -37,7 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifdef DLSCHED
 #include "dl_syscalls.h"
 #endif
-#include <json/json.h>
+#include <json-c/json.h>
 
 #define DEFAULT_THREAD_PRIORITY 10
 #define DEFAULT_THREAD_NICE	0
