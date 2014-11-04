@@ -150,9 +150,10 @@ if __name__ == '__main__':
     outfile = "unikid.json"
     selfupdate = 0
     verbose = 0
+    dry_run = False
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "o:av")
+        opts, args = getopt.getopt(sys.argv[1:], "o:avd")
     except getopt.GetoptError as err:
         print str(err) # will print something like "option -a not recognized"
         sys.exit(2)
@@ -164,15 +165,18 @@ if __name__ == '__main__':
             selfupate = 1
         if o == "-v":
             verbose = 1
+        if o == "-d":
+            dry_run = True
 
+    for f in args:
         if selfupdate:
             outfile = f
 
-    for f in args:
         check_suspend_json(f, outfile)
         check_unikid_json(outfile, outfile)
 
-        subprocess.call(["rt-app", outfile])
+        if not dry_run:
+            subprocess.call(["rt-app", outfile])
 
 
 
