@@ -9,57 +9,57 @@
 					"run" : 15000,
 					"resume" : "Browser",
 					"run" :  7000,
-					"sleep" : 8000,
+					"sleep" : 8000
 				},
 				"render1" : {
 					"loop" : 50,
 					"resume" : "BrowserSub",
-					"run" : 3000,
+					"run" : 3000
 				},
 				"render2" : {
 					"loop" : 1,
 					"suspend" : "Browser",
 					"run" : 10000,
 					"resume" : "Browser",
-					"run" :  5000,
+					"run" :  5000
 				},
 				"render3" : {
 					"loop" : 20,
 					"resume" : "BrowserSub",
-					"run" : 3000,
+					"run" : 3000
 				},
 				"stop" : {
 					"loop" : 1,
 					"run" :     2000,
 					"sleep" : 200000,
 					"suspend" : "Browser",
-					"sleep" : 600000,
+					"sleep" : 600000
 				},
 				"scroll" : {
 					"loop" : 4,
 					"resume" : "Browser",
 					"suspend" : "BrowserNext",
-					"run" : 1000,
+					"run" : 1000
 				},
 				"stop2" : {
 					"loop" : 1,
 					"suspend" : "Browser",
 					"run" : 200,
-					"sleep" : 800000,
-				},
+					"sleep" : 800000
+				}
 			}
 		},
 		"BrowserSub1" : {
 			"priority" : -6,
 			"loop" : -1,
 			"suspend" : "BrowserSub",
-			"run" : 100,
+			"run" : 100
 		},
 		"BrowserSub2" : {
 			"priority" : -6,
 			"loop" : -1,
 			"suspend" : "BrowserSub",
-			"run" : 100,
+			"run" : 100
 		},
 		"BrowserDisplay" : {
 			"priority" : -6,
@@ -73,7 +73,7 @@
 			"unlock" : "mutex11",
 			"run" : 300,
 			"resume" : "Binder-display",
-			"run" : 400,
+			"run" : 400
 		},
 		"Binder-dummy" : {
 			"priority" : -6,
@@ -85,7 +85,7 @@
 			"lock" : "mutex11",
 			"signal" : "queue11",
 			"unlock" : "mutex11",
-			"run" : 100,
+			"run" : 100
 		},
 		"Binder-display" : {
 			"priority" : -6,
@@ -93,7 +93,7 @@
 			"suspend" : "Binder-display",
 			"run" : 300,
 			"resume" : "Event-Browser",
-			"resume" : "Event-Display",
+			"resume" : "Event-Display"
 		},
 		"Event-Browser" : {
 			"priority" : -9,
@@ -102,7 +102,7 @@
 			"run" : 50,
 			"sleep" : 16000,
 			"run" : 50,
-			"resume" : "Browser",
+			"resume" : "Browser"
 		},
 		"Event-Display" : {
 			"priority" : -9,
@@ -111,13 +111,13 @@
 			"run" : 50,
 			"sleep" : 16000,
 			"run" : 50,
-			"resume" : "Display",
+			"resume" : "Display"
 		},
 		"Display" : {
 			"priority" : -8,
 			"loop" : -1,
 			"suspend" : "Display",
-			"run" : 16000,
+			"run" : 16000
 		},
 	},
 }

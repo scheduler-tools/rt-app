@@ -10,14 +10,14 @@
 				"light" : {
 					"loop" : 100,
 					"run" :   1000,
-					"timer" : { "ref" : "tick", "period" : 10000 },
+					"timer" : { "ref" : "tick", "period" : 10000 }
 				},
 				"heavy" : {
 					"loop" : 100,
 					"run" :   9000,
-					"timer" : { "ref" : "tick", "period" : 10000 },
+					"timer" : { "ref" : "tick", "period" : 10000 }
 				}
 			}
-		},
-	},
+		}
+	}
 }

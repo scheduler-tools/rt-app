@@ -8,13 +8,13 @@
 			"loop" : -1,
 			"run" :     10000,
 			"resume" : "thread1",
-			"suspend" : "thread0",
+			"suspend" : "thread0"
 		},
 		"thread1" : {
 			"loop" : -1,
 			"run" :     10000,
 			"resume" : "thread0",
-			"suspend" : "thread1",
+			"suspend" : "thread1"
 		},
 	},
 }

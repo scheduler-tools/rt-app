@@ -7,11 +7,11 @@
 				"p1" : {
 					"loop" : 1,
 					"resume" : "AudioOut",
-					"timer" :  { "ref" : "tick", "period": 6000 },
+					"timer" :  { "ref" : "tick", "period": 6000 }
 				},
 				"p2" : {
 					"loop" : 4,
-					"timer" :  { "ref" : "tick", "period": 6000 },
+					"timer" :  { "ref" : "tick", "period": 6000 }
 				}
 			}
 		},
@@ -21,14 +21,14 @@
 			"run" :  275,
 			"resume" : "AudioTrack",
 			"run" : 4725,
-			"suspend" : "AudioOut",
+			"suspend" : "AudioOut"
 		},
 		"AudioTrack" : { 
 			"priority" : -16,
 			"loop" : -1,
 				"suspend" : "AudioTrack",
 				"run" :  300,
-				"resume" : "mp3.decoder",
+				"resume" : "mp3.decoder"
 		},
 		"mp3.decoder" : {
 			"priority" : -2,
@@ -39,7 +39,7 @@
 				"signal" : "queue",
 				"wait" : { "ref" : "queue", "mutex": "mutex" },
 				"unlock" : "mutex",
-				"run" :  150,
+				"run" :  150
 		},
 		"OMXCall" : {
 			"priority" : -2,
@@ -50,8 +50,8 @@
 			"run" :  300,
 			"lock" : "mutex",
 			"signal" : "queue",
-			"unlock" : "mutex",
-		},
+			"unlock" : "mutex"
+		}
 	},
 	"global" : {
 		"default_policy" : "SCHED_OTHER",
@@ -62,6 +62,6 @@
 		"log_basename" : "mp3",
 		"lock_pages" : true,
 		"frag" : 1,
-		"calibration" : "CPU0",
+		"calibration" : "CPU0"
 	}
 }
