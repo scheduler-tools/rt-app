@@ -404,7 +404,7 @@ void *thread_body(void *arg)
 	i = j = loop = 0;
 
 	while (continue_running && (i != data->loop)) {
-		struct timespec t_diff;
+		struct timespec t_diff, t_rel_start;
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
@@ -421,14 +421,12 @@ void *thread_body(void *arg)
 			curr_timing = &tmp_timing;
 
 		t_diff = timespec_sub(&t_end, &t_start);
-
-		t_start_usec = timespec_to_usec(&t_start);
+		t_rel_start = timespec_sub(&t_start, &data->main_app_start);
 
 		curr_timing->ind = data->ind;
-		curr_timing->rel_start_time =
-			t_start_usec - timespec_to_usec(&data->main_app_start);
-		curr_timing->start_time = t_start_usec;
-		curr_timing->end_time = timespec_to_usec(&t_end);
+		curr_timing->rel_start_time = timespec_to_usec_ull(&t_rel_start);
+		curr_timing->start_time = timespec_to_usec_ull(&t_start);
+		curr_timing->end_time = timespec_to_usec_ull(&t_end);
 		curr_timing->period = timespec_to_usec(&t_diff);
 		curr_timing->duration = duration;
 		curr_timing->perf = perf;

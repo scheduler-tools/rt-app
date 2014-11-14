@@ -83,14 +83,11 @@ do {									\
     rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, "<crit> ", msg, ##args);	\
 } while (0);
 
-unsigned int
-timespec_to_msec(struct timespec *ts);
-
-long
-timespec_to_lusec(struct timespec *ts);
-
 unsigned long
 timespec_to_usec(struct timespec *ts);
+
+unsigned long long
+timespec_to_usec_ull(struct timespec *ts);
 
 struct timespec
 usec_to_timespec(unsigned long usec);

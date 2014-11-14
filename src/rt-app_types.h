@@ -172,9 +172,9 @@ typedef struct _timing_point_t {
 	unsigned long perf;
 	unsigned long duration;
 	unsigned long period;
-	unsigned long start_time;
-	unsigned long end_time;
-	unsigned long rel_start_time;
+	__u64 start_time;
+	__u64 end_time;
+	__u64 rel_start_time;
 } timing_point_t;
 
 #endif // _RTAPP_TYPES_H_

@@ -21,22 +21,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "rt-app_utils.h"
 
-unsigned int
-timespec_to_msec(struct timespec *ts)
-{
-	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000000;
-}
-
-long
-timespec_to_lusec(struct timespec *ts)
-{
-	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
-}
-
 unsigned long
 timespec_to_usec(struct timespec *ts)
 {
-	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
+	return lround((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
+}
+
+unsigned long long
+timespec_to_usec_ull(struct timespec *ts)
+{
+	return llround((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
 #ifdef DLSCHED
@@ -138,7 +132,7 @@ void
 log_timing(FILE *handler, timing_point_t *t)
 {
 	fprintf(handler,
-		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu",
+		"%d\t%lu\t%lu\t%lu\t%llu\t%llu\t%llu",
 		t->ind,
 		t->perf,
 		t->duration,
