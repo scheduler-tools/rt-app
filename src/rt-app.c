@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/ 
+*/
 
 #include <fcntl.h>
 #include "rt-app.h"
@@ -48,7 +48,7 @@ static inline busywait(struct timespec *to)
 	}
 }
 
-void run(int ind, struct timespec *min, struct timespec *max, 
+void run(int ind, struct timespec *min, struct timespec *max,
 	 rtapp_tasks_resource_list_t *blockages, int nblockages)
 {
 	int i;
@@ -56,7 +56,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
 	struct timespec t_start, now, t_exec, t_totexec = *max;
 	rtapp_resource_access_list_t *lock, *last;
-	
+
 	/* get the start time */
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
 
@@ -144,7 +144,7 @@ void *thread_body(void *arg)
 	/* set thread affinity */
 	if (data->cpuset != NULL)
 	{
-		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind, 
+		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind,
 			 data->cpuset_str);
 		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
 						data->cpuset);
@@ -164,19 +164,19 @@ void *thread_body(void *arg)
 			fprintf(data->log_handler, "# Policy : %s\n",
 				(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"));
 			param.sched_priority = data->sched_prio;
-			ret = pthread_setschedparam(pthread_self(), 
-						    data->sched_policy, 
+			ret = pthread_setschedparam(pthread_self(),
+						    data->sched_policy,
 						    &param);
 			if (ret != 0) {
-				errno = ret; 
-				perror("pthread_setschedparam"); 
+				errno = ret;
+				perror("pthread_setschedparam");
 				exit(EXIT_FAILURE);
 			}
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu, priority: %d",
 			       	data->ind,
-				timespec_to_usec(&data->period), 
+				timespec_to_usec(&data->period),
 				timespec_to_usec(&data->min_et),
 				timespec_to_usec(&data->deadline),
 				data->sched_prio
@@ -188,24 +188,24 @@ void *thread_body(void *arg)
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu",
 			       	data->ind,
-				timespec_to_usec(&data->period), 
+				timespec_to_usec(&data->period),
 				timespec_to_usec(&data->min_et),
 				timespec_to_usec(&data->deadline)
 			);
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
-#ifdef AQUOSA			
+#ifdef AQUOSA
 		case aquosa:
 			fprintf(data->log_handler, "# Policy : AQUOSA\n");
-			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0)); 
+			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
 			log_notice("[%d] Creating QRES Server with Q=%ld, P=%ld",
 				data->ind,data->params.Q, data->params.P);
-			
+
 			qos_chk_ok_exit(qres_init());
-			qos_chk_ok_exit(qres_create_server(&data->params, 
+			qos_chk_ok_exit(qres_create_server(&data->params,
 							   &data->sid));
 			log_notice("[%d] AQuoSA server ID: %d", data->ind, data->sid);
 			log_notice("[%d] attaching thread (deadline: %lu) to server %d",
@@ -229,16 +229,16 @@ void *thread_body(void *arg)
 				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&data->period);
 			attr.sched_period = timespec_to_nsec(&data->period);
-				
+
 			break;
 #endif
-			
+
 		default:
 			log_error("Unknown scheduling policy %d",
 				data->sched_policy);
 			exit(EXIT_FAILURE);
 	}
-	
+
 	if (data->lock_pages == 1)
 	{
 		log_notice("[%d] Locking pages in memory", data->ind);
@@ -251,13 +251,13 @@ void *thread_body(void *arg)
 	}
 
 	if (data->wait_before_start > 0) {
-		log_notice("[%d] Waiting %ld usecs... ", data->ind, 
+		log_notice("[%d] Waiting %ld usecs... ", data->ind,
 			 data->wait_before_start);
 		clock_gettime(CLOCK_MONOTONIC, &t);
 		t_next = msec_to_timespec(data->wait_before_start);
 		t_next = timespec_add(&t, &t_next);
-		clock_nanosleep(CLOCK_MONOTONIC, 
-				TIMER_ABSTIME, 
+		clock_nanosleep(CLOCK_MONOTONIC,
+				TIMER_ABSTIME,
 				&t_next,
 				NULL);
 		log_notice("[%d] Starting...", data->ind);
@@ -267,9 +267,9 @@ void *thread_body(void *arg)
 	 */
 	timings = NULL;
 	if (data->duration > 0) {
-		my_duration_usec = (data->duration * 10e6) - 
+		my_duration_usec = (data->duration * 10e6) -
 				   (data->wait_before_start * 1000);
-		nperiods = (int) ceil( my_duration_usec / 
+		nperiods = (int) ceil( my_duration_usec /
 				      (double) timespec_to_usec(&data->period));
 		timings = malloc ( nperiods * sizeof(timing_point_t));
 	}
@@ -287,7 +287,7 @@ void *thread_body(void *arg)
 		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 		       "deadline: %lu, priority: %d",
 		       	data->ind,
-			attr.sched_period / 1000, 
+			attr.sched_period / 1000,
 			attr.sched_runtime / 1000,
 			attr.sched_deadline / 1000,
 			attr.sched_priority
@@ -319,11 +319,11 @@ void *thread_body(void *arg)
 		run(data->ind, &data->min_et, &data->max_et, data->blockages,
 		    data->nblockages);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
-		
+
 		t_diff = timespec_sub(&t_end, &t_start);
 		t_slack = timespec_sub(&data->deadline, &t_end);
 
-		t_start_usec = timespec_to_usec(&t_start); 
+		t_start_usec = timespec_to_usec(&t_start);
 		if (timings)
 			curr_timing = &timings[i];
 		else
@@ -332,7 +332,7 @@ void *thread_body(void *arg)
 		curr_timing->period = timespec_to_usec(&data->period);
 		curr_timing->min_et = timespec_to_usec(&data->min_et);
 		curr_timing->max_et = timespec_to_usec(&data->max_et);
-		curr_timing->rel_start_time = 
+		curr_timing->rel_start_time =
 			t_start_usec - timespec_to_usec(&data->main_app_start);
 		curr_timing->abs_start_time = t_start_usec;
 		curr_timing->end_time = timespec_to_usec(&t_end);
@@ -342,10 +342,10 @@ void *thread_body(void *arg)
 #ifdef AQUOSA
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
-			qres_get_exec_time(data->sid, 
-					   &abs_used_budget, 
+			qres_get_exec_time(data->sid,
+					   &abs_used_budget,
 					   NULL);
-			curr_timing->used_budget = 
+			curr_timing->used_budget =
 				abs_used_budget - prev_abs_used_budget;
 			prev_abs_used_budget = abs_used_budget;
 
@@ -376,19 +376,19 @@ void *thread_body(void *arg)
 
 exit_miss:
 	param.sched_priority = 0;
-	ret = pthread_setschedparam(pthread_self(), 
-				    SCHED_OTHER, 
+	ret = pthread_setschedparam(pthread_self(),
+				    SCHED_OTHER,
 				    &param);
 	if (ret != 0) {
-		errno = ret; 
-		perror("pthread_setschedparam"); 
+		errno = ret;
+		perror("pthread_setschedparam");
 		exit(EXIT_FAILURE);
 	}
 
 	if (timings)
 		for (j=0; j < i; j++)
 			log_timing(data->log_handler, &timings[j]);
-	
+
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 	log_notice("[%d] Exiting.", data->ind);
@@ -418,7 +418,7 @@ int main(int argc, char* argv[])
 
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
-	
+
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
 	signal(SIGTERM, shutdown);
@@ -459,8 +459,8 @@ int main(int argc, char* argv[])
 		tdata = &opts.threads_data[i];
 		if (opts.spacing > 0 ) {
 			/* start the thread, then it will sleep accordingly
-			 * to its position. We don't sleep here anymore as 
-			 * this would mean that 
+			 * to its position. We don't sleep here anymore as
+			 * this would mean that
 			 * duration = spacing * nthreads + duration */
 			tdata->wait_before_start = opts.spacing * (i+1);
 		} else {
@@ -487,16 +487,16 @@ int main(int argc, char* argv[])
 		}
 
 		if (pthread_create(&threads[i],
-				  NULL, 
-				  thread_body, 
+				  NULL,
+				  thread_body,
 				  (void*) tdata))
 			goto exit_err;
 	}
 
-	/* print gnuplot files */ 
+	/* print gnuplot files */
 	if (opts.logdir && opts.gnuplot)
 	{
-		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot", 
+		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		snprintf(tmp, PATH_LENGTH, "%s-duration.eps",
@@ -516,11 +516,11 @@ int main(int argc, char* argv[])
 			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 				 opts.logdir, opts.logbasename);
 
-			fprintf(gnuplot_script, 
+			fprintf(gnuplot_script,
 				"\"%s-%s.log\" u ($5/1000):9 w l"
-				" title \"thread [%s] (%s)\"", 
-				opts.logbasename, opts.threads_data[i].name, 
-				opts.threads_data[i].name, 
+				" title \"thread [%s] (%s)\"",
+				opts.logbasename, opts.threads_data[i].name,
+				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
 			if ( i == nthreads-1)
@@ -531,7 +531,7 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 
-		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot", 
+		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot",
 		 	 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		snprintf(tmp, PATH_LENGTH, "%s-slack.eps",
@@ -549,14 +549,14 @@ int main(int argc, char* argv[])
 
 		for (i=0; i < nthreads; i++)
 		{
-			fprintf(gnuplot_script, 
+			fprintf(gnuplot_script,
 				"\"%s-%s.log\" u ($5/1000):10 w l"
-				" title \"thread [%s] (%s)\"", 
+				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
-			if ( i == nthreads-1) 
+			if ( i == nthreads-1)
 				fprintf(gnuplot_script, ", 0 notitle\n");
 			else
 				fprintf(gnuplot_script, ", ");
@@ -565,7 +565,7 @@ int main(int argc, char* argv[])
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 	}
-	
+
 	if (opts.duration > 0)
 	{
 		sleep(opts.duration);
@@ -573,7 +573,7 @@ int main(int argc, char* argv[])
 			log_ftrace(ft_data.marker_fd, "main shutdown\n");
 		shutdown(SIGTERM);
 	}
-	
+
 	for (i = 0; i < nthreads; i++) 	{
 		pthread_join(threads[i], NULL);
 	}

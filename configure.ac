@@ -18,7 +18,7 @@ AC_ARG_WITH([aquosa],
               [Add support for the AQuoSA framework])],
             [],
             [with_aquosa=no])
-          
+
           QRESLIB=
           AS_IF([test "x$with_aquosa" != xno],
             [AC_CHECK_LIB([qreslib], [qres_init],
@@ -31,7 +31,7 @@ AC_ARG_WITH([aquosa],
               [-lqreslib])])
 
 AC_ARG_WITH([deadline],
-	[AS_HELP_STRING([--with-deadline], 
+	[AS_HELP_STRING([--with-deadline],
          [Add support for SCHED_DEADLINE])],
 	[],
 	[with_deadline=no])

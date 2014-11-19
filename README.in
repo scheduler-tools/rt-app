@@ -4,8 +4,8 @@ README for rt-app @VERSION@
  INTRODUCTION
 ==============
 
-rt-app is a test application that starts multiple periodic threads in order to 
-simulate a real-time periodic load. It supports SCHED_OTHER, SCHED_FIFO, 
+rt-app is a test application that starts multiple periodic threads in order to
+simulate a real-time periodic load. It supports SCHED_OTHER, SCHED_FIFO,
 SCHED_RR as well as the AQuoSA framework and SCHED_DEADLINE.
 
 Code is currently maintained on GitHub:
@@ -74,7 +74,7 @@ Keep in mind that on commandline it will never be possible to define resources
 and how tasks access them.
 
 $ rt-app
-usage: rt-app [options] -t <period>:<exec>[:cpu affinity[:policy[:deadline[:prio]]]] 
+usage: rt-app [options] -t <period>:<exec>[:cpu affinity[:policy[:deadline[:prio]]]]
 
 -h, --help	:	show this help
 -f, --fifo	:	set default policy for threads to SCHED_FIFO
