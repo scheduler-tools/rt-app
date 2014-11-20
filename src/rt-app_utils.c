@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -16,23 +16,23 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/ 
+*/
 
 #include "rt-app_utils.h"
 
-unsigned int 
+unsigned int
 timespec_to_msec(struct timespec *ts)
 {
 	return (ts->tv_sec * 1E9 + ts->tv_nsec) / 1000000;
 }
 
-long 
+long
 timespec_to_lusec(struct timespec *ts)
 {
 	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
-unsigned long 
+unsigned long
 timespec_to_usec(struct timespec *ts)
 {
 	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
@@ -46,18 +46,18 @@ timespec_to_nsec(struct timespec *ts)
 }
 #endif
 
-struct timespec 
+struct timespec
 usec_to_timespec(unsigned long usec)
 {
 	struct timespec ts;
 
 	ts.tv_sec = usec / 1000000;
 	ts.tv_nsec = (usec % 1000000) * 1000;
-	
+
 	return ts;
 }
 
-struct timespec 
+struct timespec
 msec_to_timespec(unsigned int msec)
 {
 	struct timespec ts;
@@ -68,7 +68,7 @@ msec_to_timespec(unsigned int msec)
 	return ts;
 }
 
-struct timespec 
+struct timespec
 timespec_add(struct timespec *t1, struct timespec *t2)
 {
 	struct timespec ts;
@@ -84,24 +84,24 @@ timespec_add(struct timespec *t1, struct timespec *t2)
 	return ts;
 }
 
-struct timespec 
+struct timespec
 timespec_sub(struct timespec *t1, struct timespec *t2)
 {
 	struct timespec ts;
-	
+
 	if (t1->tv_nsec < t2->tv_nsec) {
 		ts.tv_sec = t1->tv_sec - t2->tv_sec -1;
-		ts.tv_nsec = t1->tv_nsec  + 1000000000 - t2->tv_nsec; 
+		ts.tv_nsec = t1->tv_nsec  + 1000000000 - t2->tv_nsec;
 	} else {
 		ts.tv_sec = t1->tv_sec - t2->tv_sec;
-		ts.tv_nsec = t1->tv_nsec - t2->tv_nsec; 
+		ts.tv_nsec = t1->tv_nsec - t2->tv_nsec;
 	}
 
 	return ts;
 
 }
 
-int 
+int
 timespec_lower(struct timespec *what, struct timespec *than)
 {
 	if (what->tv_sec > than->tv_sec)
@@ -119,7 +119,7 @@ timespec_lower(struct timespec *what, struct timespec *than)
 void
 log_timing(FILE *handler, timing_point_t *t)
 {
-	fprintf(handler, 
+	fprintf(handler,
 		"%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%ld",
 		t->ind,
 		t->period,
@@ -135,7 +135,7 @@ log_timing(FILE *handler, timing_point_t *t)
 #ifdef AQUOSA
 	fprintf(handler,
 		"\t" QRES_TIME_FMT "\t" QRES_TIME_FMT,
-		t->budget, 
+		t->budget,
 		t->used_budget
 	);
 #endif
@@ -186,7 +186,7 @@ policy_to_string(policy_t policy, char *policy_name)
 		case fifo:
 			strcpy(policy_name, "SCHED_FIFO");
 			break;
-#ifdef DLSCHED			
+#ifdef DLSCHED
 		case deadline:
 			strcpy(policy_name, "SCHED_DEADLINE");
 			break;
@@ -218,7 +218,7 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 		log_error("Cannot allocate ftrace buffer");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	while(1) {
 		/* Try to print in the allocated space */
 		va_start(ap, fmt);

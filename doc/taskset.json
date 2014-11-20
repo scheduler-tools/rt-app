@@ -1,21 +1,21 @@
 {
-	"resources" : 4, 
+	"resources" : 4,
 	"tasks" : {
-		"thread0" : { 
-		       "exec" : 1000, 
-		       "period" : 10000, 
-		       "deadline" : 8000, 
-		       "cpus" : [0,1], 
-		       "policy" : "SCHED_FIFO", 
+		"thread0" : {
+		       "exec" : 1000,
+		       "period" : 10000,
+		       "deadline" : 8000,
+		       "cpus" : [0,1],
+		       "policy" : "SCHED_FIFO",
 		       "lock_order" : [0],
 		       "resources" : {
 			   "0" : { "duration" : 1000 }
 		       }
 		},
-		"thread1" : { 
-		       "exec" : 50000, 
-		       "period" : 100000, 
-		       "cpus" : [1], 
+		"thread1" : {
+		       "exec" : 50000,
+		       "period" : 100000,
+		       "cpus" : [1],
 		       "policy" : "SCHED_FIFO",
 		       "priority": 20,
         /*
@@ -49,7 +49,7 @@
 			   "1" : { "duration" : 100, "access": [3] },
 			   "2" : { "duration" : 200, "access": [1] },
 			   "3" : { "duration" : 500}
-		       }	
+		       }
 		}
 	},
 	"global" : {

@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/ 
+*/
 
 #ifndef _TIMESPEC_UTILS_H_
 #define _TIMESPEC_UTILS_H_
@@ -82,38 +82,38 @@ do {									\
     rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, "<crit> ", msg, ##args);	\
 } while (0);
 
-unsigned int 
+unsigned int
 timespec_to_msec(struct timespec *ts);
 
-long 
+long
 timespec_to_lusec(struct timespec *ts);
 
-unsigned long 
+unsigned long
 timespec_to_usec(struct timespec *ts);
 
-struct timespec 
+struct timespec
 usec_to_timespec(unsigned long usec);
 
-struct timespec 
+struct timespec
 usec_to_timespec(unsigned long usec);
 
-struct timespec 
+struct timespec
 msec_to_timespec(unsigned int msec);
 
-struct timespec 
+struct timespec
 timespec_add(struct timespec *t1, struct timespec *t2);
 
-struct timespec 
+struct timespec
 timespec_sub(struct timespec *t1, struct timespec *t2);
 
-int 
+int
 timespec_lower(struct timespec *what, struct timespec *than);
 
 void
 log_timing(FILE *handler, timing_point_t *t);
 
 #ifdef DLSCHED
-pid_t 
+pid_t
 gettid(void);
 
 unsigned long long
@@ -129,6 +129,6 @@ policy_to_string(policy_t policy, char *policy_name);
 void
 ftrace_write(int mark_fd, const char *fmt, ...);
 
-#endif // _TIMESPEC_UTILS_H_ 
+#endif // _TIMESPEC_UTILS_H_
 
 /* vim: set ts=8 noexpandtab shiftwidth=8: */

@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of rt-app - https://launchpad.net/rt-app
 Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/ 
+*/
 
 #include "rt-app_args.h"
 
@@ -26,7 +26,7 @@ usage (const char* msg, int ex_code)
 #ifdef JSON
 	printf("usage:\n"
 	       "rt-app <taskset.json>\nOR\n");
-#endif	       
+#endif
 	printf("rt-app [options] -t <period>:<exec>[:policy"
 		"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
 	printf("-h, --help\t\t:\tshow this help\n");
@@ -41,7 +41,7 @@ usage (const char* msg, int ex_code)
 	printf("-T, --ftrace\t\t:\tenable ftrace prints\n");
 	printf("-P, --pi_enabled\t:\tenable priority inheritance on resources\n");
 	printf("-M, --die_on_dmiss\t:\texit with an error if a task misses a deadline\n");
-	
+
 #ifdef AQUOSA
 	printf("-q, --qos\t:\tcreate AQuoSA reservation\n");
 	printf("-g, --frag\t:\tfragment for the reservation\n\n");
@@ -82,7 +82,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 	tdata->name = malloc(sizeof(char) * 5);
 	tdata->ind = idx;
 	/* default name for command line threads */
-	snprintf(tdata->name, 1, "t%d", tdata->ind); 
+	snprintf(tdata->name, 1, "t%d", tdata->ind);
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
 	tdata->sched_policy = def_policy;
 	tdata->cpuset = NULL;
@@ -94,7 +94,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 		case 0:
 			period = strtol(token, NULL, 10);
 			if (period <= 0 )
-				usage("Cannot set negative period.", 
+				usage("Cannot set negative period.",
 				      EXIT_INV_COMMANDLINE);
 			tdata->period = usec_to_timespec(period);
 			i++;
@@ -118,7 +118,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 #ifdef AQUOSA
 			if (strcmp(token,"q") == 0)
 				tdata->sched_policy = aquosa;
-			else 
+			else
 #endif
 #ifdef DLSCHED
 			if (strcmp(token,"d") == 0)
@@ -132,13 +132,13 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			else if (strcmp(token,"o") == 0)
 				tdata->sched_policy = other;
 			else {
-				snprintf(tmp, 256, 
+				snprintf(tmp, 256,
 					"Invalid scheduling policy %s in %s",
 					token, arg);
 				usage(tmp, EXIT_INV_COMMANDLINE);
 			}
-			policy_to_string(tdata->sched_policy, 
-					 tdata->sched_policy_descr);	
+			policy_to_string(tdata->sched_policy,
+					 tdata->sched_policy_descr);
 
 			i++;
 			break;
@@ -180,7 +180,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 
 	if (dline == 0)
 		tdata->deadline = tdata->period;
-	
+
 	/* set cpu affinity mask */
 	if (tdata->cpuset_str)
 	{
@@ -192,9 +192,9 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 			strtok(NULL, ",");
 			i++;
 		}
-	} else 
+	} else
 		tdata->cpuset_str = strdup("-");
-	
+
 	free(str);
 }
 
@@ -244,10 +244,10 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	                   {0, 0, 0, 0}
 	               };
 #ifdef AQUOSA
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM",
 				  long_options, &longopt_idx)) != -1)
 #else
-	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM", 
+	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:t:TM",
 				  long_options, &longopt_idx)) != -1)
 #endif
 	{
@@ -269,7 +269,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				opts->policy = rr;
 				break;
 			case 'b':
-				if (!opts->logdir)	
+				if (!opts->logdir)
 					opts->logdir = strdup(".");
 				opts->logbasename = strdup(optarg);
 				break;
@@ -280,7 +280,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 					      EXIT_INV_COMMANDLINE);
 				break;
 			case 'l':
-				opts->logdir = strdup(optarg);	
+				opts->logdir = strdup(optarg);
 				lstat(opts->logdir, &dirstat);
 				if (! S_ISDIR(dirstat.st_mode))
 					usage("Cannot stat log directory",
@@ -290,7 +290,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				if (opts->nthreads > 0)
 				{
 					opts->threads_data = realloc(
-						opts->threads_data, 
+						opts->threads_data,
 						(opts->nthreads+1) * \
 							sizeof(thread_data_t));
 				}
@@ -320,7 +320,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			case 'M':
 				opts->die_on_dmiss = 1;
 				break;
-#ifdef AQUOSA				
+#ifdef AQUOSA
 			case 'q':
 				if (opts->policy != other)
 					usage("Cannot set multiple policies",
@@ -344,7 +344,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 	if ( opts->nthreads < 1)
 		usage("You have to set parameters for at least one thread",
 		      EXIT_INV_COMMANDLINE);
-	
+
 }
 
 void
@@ -361,7 +361,7 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 	else if (strcmp(argv[1], "-") == 0) {
 		parse_config_stdin(opts);
 		return;
-	} 
+	}
 #endif
 	parse_command_line_options(argc, argv, opts);
 	opts->resources = NULL;

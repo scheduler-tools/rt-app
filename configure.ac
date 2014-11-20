@@ -18,7 +18,7 @@ AC_ARG_WITH([aquosa],
               [Add support for the AQuoSA framework])],
             [],
             [with_aquosa=no])
-          
+
           QRESLIB=
           AS_IF([test "x$with_aquosa" != xno],
             [AC_CHECK_LIB([qreslib], [qres_init],
@@ -31,7 +31,7 @@ AC_ARG_WITH([aquosa],
               [-lqreslib])])
 
 AC_ARG_WITH([deadline],
-	[AS_HELP_STRING([--with-deadline], 
+	[AS_HELP_STRING([--with-deadline],
          [Add support for SCHED_DEADLINE])],
 	[],
 	[with_deadline=no])
@@ -46,17 +46,9 @@ AC_ARG_WITH([json],
 			   )
 	    ], [], [with_json=no]
 	   )
-LIBJSON=
 AS_IF([test "x$with_json" != "xno"],
-      [AC_CHECK_LIB([json], [json_object_from_file],
-	      	    [AC_SUBST([LIBJSON], ["-ljson"])
-        	     AC_DEFINE([JSON], [1], [Define if you have libjson])
-       	            ],
-       	            [AC_MSG_FAILURE([libjson test failed (use --without-json to disable or install json-c)])],
-                    [-ljson]
-		   )
-      ]
-     ) 
+        [PKG_CHECK_MODULES([LIBJSON], [json-c], [AC_DEFINE([JSON], [1], [Define if you have libjson])])
+     ])
 
 AM_CONDITIONAL([AMJSON], [ test x$with_json != xno])
 

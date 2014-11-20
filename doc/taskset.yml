@@ -20,12 +20,12 @@ tasks:
                                 - duration : 1000
         t1:
                 - exec: 50000
-                  period: 100000      
+                  period: 100000
                   cpu: 1
                   policy: DEADLINE
                   lock: m0,m3,m2                        # optional. direct lock order
                   resources:
-                        - m0: 
+                        - m0:
                                 - duration: 1000        # usec, mandatory if present in $lock list.
                                   access : m2           # optional, list
                         - m1:
@@ -37,7 +37,7 @@ tasks:
                                   access: m1
 
                         - m3:
-                                - duration: 500                               
+                                - duration: 500
 
 global:
         # here values are set to their defaults, as an example.
