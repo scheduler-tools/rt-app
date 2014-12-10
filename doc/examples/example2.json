@@ -8,7 +8,7 @@
 			"instance" : 1,
 			"loop" : -1,
 			"run" :   1000,
-			"timer" : { "ref" : "tick", "period" : 10000 }
+			"timer" : { "ref" : "unique", "period" : 10000 }
 		}
 	}
 }

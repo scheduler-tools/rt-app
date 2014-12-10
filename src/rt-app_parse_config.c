@@ -300,6 +300,7 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		  event_data_t *data, const rtapp_options_t *opts)
 {
 	rtapp_resource_t *rdata, *ddata;
+	char unique_name[22];
 	char *ref;
 	int i;
 
@@ -394,6 +395,10 @@ parse_thread_event_data(char *name, struct json_object *obj,
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
+		if (!strcmp(ref, "unique")) {
+				snprintf(unique_name, sizeof(unique_name), "timer%lx", (long)(data));
+				ref = unique_name;
+		}
 		i = get_resource_index(ref, rtapp_timer, opts);
 
 		data->res = i;
