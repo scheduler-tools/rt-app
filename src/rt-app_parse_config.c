@@ -192,7 +192,7 @@ static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opt
 }
 
 static void
-init_resource_data(char *name, int type, int idx, const rtapp_options_t *opts)
+init_resource_data(const char *name, int type, int idx, const rtapp_options_t *opts)
 {
 	rtapp_resource_t *data = &(opts->resources[idx]);
 	char *target;
@@ -216,7 +216,7 @@ init_resource_data(char *name, int type, int idx, const rtapp_options_t *opts)
 }
 
 static void
-parse_resource_data(char *name, struct json_object *obj, int idx,
+parse_resource_data(const char *name, struct json_object *obj, int idx,
 		  rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	char *type, *target;
@@ -236,7 +236,7 @@ parse_resource_data(char *name, struct json_object *obj, int idx,
 }
 
 static int
-add_resource_data(char *name, int type, rtapp_options_t *opts)
+add_resource_data(const char *name, int type, rtapp_options_t *opts)
 {
 	int idx;
 
@@ -280,7 +280,7 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	}
 }
 
-static int get_resource_index(char *name, int type, const rtapp_options_t *opts)
+static int get_resource_index(const char *name, int type, rtapp_options_t *opts)
 {
 	rtapp_resource_t *resources = opts->resources;
 	int nresources = opts->nresources;
@@ -297,11 +297,11 @@ static int get_resource_index(char *name, int type, const rtapp_options_t *opts)
 
 static void
 parse_thread_event_data(char *name, struct json_object *obj,
-		  event_data_t *data, const rtapp_options_t *opts)
+		  event_data_t *data, rtapp_options_t *opts)
 {
 	rtapp_resource_t *rdata, *ddata;
 	char unique_name[22];
-	char *ref;
+	const char *ref;
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
@@ -504,7 +504,7 @@ obj_is_event(char *name)
 
 static void
 parse_thread_phase_data(struct json_object *obj,
-		  phase_data_t *data, const rtapp_options_t *opts)
+		  phase_data_t *data, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
@@ -539,7 +539,7 @@ parse_thread_phase_data(struct json_object *obj,
 
 static void
 parse_thread_data(char *name, struct json_object *obj, int index,
-		  thread_data_t *data, const rtapp_options_t *opts)
+		  thread_data_t *data, rtapp_options_t *opts)
 {
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
