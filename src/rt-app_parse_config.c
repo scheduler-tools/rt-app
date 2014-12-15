@@ -97,10 +97,10 @@ get_in_object(struct json_object *where,
 	      int nullable)
 {
 	struct json_object *to;
-	to = json_object_object_get(where, what);
-	if (!nullable && is_error(to)) {
-		log_critical(PFX "Error while parsing config:\n" PFL
-			  "%s", json_tokener_errors[-(unsigned long)to]);
+	json_bool ret;
+	ret = json_object_object_get_ex(where, what, &to);
+	if (!nullable && !ret) {
+		log_critical(PFX "Error while parsing config\n" PFL);
 		exit(EXIT_INV_CONFIG);
 	}
 	if (!nullable && strcmp(json_object_to_json_string(to), "null") == 0) {
@@ -733,8 +733,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	struct json_object *global, *tasks, *resources;
 
 	if (is_error(root)) {
-		log_error(PFX "Error while parsing input JSON: %s",
-			 json_tokener_errors[-(unsigned long)root]);
+		log_error(PFX "Error while parsing input JSON");
 		exit(EXIT_INV_CONFIG);
 	}
 	log_info(PFX "Successfully parsed input JSON");
