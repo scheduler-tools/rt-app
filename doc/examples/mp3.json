@@ -3,6 +3,7 @@
 		"AudioTick" : {
 			"priority" : -19,
 			"loop" : -1,
+			"cpus" : [0],
 			"phases" : {
 				"p1" : {
 					"loop" : 1,
