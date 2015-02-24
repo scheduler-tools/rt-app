@@ -1,4 +1,10 @@
 {
+	/* This example doesn't care of unique id constraint imposed for json
+	 * file and multiplies thge used of the same key id at same object's level.
+	 * Removing this constraint makes the json file more readable and easier
+	 * to create. This file can't be used directly with rt-app but can be used
+	 * with workgen which parses and modifies it to match with json requirement
+	 */
 	"tasks": {
 		"thread0": {
 			"instance" : 1,
