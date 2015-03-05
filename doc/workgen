@@ -130,7 +130,7 @@ def check_suspend_json(infile, outfile, verbose=0):
             if "," in myline:
                 myline = myline.replace(",", " : " + "\"" + curid + "\",", 1)
             else:
-                myline = myline.replace("\n", " : " + "\"" + curid + "\",\n", 1)
+                myline = myline.replace("\n", " : " + "\"" + curid + "\"\n", 1)
 
         fo.write(myline)
 
