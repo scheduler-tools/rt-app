@@ -179,7 +179,7 @@ static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *op
 static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s timer", data->name);
-	clock_gettime(CLOCK_MONOTONIC, &data->res.timer.t_next);
+	data->res.timer.init = 0;
 }
 
 static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)

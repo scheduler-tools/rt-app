@@ -83,6 +83,7 @@ struct _rtapp_signal {
 
 struct _rtapp_timer {
 	struct timespec t_next;
+	int init;
 };
 
 /* Shared resources */

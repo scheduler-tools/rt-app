@@ -174,6 +174,12 @@ static int run_event(event_data_t *event, int dry_run,
 			log_debug("timer %d ", event->duration);
 
 			t_period = usec_to_timespec(event->duration);
+
+			if (rdata->res.timer.init == 0) {
+				rdata->res.timer.init = 1;
+				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+			}
+
 			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
@@ -677,12 +683,6 @@ int main(int argc, char* argv[])
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	for (i = 0; i < nresources; i++) {
-		rdata = &opts.resources[i];
-		if (rdata->type == rtapp_timer) 
-			rdata->res.timer.t_next = t_start;
-	}
 
 	/* Start the use case */
 	for (i = 0; i < nthreads; i++) {
