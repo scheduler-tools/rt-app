@@ -198,7 +198,7 @@ static int run_event(event_data_t *event, int dry_run,
 		{
 		log_debug("resume %s ", rdata->name);
 		pthread_mutex_lock(&(ddata->res.mtx.obj));
-		pthread_cond_signal(&(rdata->res.cond.obj));
+		pthread_cond_broadcast(&(rdata->res.cond.obj));
 		pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
