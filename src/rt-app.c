@@ -222,8 +222,8 @@ int run(int ind, event_data_t *events,
 		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
 		if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
-						"[%d] locking %d",
-						ind, events[i].type);
+						"[%d] executing %d",
+						ind, i);
 		lock += run_event(&events[i], !continue_running, &perf, duration, resources);
 	}
 
