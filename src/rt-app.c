@@ -557,10 +557,11 @@ int main(int argc, char* argv[])
 		tdata->lock_pages = opts.lock_pages;
 
 		if (opts.logdir) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
+			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.log",
 				 opts.logdir,
 				 opts.logbasename,
-				 tdata->name);
+				 tdata->name,
+				 tdata->ind);
 			tdata->log_handler = fopen(tmp, "w");
 			if (!tdata->log_handler) {
 				log_error("Cannot open logfile %s", tmp);
@@ -591,9 +592,10 @@ int main(int argc, char* argv[])
 
 		for (i=0; i<nthreads; i++) {
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000):4 w l"
+				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
+				opts.threads_data[i].ind,
 				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
@@ -624,7 +626,7 @@ int main(int argc, char* argv[])
 
 		for (i=0; i<nthreads; i++) {
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000):3 w l"
+				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].name,
@@ -641,8 +643,8 @@ int main(int argc, char* argv[])
 
 		/* gnuplot of each task */
 		for (i=0; i<nthreads; i++) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.plot",
-				 opts.logdir, opts.logbasename, opts.threads_data[i].name);
+			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.plot",
+				 opts.logdir, opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind );
 			gnuplot_script = fopen(tmp, "w+");
 			snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
 				opts.logbasename, opts.threads_data[i].name);
@@ -659,19 +661,19 @@ int main(int argc, char* argv[])
 				"plot ", tmp, opts.threads_data[i].name);
 
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000000):2 w l"
+				"\"%s-%s-%d.log\" u ($5/1000000):2 w l"
 				" title \"load \" axes x1y2, ",
-				opts.logbasename, opts.threads_data[i].name);
+				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
 
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000000):3 w l"
+				"\"%s-%s-%d.log\" u ($5/1000000):3 w l"
 				" title \"run \", ",
-				opts.logbasename, opts.threads_data[i].name);
+				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
 
 			fprintf(gnuplot_script,
-				"\"%s-%s.log\" u ($5/1000000):4 w l"
+				"\"%s-%s-%d.log\" u ($5/1000000):4 w l"
 				" title \"period \" ",
-				opts.logbasename, opts.threads_data[i].name);
+				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
 
 			fprintf(gnuplot_script, "\n");
 
