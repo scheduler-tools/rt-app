@@ -1,0 +1,406 @@
+HOW-TO use rt-app and workgen to emulate a workload ?
+
+**** rt-app and workgen ****
+rt-app/workgen is a tool that can be used to emulate a use case. Not only the
+sleep and run pattern can be emulated but also the dependency between tasks
+like accessing same critical resources, creating sequencial wake up or syncing
+the wake up of threads. The use case is described in a json like file which is
+first parsed by workgen then rt-app.
+
+workgen is a python script that will parse, check and update the json like file
+in order to strictly match the json grammar before calling rt-app that will
+execute the sequence described in it.
+
+Even if the json protocol is used in rt-app, workgen enables some freedom
+compared to stricter json grammar rules. For examples,
+- You don't have to ensure uniqueness of key in json object, workgen will check
+the file and ensure that each key is unique by appending an index if necessary.
+The feature is quite useful when you describe a sequence made of same kind of
+events e.g. a sequence of multiple sleep and run events.
+- Some values can be omitted and workgen will add them when it parses the file
+before starting the use case.
+
+**** json file skeleton ****
+
+The json file that describes a workload is made on 3 main objects: tasks,
+resources and global objects. Only task object is mandatory; default value will
+be used if global object is not defined and resources object is kept for
+backward compatibility with old version of rt-app but it doesn't give any
+benefit to declare it as the resources are now dynamically created by rt-app
+when it parses the file.
+
+**** global object ****
+
+The global object defines parameters for the whole use case:
+
+* duration : Integer. Duration of the use case in seconds. All the threads will
+be killed once the duration has elapsed. if -1 has been set, the use case will
+run indefinitly until all threads kill themselves (as an example if a finite
+number of loop has been defined in their running pattern) or if a signal
+is received to stop the use case.
+
+* calibration : Text or Integer: A text defines the CPU that will be used to
+calibrate the ns per loop value. "CPU0" is the default value (see run event
+section for details about ns per loop value). A integer skips the calibration
+step and uses the integer value as ns per loop.
+
+* default_policy : String. Default scheduling policy of threads. Default
+value is SCHED_OTHER.
+
+* pi_enabled: Boolean. Enable the prority inheritance of mutex. Default value
+is False.
+
+* lock_pages : Boolean. Lock the mem page in RAM. Locking the page in RAM
+ensures that your RT thread will not be stalled until a page is moved from swap
+to RAM.  The lock of the page is only possible for non CFS tasks. Default value
+is False. 
+
+* logdir : Text. Path to store the various log files. The default path is
+the current directory (./).
+
+* log_basename : Text. Prefix used for all log files of the use case.
+"rt-app-" is used by default.
+
+* ftrace: Boolean. If enable, rt-app logs in ftrace the main events of the use
+case. Default value is False.
+
+* gnuplot : Boolean. if True, it will create a gnu plot compatible file for
+each threads (see gnuplot section for more details). Default value is False.
+
+*** default global object:
+	"global" : {
+		"duration" : -1,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app",
+		"ftrace" : false,
+		"gnuplot" : false,
+	}
+
+**** tasks object ****
+
+ The tasks object is made of sub-objects that describe threads. No other kind
+ of object than thread object is allowed. The key value of each object will be
+ used as thread's name.
+
+"tasks" : {
+	"thread_name1" : {
+		...
+	},
+	"thread_name2" : {
+		...
+	},
+	"thread_name3" : {
+		...
+	},
+	...
+}
+
+*** thread object ***
+
+Thread object describes the behavior of one kind of thread which means that
+several threads can be created with the same object (see instance parameter
+below).
+
+* instance : Integer. Define the number of threads that will be created with
+the properties of this thread object. Default value is 1.
+
+*** policy : String: Define the scheduling policy of the thread. default_policy
+is used if not defined
+
+* priority : Integer. Define the scheduling priority of the thread. The value
+must be aligned with the range allowed by the policy. The default priority is
+0 for sched_other class and 10 for other classes
+
+* runtime : Integer: Define the runtime budget for deadline scheduling class.
+Default value is 0.
+
+* period : Integer. Define the period duration for deadline scheduling class.
+Default value is runtime.
+
+* deadline : Integer. Define the deadline parameter for deadline scheduling
+class. Default value is period.
+
+* cpus: Array of Integer. Define the CPU affinity of the thread. Default
+value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]
+
+* phases: Object. The phases object described TBF
+
+If there is only 1 phase, the sequence of events can be directly put in the
+thread object instead of creating a phases object. As an example, the 2 objects
+below are equals:
+
+"task" : {
+	"thread1" : {
+		"phases" : {
+			"phase1" : {
+				"run" : 10,
+				"sleep" : 10
+			}
+		}
+	}
+}
+
+"task" : {
+	"thread1" : {
+		"run" : 10,
+		"sleep" : 10
+	}
+}
+
+* loop: Integer. Define the number of times the parent object must be run.
+The parent object can be a phase or a thread. For phase object, the loop
+defines the number of time the phase will be executed before starting the next
+phase. For thread object, the loop defines the number of times that the
+complete "phases" object will be executed. The default value is -1.
+
+*** events ***
+
+events are simple action that will be performed by the thread or on the
+thread. They have to be listed by execution order. 
+
+* run : Integer. Emulate the execution of a load. The duration is defined in
+usec but the run event will effectively run a number of time a loop that waste
+cpu cycles. When the run event is executed, the duration is transformed in a
+number of loop thanks to the ns per loop value (see calibration). This way of
+working enables to emulate a load with a duration that will vary with the
+frequency or the compute capacity of the CPU.
+
+* sleep : Integer. Emulate the sleep of a task. The duration is defined in
+usec.
+
+* timer : Object. Emulate the wake up of the thread by a timer. Timer differs
+from sleep event by the start time of the timer duration. Sleep duration starts
+at the beginning of the sleep event whereas timer duration starts at the end of
+the last use of the timer. So Timer event are immunized against preemption,
+frequency scaling and computing capacity of a CPU. The initial starting time of
+the timer is set during the 1st use of the latter.
+
+          |<------19---------->|<------19---------->|<------19---------->|
+task A ...|run 5|timer 19      |------run 5|timer 19|run 5|timer 19      |
+task B                      |run 10  |   
+
+
+As an example to point out the difference between sleep and timer, let consider
+a task A that run 5 and then sleep 10. The period of task A should be 15.
+Let's add a task B that runs 5 and use a timer to wakes up every 19. 
+
+         |<------15------>|<------15------>|<------19---------->|<------15------>|<------16------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|
+taskA ...|run 5|sleep 10  |run 5|sleep 10  |----run 5|sleep 10  |run 5|sleep 10  |-run 5|sleep 10  |----run 5|sleep 10  |----run 5|sleep 10  |----run 5|sleep 10  |----run 5|sleep 10  |----run 5|sleep 10  |
+taskB ...|------run 5|timer 19|--run 5|timer 19    |run 5|timer 19      |run 5|timer 19      |run 5|timer 19      |run 5|timer 19      |run 5|timer 19      |run 5|timer 19      |run 5|timer 19      |
+         |<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|<------19---------->|
+
+We can see that task B period stays to 19 even if the run event is delayed
+because of scheduling preemption whereas the period of task A starts at 15 but
+increases to 19 because of the scheduling delay.
+
+"unique" timer device: When a thread that uses a timer is instanciated, the
+timer will be shared across the thread instance which disturbs the original
+sequence. In order to have 1 timer per instance, you can use the "unique"
+prefix so a new timer will be created for each instance. Uniqueness
+applies to the thread boundary which means that using the same unique
+name in the sequence of a thread will refer to the same timer like the example
+below:
+	"phases" : {
+		"light" : {
+			"loop" : 10,
+			"run" :   1000,
+			"timer" : { "ref" : "unique", "period" : 30000 }
+		},
+		"heavy" : {
+			"loop" : 10,
+			"run" :   4000,
+			"timer" : { "ref" : "unique", "period" : 30000 }
+		}
+	}
+
+If you want to refer to different timer you must use different name like
+below:
+	"phases" : {
+		"light" : {
+			"loop" : 10,
+			"run" :   1000,
+			"timer" : { "ref" : "uniqueA", "period" : 30000 }
+		},
+		"heavy" : {
+			"loop" : 10,
+			"run" :   4000,
+			"timer" : { "ref" : "uniqueB", "period" : 400000 }
+		}
+	}
+
+* lock : String. Lock the mutex defined by the string value.
+
+* unlock : String. Unlock the mutex defined by the string value.
+
+* wait : Object {"ref" : String, "mutex" : String }. Block the calling thread
+until another thread sends a wake up signal to the resource defined by "ref".
+The mutex defined by "mutex" is used during the block sequence: See
+pthread_cond_wait() for more details about the sequence (especially regarding
+the use of the mutex).
+
+* signal : String. Send a wake up signal to the resource defined by the
+string. The 1st thread in the wait list will be wokn up. See
+pthread_cond_signal() for more details.
+
+* broad : String. Send a wake up signal to the resource defined by the
+string. All threads that are blocked on the resource wil wake up. See
+pthread_cond_broadcast() for more details.
+
+* sync : Object {"ref" : String, "mutex" : String }. Atomically wakes 
+up a blocked thread and then blocks the calling thread on the condition. 
+taskA ...|run 5|wait|------------|run 5| wait |----------------
+taskB ...-------------------|sync|-------- 
+
+The sync event "sync" : {"ref" : "CondA", "mutex" : "mutexA" } generates the
+following sequence:
+{
+	"lock" : "mutexA",
+	"signal" : "CondA",
+	"wait" : { "ref" : "condA", "mutex" : "mutexA" },
+	"unlock" : "mutexA"
+}
+
+* suspend : String. Block the calling thread until another thread wakes it up
+with resume. The String can be let empty as it will be filled by workgen with
+the right thread's name before starting the use case.
+
+* resume : String. Wake up the thread defined by the string.
+
+taskA ...|run 5|suspend |----------------|run 5|suspend |----------------
+taskB ...-------------------|resume taskA|run 10    |-------------------- 
+
+
+**** Trace and Log ****
+
+Some traces and log hooks have been added to ease the debug and monitor various
+metrics of the use cases
+
+*** Trace ***
+
+A trace can be inserted into ftrace buffer for each event in order to sync
+kernel events like sched_switch with the use case's sequence.
+
+A simple example of ftrace log:
+
+         thread0-23345 [003] 115591.560884: tracing_mark_write: [0] starts
+         thread0-23345 [003] 115591.560890: tracing_mark_write: [0] begins loop 0 phase 0 step 0
+         thread0-23345 [003] 115591.560894: tracing_mark_write: [0] executing 0
+         thread0-23345 [003] 115591.580212: tracing_mark_write: [0] executing 1
+         thread0-23345 [003] 115591.580217: sched_switch: prev_comm=thread0 prev_pid=23345 prev_prio=120 prev_state=S ==> next_comm=swapper/3 next_pid=0 next_prio=120
+          <idle>-0     [003] 115591.670198: sched_switch: prev_comm=swapper/3 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=thread0 next_pid=23345 next_prio=120
+         thread0-23345 [003] 115591.670243: tracing_mark_write: [0] end loop 0 phase 0 step 0
+         thread0-23345 [003] 115591.670251: tracing_mark_write: [0] begins loop 0 phase 0 step 1
+         thread0-23345 [003] 115591.670254: tracing_mark_write: [0] executing 0
+         thread0-23345 [003] 115591.688081: tracing_mark_write: [0] executing 1
+         thread0-23345 [003] 115591.688085: sched_switch: prev_comm=thread0 prev_pid=23345 prev_prio=120 prev_state=S ==> next_comm=swapper/3 next_pid=0 next_prio=120
+          <idle>-0     [003] 115591.778063: sched_switch: prev_comm=swapper/3 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=thread0 next_pid=23345 next_prio=120
+         thread0-23345 [003] 115591.778108: tracing_mark_write: [0] end loop 0 phase 0 step 1
+         thread0-23345 [003] 115591.778116: tracing_mark_write: [0] begins loop 0 phase 0 step 2
+         thread0-23345 [003] 115591.778119: tracing_mark_write: [0] executing 0
+         thread0-23345 [003] 115591.794619: tracing_mark_write: [0] executing 1
+         thread0-23345 [003] 115591.794623: sched_switch: prev_comm=thread0 prev_pid=23345 prev_prio=120 prev_state=S ==> next_comm=swapper/3 next_pid=0 next_prio=120
+          <idle>-0     [003] 115591.884607: sched_switch: prev_comm=swapper/3 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=thread0 next_pid=23345 next_prio=120
+         thread0-23345 [003] 115591.884652: tracing_mark_write: [0] end loop 0 phase 0 step 2
+		 ...
+         thread0-23345 [003] 115593.394022: tracing_mark_write: [0] begins loop 0 phase 0 step 17
+         thread0-23345 [003] 115593.394025: tracing_mark_write: [0] executing 0
+         thread0-23345 [003] 115593.410583: tracing_mark_write: [0] executing 1
+         thread0-23345 [003] 115593.410594: sched_switch: prev_comm=thread0 prev_pid=23345 prev_prio=120 prev_state=S ==> next_comm=swapper/3 next_pid=0 next_prio=120
+          <idle>-0     [003] 115593.500567: sched_switch: prev_comm=swapper/3 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=thread0 next_pid=23345 next_prio=120
+         thread0-23345 [003] 115593.500612: tracing_mark_write: [0] end loop 0 phase 0 step 17
+         thread0-23345 [003] 115593.500620: tracing_mark_write: [0] begins loop 0 phase 0 step 18
+         thread0-23345 [003] 115593.500623: tracing_mark_write: [0] executing 0
+         thread0-23345 [003] 115593.520198: tracing_mark_write: [0] executing 1
+         thread0-23345 [003] 115593.520202: sched_switch: prev_comm=thread0 prev_pid=23345 prev_prio=120 prev_state=S ==> next_comm=swapper/3 next_pid=0 next_prio=120
+          <idle>-0     [003] 115593.610185: sched_switch: prev_comm=swapper/3 prev_pid=0 prev_prio=120 prev_state=R ==> next_comm=thread0 next_pid=23345 next_prio=120
+         thread0-23345 [003] 115593.610230: tracing_mark_write: [0] end loop 0 phase 0 step 18
+         thread0-23345 [003] 115593.610258: tracing_mark_write: [0] exiting
+
+The main events are :
+
+* "tracing_mark_write: [0] starts" indicates the start of the thread with index 0
+
+* "tracing_mark_write: [0] begins loop A phase B loop C" indicates that the
+thread with index 0 starts to execute the loop C of the phase B of the main
+loop A
+
+* "tracing_mark_write: [0] executing X": indicates that the thread with index 0
+execute the event X of the current phase
+-"tracing_mark_write: [0] end loop A phase B step C" indicates that the
+thread with index 0 ends to execute the event C of the phase B of the loop A
+
+*"tracing_mark_write: [0] exiting": indiscates that the trhead with index 0 has
+finished to execute its events.
+
+*** Log and gnuplot ***
+
+You can log some metrics for each phase that is executed by a thread. These
+metrics are:
+- perf: number of loop that has been executed by run events
+- run: time spent by the thread to execute the run events
+- period: duration to execute the complte phase
+- start/end : absolute start and end time of a phase. Same time base is used in
+ftrace
+- rel_st: start time of a phase relatively to the beg of the use case
+
+Below is an extract of a log:
+
+# Policy : SCHED_OTHER priority : 0
+#idx	perf	run		period	start			end				rel_st
+0		500000	34382	114492	175604833899	175604948391	785
+0		500000	29786	109863	175604948437	175605058300	115323
+0		500000	26977	107077	175605058336	175605165413	225223
+0		500000	28667	108771	175605165458	175605274229	332344
+0		500000	26644	106745	175605274274	175605381019	441160
+0		500000	26745	106867	175605381061	175605487928	547947
+0		500000	29513	109620	175605487974	175605597595	654860
+
+Some gnuplot files are also created to generate charts based on the log files 
+for each thread and for each kind of metrics. The format of the chart that
+will be generated by gnuplot is eps (text art has been used for the chart
+below)
+
+                  Measured thread0 Loop stats
+                                                Load [nb loop]
+  120000 ++--+----+---+----+---+---+----+---+----+--++ 506000     load  ******
+         +   +    +   +    +   +   +    +   +    +   +             run  ######
+         |$$ :    :   :    :   $$$ :    :   :    :   |          period  $$$$$$
+  110000 ++.$$$........$$$$...$...$..........$$$.$$$$+
+         |   : $$$$$$$$    $$ $:   $ $$$$$$$$   $:   $
+         |   :    :   :    : $ :   :$   :   :    :  ++ 504000
+         |   :    :   :    :   :   :    :   :    :   |
+  100000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :   |
+   90000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :  ++ 502000
+         |   :    :   :    :   :   :    :   :    :   |
+   80000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :   |
+   70000 +******************************************** 500000
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :   |
+   60000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :  ++ 498000
+   50000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :   |
+         |   :    :   :    :   :   :    :   :    :   |
+   40000 ++.........................................++
+         |   :    :   :    :   :   :    :   :    :  ++ 496000
+         |#  :    :   :    :   :   :    :   :    :   |
+         | # :    :   :    :   ### :    :   :    :   |
+   30000 ++.###.###....####...#...#..........###.####+
+         |   : #  :####    ### :   # ########   #:   #
+         +   +    +   +    +   +   +#   +   +    +   +
+   20000 ++--+----+---+----+---+---+----+---+----+--++ 494000
+       17560556057560556057560656065606756065606756075607
+                    Loop start time [msec]
+
+
