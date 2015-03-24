@@ -5,17 +5,18 @@
 	 */
 	"tasks" : {
 		"thread0" : {
+			"instance" : 12,
 			"loop" : 1,
 			"phases" : {
 				"light" : {
-					"loop" : 100,
+					"loop" : 10,
 					"run" :   1000,
-					"timer" : { "ref" : "tick", "period" : 10000 }
+					"timer" : { "ref" : "unique", "period" : 30000 }
 				},
 				"heavy" : {
-					"loop" : 100,
-					"run" :   9000,
-					"timer" : { "ref" : "tick", "period" : 10000 }
+					"loop" : 10,
+					"run" :   4000,
+					"timer" : { "ref" : "unique", "period" : 30000 }
 				}
 			}
 		}

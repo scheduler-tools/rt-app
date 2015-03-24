@@ -6,8 +6,19 @@
 	"tasks" : {
 		"thread0" : {
 			"loop" : -1,
-			"run" :   1000,
-			"sleep" : 9000
+			"run" :   20000,
+			"sleep" : 80000
 		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : true,
+		"gnuplot" : true,
 	}
 }

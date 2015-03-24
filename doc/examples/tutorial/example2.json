@@ -7,8 +7,19 @@
 		"thread0" : {
 			"instance" : 1,
 			"loop" : -1,
-			"run" :   1000,
-			"timer" : { "ref" : "unique", "period" : 10000 }
+			"run" :   20000,
+			"timer" : { "ref" : "unique", "period" : 100000 }
 		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app2",
+		"ftrace" : true,
+		"gnuplot" : true,
 	}
 }
