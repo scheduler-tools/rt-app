@@ -195,7 +195,6 @@ static void
 init_resource_data(const char *name, int type, int idx, const rtapp_options_t *opts)
 {
 	rtapp_resource_t *data = &(opts->resources[idx]);
-	char *target;
 
 	/* common and defaults */
 	data->index = idx;
@@ -219,7 +218,7 @@ static void
 parse_resource_data(const char *name, struct json_object *obj, int idx,
 		  rtapp_resource_t *data, const rtapp_options_t *opts)
 {
-	char *type, *target;
+	char *type;
 	char def_type[RTAPP_RESOURCE_DESCR_LENGTH];
 
 	log_info(PFX "Parsing resources %s [%d]", name, idx);
