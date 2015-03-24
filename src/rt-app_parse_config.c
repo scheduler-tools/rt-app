@@ -294,9 +294,15 @@ static int get_resource_index(const char *name, int type, rtapp_options_t *opts)
 	return i;
 }
 
+static char* create_unique_name(char *tmp, int size, const char* ref, long tag)
+{
+	snprintf(tmp, size, "%s%lx", ref, (long)(tag));
+	return tmp;
+}
+
 static void
 parse_thread_event_data(char *name, struct json_object *obj,
-		  event_data_t *data, rtapp_options_t *opts)
+		  event_data_t *data, rtapp_options_t *opts, long tag)
 {
 	rtapp_resource_t *rdata, *ddata;
 	char unique_name[22];
@@ -394,10 +400,10 @@ parse_thread_event_data(char *name, struct json_object *obj,
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
-		if (!strcmp(ref, "unique")) {
-				snprintf(unique_name, sizeof(unique_name), "timer%lx", (long)(data));
-				ref = unique_name;
+		if (!strncmp(ref, "unique", strlen("unique"))) {
+				ref = create_unique_name(unique_name, sizeof(unique_name), ref, tag);
 		}
+
 		i = get_resource_index(ref, rtapp_timer, opts);
 
 		data->res = i;
@@ -503,7 +509,7 @@ obj_is_event(char *name)
 
 static void
 parse_thread_phase_data(struct json_object *obj,
-		  phase_data_t *data, rtapp_options_t *opts)
+		  phase_data_t *data, rtapp_options_t *opts, long tag)
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
@@ -530,7 +536,7 @@ parse_thread_phase_data(struct json_object *obj,
 	foreach(obj, entry, key, val, idx) {
 		if (obj_is_event(key)) {
 			log_info(PIN "Parsing event %s", key);
-			parse_thread_event_data(key, val, &data->events[i], opts);
+			parse_thread_event_data(key, val, &data->events[i], opts, tag);
 			i++;
 		}
 	}
@@ -619,7 +625,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
-			parse_thread_phase_data(val, &data->phases[idx], opts);
+			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
 		}
 
 		/* Get loop number */
@@ -628,7 +634,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	} else {
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
-		parse_thread_phase_data(obj,  &data->phases[0], opts);
+		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
 		/* Get loop number */
 		data->loop = 1;
 	}
