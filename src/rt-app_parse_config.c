@@ -231,6 +231,12 @@ parse_resource_data(const char *name, struct json_object *obj, int idx,
 		exit(EXIT_INV_CONFIG);
 	}
 
+	/*
+	 * get_string_value_from allocate the string so with have to free it
+	 * once useless
+	 */
+	free(type);
+
 	init_resource_data(name, data->type, idx, opts);
 }
 
@@ -306,7 +312,7 @@ parse_thread_event_data(char *name, struct json_object *obj,
 {
 	rtapp_resource_t *rdata, *ddata;
 	char unique_name[22];
-	const char *ref;
+	const char *ref, *tmp;
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
@@ -382,11 +388,21 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
 		i = get_resource_index(ref, rtapp_wait, opts);
+		/*
+		 * get_string_value_from allocate the string so with have to free it
+		 * once useless
+		 */
+		free(ref);
 
 		data->res = i;
 
 		ref = get_string_value_from(obj, "mutex", TRUE, "unknown");
 		i = get_resource_index(ref, rtapp_mutex, opts);
+		/*
+		 * get_string_value_from allocate the string so with have to free it
+		 * once useless
+		 */
+		free(ref);
 
 		data->dep = i;
 
@@ -399,12 +415,19 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
-		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
-		if (!strncmp(ref, "unique", strlen("unique"))) {
-				ref = create_unique_name(unique_name, sizeof(unique_name), ref, tag);
-		}
+		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
+		if (!strncmp(tmp, "unique", strlen("unique")))
+				ref = create_unique_name(unique_name, sizeof(unique_name), tmp, tag);
+		else
+				ref = tmp;
 
 		i = get_resource_index(ref, rtapp_timer, opts);
+
+		/*
+		 * get_string_value_from allocate the string so with have to free it
+		 * once useless
+		 */
+		free(tmp);
 
 		data->res = i;
 
@@ -698,6 +721,11 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		log_critical(PFX "Invalid policy %s", policy);
 		exit(EXIT_INV_CONFIG);
 	}
+	/*
+	 * get_string_value_from allocate the string so with have to free it
+	 * once useless
+	 */
+	free(policy);
 
 	cal_obj = get_in_object(global, "calibration", TRUE);
 	if (cal_obj == NULL) {
@@ -715,6 +743,11 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 			cal_str = get_string_value_from(global, "calibration",
 					 TRUE, "CPU0");
 			scan_cnt = sscanf(cal_str, "CPU%d", &opts->calib_cpu);
+			/*
+			 * get_string_value_from allocate the string so with have to free it
+			 * once useless
+			 */
+			free(cal_str);
 			if (!scan_cnt) {
 				log_critical(PFX "Invalid calibration CPU%d", opts->calib_cpu);
 				exit(EXIT_INV_CONFIG);
