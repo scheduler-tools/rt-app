@@ -24,9 +24,9 @@
 					"unlock": "mutex",
 					"run": 100000,
 					"resume" : "thread1",
-					"timer": { "ref" : "tick", "period" : 200000},
-				},
-			},
+					"timer": { "ref" : "tick", "period" : 200000}
+				}
+			}
 		},
 		"thread1": {
 			"priority": -19,
@@ -39,7 +39,7 @@
 			"suspend" : "thread1",
 			"run": 10000,
 			"suspend" : "thread1",
-			"run": 10000,
-		},
-	},
+			"run": 10000
+		}
+	}
 }

@@ -20,6 +20,6 @@
 		"logdir" : "./",
 		"log_basename" : "rt-app2",
 		"ftrace" : true,
-		"gnuplot" : true,
+		"gnuplot" : true
 	}
 }
