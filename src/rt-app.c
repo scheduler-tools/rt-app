@@ -267,7 +267,7 @@ void *thread_body(void *arg)
 	 */
 	timings = NULL;
 	if (data->duration > 0) {
-		my_duration_usec = (data->duration * 10e6) -
+		my_duration_usec = (data->duration * 1e6) -
 				   (data->wait_before_start * 1000);
 		nperiods = (int) ceil( my_duration_usec /
 				      (double) timespec_to_usec(&data->period));
