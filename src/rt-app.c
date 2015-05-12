@@ -34,11 +34,6 @@ static ftrace_data_t ft_data = {
 	.marker_fd = -1,
 };
 
-static inline unsigned int max_run(int min, int max)
-{
-        return min + (((double) rand()) / RAND_MAX) * (max - min);
-}
-
 static inline busywait(struct timespec *to)
 {
 	struct timespec t_step;
