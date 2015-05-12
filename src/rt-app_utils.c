@@ -224,17 +224,20 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 		va_start(ap, fmt);
 		n = vsnprintf(tmp, BUF_SIZE, fmt, ap);
 		va_end(ap);
+
 		/* If it worked return success */
 		if (n > -1 && n < size) {
 			write(mark_fd, tmp, n);
 			free(tmp);
 			return;
 		}
+
 		/* Else try again with more space */
 		if (n > -1)	/* glibc 2.1 */
 			size = n+1;
 		else		/* glibc 2.0 */
 			size *= 2;
+
 		if ((ntmp = realloc(tmp, size)) == NULL) {
 			free(tmp);
 			log_error("Cannot reallocate ftrace buffer");

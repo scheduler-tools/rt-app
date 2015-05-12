@@ -27,6 +27,7 @@ static volatile int continue_running;
 static pthread_t *threads;
 static int nthreads;
 rtapp_options_t opts;
+
 static ftrace_data_t ft_data = {
 	.debugfs = "/debug",
 	.trace_fd = -1,
@@ -108,6 +109,7 @@ shutdown(int sig)
 	{
 		pthread_join(threads[i], NULL);
 	}
+
 	if (opts.ftrace) {
 		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
@@ -115,6 +117,7 @@ shutdown(int sig)
 		close(ft_data.trace_fd);
 		close(ft_data.marker_fd);
 	}
+
 	exit(EXIT_SUCCESS);
 }
 
@@ -194,6 +197,7 @@ void *thread_body(void *arg)
 			);
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
+
 #ifdef AQUOSA
 		case aquosa:
 			fprintf(data->log_handler, "# Policy : AQUOSA\n");
@@ -201,11 +205,12 @@ void *thread_body(void *arg)
 			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
 			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
 			data->params.flags = 0;
+
 			log_notice("[%d] Creating QRES Server with Q=%ld, P=%ld",
 				data->ind,data->params.Q, data->params.P);
 
 			qos_chk_ok_exit(qres_init());
-			qos_chk_ok_exit(qres_create_server(&data->params,
+			qos_chk_ok_exit(qres_create_server(&data->params, 
 							   &data->sid));
 			log_notice("[%d] AQuoSA server ID: %d", data->ind, data->sid);
 			log_notice("[%d] attaching thread (deadline: %lu) to server %d",
@@ -217,6 +222,7 @@ void *thread_body(void *arg)
 
 			break;
 #endif
+
 #ifdef DLSCHED
 		case deadline:
 			fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
@@ -262,6 +268,7 @@ void *thread_body(void *arg)
 				NULL);
 		log_notice("[%d] Starting...", data->ind);
 	}
+
 	/* if we know the duration we can calculate how many periods we will
 	 * do at most, and the log to memory, instead of logging to file.
 	 */
@@ -315,6 +322,7 @@ void *thread_body(void *arg)
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d", data->ind, i);
+
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
 		run(data->ind, &data->min_et, &data->max_et, data->blockages,
 		    data->nblockages);
@@ -328,6 +336,7 @@ void *thread_body(void *arg)
 			curr_timing = &timings[i];
 		else
 			curr_timing = &tmp_timing;
+
 		curr_timing->ind = data->ind;
 		curr_timing->period = timespec_to_usec(&data->period);
 		curr_timing->min_et = timespec_to_usec(&data->min_et);
@@ -339,6 +348,7 @@ void *thread_body(void *arg)
 		curr_timing->deadline = timespec_to_usec(&data->deadline);
 		curr_timing->duration = timespec_to_usec(&t_diff);
 		curr_timing->slack =  timespec_to_lusec(&t_slack);
+
 #ifdef AQUOSA
 		if (data->sched_policy == aquosa) {
 			curr_timing->budget = data->params.Q;
@@ -359,9 +369,11 @@ void *thread_body(void *arg)
 
 		t_next = timespec_add(&t_next, &data->period);
 		data->deadline = timespec_add(&data->deadline, &data->period);
+
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] end loop %d",
 				   data->ind, i);
+
 		if (curr_timing->slack < 0 && opts.die_on_dmiss) {
 			log_critical("[%d] DEADLINE MISS !!!", data->ind);
 			if (opts.ftrace)
@@ -393,12 +405,14 @@ exit_miss:
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 	log_notice("[%d] Exiting.", data->ind);
 	fclose(data->log_handler);
+
 #ifdef AQUOSA
 	if (data->sched_policy == aquosa) {
 		qres_destroy_server(data->sid);
 		qres_cleanup();
 	}
 #endif
+
 	pthread_exit(NULL);
 }
 
@@ -466,12 +480,14 @@ int main(int argc, char* argv[])
 		} else {
 			tdata->wait_before_start = 0;
 		}
+
 		tdata->duration = opts.duration;
 		tdata->main_app_start = t_start;
 		tdata->lock_pages = opts.lock_pages;
 #ifdef AQUOSA
 		tdata->fragment = opts.fragment;
 #endif
+
 		if (opts.logdir) {
 			snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
 				 opts.logdir,
@@ -528,6 +544,7 @@ int main(int argc, char* argv[])
 			else
 				fprintf(gnuplot_script, ", ");
 		}
+
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 

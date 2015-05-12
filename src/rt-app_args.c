@@ -81,6 +81,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 	token = strtok(str, ":");
 	tdata->name = malloc(sizeof(char) * 5);
 	tdata->ind = idx;
+
 	/* default name for command line threads */
 	snprintf(tdata->name, 1, "t%d", tdata->ind);
 	tdata->sched_prio = DEFAULT_THREAD_PRIORITY;
@@ -173,6 +174,7 @@ parse_thread_args(char *arg, int idx, thread_data_t *tdata, policy_t def_policy)
 		}
 		token = strtok(NULL, ":");
 	}
+
 	if ( i < 2 ) {
 		printf("Period and exec time are mandatory\n");
 		exit(EXIT_INV_COMMANDLINE);
@@ -224,6 +226,7 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 #ifdef AQUOSA
 	opts->fragment = 1;
 #endif
+
 	static struct option long_options[] = {
 	                   {"help", 0, 0, 'h'},
 			   {"fifo", 0, 0, 'f'},
@@ -337,10 +340,9 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 			default:
 				log_error("Invalid option %c", ch);
 				usage(NULL, EXIT_INV_COMMANDLINE);
-
 		}
-
 	}
+
 	if ( opts->nthreads < 1)
 		usage("You have to set parameters for at least one thread",
 		      EXIT_INV_COMMANDLINE);
@@ -363,6 +365,7 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 		return;
 	}
 #endif
+
 	parse_command_line_options(argc, argv, opts);
 	opts->resources = NULL;
 	opts->nresources = 0;

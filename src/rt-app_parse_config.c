@@ -246,7 +246,6 @@ serialize_acl(rtapp_resource_access_list_t **acl,
 		/* recurse on the rest of resources */
 		serialize_acl(&(*acl), next_idx, task_resources, resources);
 	}
-
 }
 
 static void
@@ -286,6 +285,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			last = tmp;
 			tmp = tmp->next;
 		} while (tmp != NULL);
+
 		/* move first element to list end */
 		if (last != head) {
 			data->blockages[i].acl = head->next;
