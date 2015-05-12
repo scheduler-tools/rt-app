@@ -129,7 +129,7 @@ void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
 	struct sched_param param;
-	struct timespec t, t_next;
+	struct timespec t_now, t_next;
 	unsigned long t_start_usec;
 	unsigned long my_duration_usec;
 	int nperiods;
@@ -269,9 +269,9 @@ void *thread_body(void *arg)
 	if (data->wait_before_start > 0) {
 		log_notice("[%d] Waiting %ld usecs... ", data->ind,
 			 data->wait_before_start);
-		clock_gettime(CLOCK_MONOTONIC, &t);
+		clock_gettime(CLOCK_MONOTONIC, &t_now);
 		t_next = msec_to_timespec(data->wait_before_start);
-		t_next = timespec_add(&t, &t_next);
+		t_next = timespec_add(&t_now, &t_next);
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME,
 				&t_next,
@@ -323,9 +323,10 @@ void *thread_body(void *arg)
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	t_next = t;
-	data->deadline = timespec_add(&t, &data->deadline);
+
+	clock_gettime(CLOCK_MONOTONIC, &t_now);
+	t_next = t_now;
+	data->deadline = timespec_add(&t_now, &data->deadline);
 
 	while (continue_running) {
 		struct timespec t_start, t_end, t_diff, t_slack;
