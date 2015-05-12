@@ -181,13 +181,12 @@ void *thread_body(void *arg)
 			}
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-			       "deadline: %lu, priority: %d",
-			       	data->ind,
-				timespec_to_usec(&data->period),
-				timespec_to_usec(&data->min_et),
-				timespec_to_usec(&data->deadline),
-				data->sched_prio
-			);
+				   "deadline: %lu, priority: %d",
+				   data->ind,
+				   timespec_to_usec(&data->period),
+				   timespec_to_usec(&data->min_et),
+				   timespec_to_usec(&data->deadline),
+				   data->sched_prio);
 			break;
 
 		case other:
@@ -196,37 +195,41 @@ void *thread_body(void *arg)
 			/* add priority setting */
 
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-			       "deadline: %lu",
-			       	data->ind,
-				timespec_to_usec(&data->period),
-				timespec_to_usec(&data->min_et),
-				timespec_to_usec(&data->deadline)
-			);
+				   "deadline: %lu",
+				   data->ind,
+				   timespec_to_usec(&data->period),
+				   timespec_to_usec(&data->min_et),
+				   timespec_to_usec(&data->deadline));
+
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
 
 #ifdef AQUOSA
 		case aquosa:
 			fprintf(data->log_handler, "# Policy : AQUOSA\n");
-			data->params.Q_min = round((timespec_to_usec(&data->min_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
-			data->params.Q = round((timespec_to_usec(&data->max_et) * (( 100.0 + data->sched_prio ) / 100)) / (data->fragment * 1.0));
-			data->params.P = round(timespec_to_usec(&data->period) / (data->fragment * 1.0));
+			data->params.Q_min = round((timespec_to_usec(&data->min_et)
+						* (( 100.0 + data->sched_prio ) / 100))
+						/ (data->fragment * 1.0));
+			data->params.Q = round((timespec_to_usec(&data->max_et)
+						* (( 100.0 + data->sched_prio ) / 100))
+						/ (data->fragment * 1.0));
+			data->params.P = round(timespec_to_usec(&data->period)
+						/ (data->fragment * 1.0));
 			data->params.flags = 0;
 
 			log_notice("[%d] Creating QRES Server with Q=%ld, P=%ld",
-				data->ind,data->params.Q, data->params.P);
+				   data->ind,data->params.Q, data->params.P);
 
 			qos_chk_ok_exit(qres_init());
-			qos_chk_ok_exit(qres_create_server(&data->params, 
+			qos_chk_ok_exit(qres_create_server(&data->params,
 							   &data->sid));
 			log_notice("[%d] AQuoSA server ID: %d", data->ind, data->sid);
 			log_notice("[%d] attaching thread (deadline: %lu) to server %d",
-				data->ind,
-				timespec_to_usec(&data->deadline),
-				data->sid
-			);
-			qos_chk_ok_exit(qres_attach_thread(data->sid, 0, 0));
+				   data->ind,
+				   timespec_to_usec(&data->deadline),
+				   data->sid);
 
+			qos_chk_ok_exit(qres_attach_thread(data->sid, 0, 0));
 			break;
 #endif
 
@@ -239,16 +242,16 @@ void *thread_body(void *arg)
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +
-				(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
+					(timespec_to_nsec(&data->max_et) /100) * BUDGET_OVERP;
 			attr.sched_deadline = timespec_to_nsec(&data->period);
 			attr.sched_period = timespec_to_nsec(&data->period);
-
 			break;
 #endif
 
 		default:
 			log_error("Unknown scheduling policy %d",
-				data->sched_policy);
+				  data->sched_policy);
+
 			exit(EXIT_FAILURE);
 	}
 
@@ -282,9 +285,9 @@ void *thread_body(void *arg)
 	timings = NULL;
 	if (data->duration > 0) {
 		my_duration_usec = (data->duration * 10e6) -
-				   (data->wait_before_start * 1000);
+				(data->wait_before_start * 1000);
 		nperiods = (int) ceil( my_duration_usec /
-				      (double) timespec_to_usec(&data->period));
+				(double) timespec_to_usec(&data->period));
 		timings = malloc ( nperiods * sizeof(timing_point_t));
 	}
 
@@ -293,19 +296,19 @@ void *thread_body(void *arg)
 				   "\tBudget\tUsed Budget\n");
 
 #ifdef DLSCHED
+	/* TODO find a better way to handle that constraint */
 	/*
 	 * Set the task to SCHED_DEADLINE as far as possible touching its
 	 * budget as little as possible for the first iteration.
 	 */
 	if (data->sched_policy == SCHED_DEADLINE) {
 		log_notice("[%d] starting thread with period: %lu, exec: %lu,"
-		       "deadline: %lu, priority: %d",
-		       	data->ind,
-			attr.sched_period / 1000,
-			attr.sched_runtime / 1000,
-			attr.sched_deadline / 1000,
-			attr.sched_priority
-		);
+			   "deadline: %lu, priority: %d",
+			   data->ind,
+			   attr.sched_period / 1000,
+			   attr.sched_runtime / 1000,
+			   attr.sched_deadline / 1000,
+			   attr.sched_priority);
 
 		ret = sched_setattr(tid, &attr, flags);
 		if (ret != 0) {
@@ -363,7 +366,7 @@ void *thread_body(void *arg)
 					   &abs_used_budget,
 					   NULL);
 			curr_timing->used_budget =
-				abs_used_budget - prev_abs_used_budget;
+					abs_used_budget - prev_abs_used_budget;
 			prev_abs_used_budget = abs_used_budget;
 
 		} else {
@@ -554,7 +557,7 @@ int main(int argc, char* argv[])
 		fclose(gnuplot_script);
 
 		snprintf(tmp, PATH_LENGTH, "%s/%s-slack.plot",
-		 	 opts.logdir, opts.logbasename);
+			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
 		snprintf(tmp, PATH_LENGTH, "%s-slack.eps",
 			 opts.logbasename);

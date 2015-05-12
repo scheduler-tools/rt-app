@@ -28,7 +28,7 @@ usage (const char* msg, int ex_code)
 	       "rt-app <taskset.json>\nOR\n");
 #endif
 	printf("rt-app [options] -t <period>:<exec>[:policy"
-		"[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
+	       "[:CPU affinity[:prio[:deadline]]]] -t ...\n\n");
 	printf("-h, --help\t\t:\tshow this help\n");
 	printf("-f, --fifo\t\t:\tset default policy for threads to SCHED_FIFO\n");
 	printf("-r, --rr\t\t:\tset default policy fior threads to SCHED_RR\n");
@@ -228,24 +228,25 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 #endif
 
 	static struct option long_options[] = {
-	                   {"help", 0, 0, 'h'},
-			   {"fifo", 0, 0, 'f'},
-			   {"rr", 0, 0, 'r'},
-			   {"thread", 1, 0, 't'},
-			   {"spacing", 1, 0, 's'},
-			   {"logdir", 1, 0, 'l'},
-	                   {"baselog", 1, 0, 'b'},
-			   {"gnuplot", 1, 0, 'G'},
-			   {"duration", 1, 0, 'D'},
-			   {"ftrace", 0, 0, 'T'},
-			   {"pi_enabled", 0, 0, 'T'},
-			   {"die_on_dmiss", 0, 0, 'M'},
+				{"help", 0, 0, 'h'},
+				{"fifo", 0, 0, 'f'},
+				{"rr", 0, 0, 'r'},
+				{"thread", 1, 0, 't'},
+				{"spacing", 1, 0, 's'},
+				{"logdir", 1, 0, 'l'},
+				{"baselog", 1, 0, 'b'},
+				{"gnuplot", 1, 0, 'G'},
+				{"duration", 1, 0, 'D'},
+				{"ftrace", 0, 0, 'T'},
+				{"pi_enabled", 0, 0, 'T'},
+				{"die_on_dmiss", 0, 0, 'M'},
 #ifdef AQUOSA
-			   {"qos", 0, 0, 'q'},
-			   {"frag",1, 0, 'g'},
+				{"qos", 0, 0, 'q'},
+				{"frag",1, 0, 'g'},
 #endif
-	                   {0, 0, 0, 0}
-	               };
+				{0, 0, 0, 0}
+	};
+
 #ifdef AQUOSA
 	while (( ch = getopt_long(argc,argv,"D:GKhfrb:s:l:qg:t:TM",
 				  long_options, &longopt_idx)) != -1)
@@ -293,13 +294,13 @@ parse_command_line_options(int argc, char **argv, rtapp_options_t *opts)
 				if (opts->nthreads > 0)
 				{
 					opts->threads_data = realloc(
-						opts->threads_data,
-						(opts->nthreads+1) * \
+							opts->threads_data,
+							(opts->nthreads+1) * \
 							sizeof(thread_data_t));
 				}
 				parse_thread_args(optarg, opts->nthreads,
-					&opts->threads_data[opts->nthreads],
-					opts->policy);
+						  &opts->threads_data[opts->nthreads],
+						  opts->policy);
 				opts->nthreads++;
 				break;
 			case 'G':

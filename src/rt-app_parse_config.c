@@ -318,7 +318,7 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 			data->blockages[i].usage = usec_to_timespec(usage_usec);
 		}
 		log_info(PIN "res %d, usage: %d acl: %s", cur_res_idx,
-			  usage_usec, debug_msg);
+			 usage_usec, debug_msg);
 	}
 }
 
