@@ -260,10 +260,11 @@ parse_thread_resources(const rtapp_options_t *opts, struct json_object *locks,
 	rtapp_resource_access_list_t *tmp, *head, *last;
 	char debug_msg[512], tmpmsg[512];
 
-	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
-				 json_object_array_length(locks));
 	data->nblockages = json_object_array_length(locks);
-	for (i = 0; i< json_object_array_length(locks); i++)
+	data->blockages = malloc(sizeof(rtapp_tasks_resource_list_t) *
+				 data->nblockages);
+
+	for (i = 0; i< data->nblockages; i++)
 	{
 		res = json_object_array_get_idx(locks, i);
 		if (!json_object_is_type(res, json_type_int)){

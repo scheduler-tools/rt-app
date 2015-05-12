@@ -354,14 +354,15 @@ void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 {
 #ifdef JSON
+	struct stat config_file_stat;
+
 	if (argc < 2)
 		usage(NULL, EXIT_SUCCESS);
-	struct stat config_file_stat;
+
 	if (stat(argv[1], &config_file_stat) == 0) {
 		parse_config(argv[1], opts);
 		return;
-	}
-	else if (strcmp(argv[1], "-") == 0) {
+	} else if (strcmp(argv[1], "-") == 0) {
 		parse_config_stdin(opts);
 		return;
 	}

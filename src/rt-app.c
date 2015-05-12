@@ -476,8 +476,7 @@ int main(int argc, char* argv[])
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	/* start threads */
-	for (i = 0; i < nthreads; i++)
-	{
+	for (i = 0; i < nthreads; i++) {
 		tdata = &opts.threads_data[i];
 		if (opts.spacing > 0 ) {
 			/* start the thread, then it will sleep accordingly
@@ -502,7 +501,7 @@ int main(int argc, char* argv[])
 				 opts.logbasename,
 				 tdata->name);
 			tdata->log_handler = fopen(tmp, "w");
-			if (!tdata->log_handler){
+			if (!tdata->log_handler) {
 				log_error("Cannot open logfile %s", tmp);
 				exit(EXIT_FAILURE);
 			}
@@ -518,8 +517,7 @@ int main(int argc, char* argv[])
 	}
 
 	/* print gnuplot files */
-	if (opts.logdir && opts.gnuplot)
-	{
+	if (opts.logdir && opts.gnuplot) {
 		snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 			 opts.logdir, opts.logbasename);
 		gnuplot_script = fopen(tmp, "w+");
@@ -535,8 +533,7 @@ int main(int argc, char* argv[])
 			"set ylabel \"Exec Time [usec]\"\n"
 			"plot ", tmp);
 
-		for (i=0; i<nthreads; i++)
-		{
+		for (i=0; i<nthreads; i++) {
 			snprintf(tmp, PATH_LENGTH, "%s/%s-duration.plot",
 				 opts.logdir, opts.logbasename);
 
@@ -572,8 +569,7 @@ int main(int argc, char* argv[])
 			"set ylabel \"Slack/Tardiness [usec]\"\n"
 			"plot ", tmp);
 
-		for (i=0; i < nthreads; i++)
-		{
+		for (i=0; i < nthreads; i++) {
 			fprintf(gnuplot_script,
 				"\"%s-%s.log\" u ($5/1000):10 w l"
 				" title \"thread [%s] (%s)\"",
@@ -587,19 +583,19 @@ int main(int argc, char* argv[])
 				fprintf(gnuplot_script, ", ");
 
 		}
+
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
 	}
 
-	if (opts.duration > 0)
-	{
+	if (opts.duration > 0) {
 		sleep(opts.duration);
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "main shutdown\n");
 		shutdown(SIGTERM);
 	}
 
-	for (i = 0; i < nthreads; i++) 	{
+	for (i = 0; i < nthreads; i++) {
 		pthread_join(threads[i], NULL);
 	}
 
