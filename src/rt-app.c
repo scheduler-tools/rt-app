@@ -53,16 +53,16 @@ void run(int ind, struct timespec *min, struct timespec *max,
 	 rtapp_tasks_resource_list_t *blockages, int nblockages)
 {
 	int i;
-	//int m = max_run(timespec_to_msec(min), timespec_to_msec(max));
-	//struct timespec t_start, t_step, t_exec = msec_to_timespec(m);
 	struct timespec t_start, now, t_exec, t_totexec = *max;
 	rtapp_resource_access_list_t *lock, *last;
 
-	/* get the start time */
+	/* Get the start time */
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t_start);
 
 	for (i = 0; i < nblockages; i++)
 	{
+
+		/* Lock resources */
 		lock = blockages[i].acl;
 		while (lock != NULL) {
 			log_debug("[%d] locking %d", ind, lock->res->index);
@@ -74,6 +74,8 @@ void run(int ind, struct timespec *min, struct timespec *max,
 			last = lock;
 			lock = lock->next;
 		}
+
+		/* Busy wait */
 		clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
 		t_exec = timespec_add(&now, &blockages[i].usage);
 		log_debug("[%d] busywait for %lu", ind, timespec_to_usec(&blockages[i].usage));
@@ -82,6 +84,8 @@ void run(int ind, struct timespec *min, struct timespec *max,
 				   "[%d] busywait for %d",
 				   ind, timespec_to_usec(&blockages[i].usage));
 		busywait(&t_exec);
+
+		/* Unlock resources */
 		lock = last;
 		while (lock != NULL) {
 			log_debug("[%d] unlocking %d", ind, lock->res->index);
@@ -94,7 +98,7 @@ void run(int ind, struct timespec *min, struct timespec *max,
 		}
 	}
 
-	/* compute finish time for CPUTIME_ID clock */
+	/* Compute finish time for CPUTIME_ID clock */
 	t_exec = timespec_add(&t_start, &t_totexec);
 	busywait(&t_exec);
 }
@@ -188,6 +192,9 @@ void *thread_body(void *arg)
 
 		case other:
 			fprintf(data->log_handler, "# Policy : SCHED_OTHER\n");
+
+			/* add priority setting */
+
 			log_notice("[%d] starting thread with period: %lu, exec: %lu,"
 			       "deadline: %lu",
 			       	data->ind,
@@ -416,9 +423,6 @@ exit_miss:
 	pthread_exit(NULL);
 }
 
-/* parse a thread token in the form  $period:$exec:$deadline:$policy:$prio and
- * fills the thread_data structure
- */
 
 int main(int argc, char* argv[])
 {
@@ -430,6 +434,7 @@ int main(int argc, char* argv[])
 
 	parse_command_line(argc, argv, &opts);
 
+	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
 
@@ -439,7 +444,7 @@ int main(int argc, char* argv[])
 	signal(SIGHUP, shutdown);
 	signal(SIGINT, shutdown);
 
-	/* if using ftrace open trace and marker fds */
+	/* if using ftrace, open trace and marker fds */
 	if (opts.ftrace) {
 		log_notice("configuring ftrace");
 		strcpy(tmp, ft_data.debugfs);

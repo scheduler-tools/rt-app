@@ -502,8 +502,10 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 void
 parse_config_stdin(rtapp_options_t *opts)
 {
-	/* read from stdin until EOF, write to temp file and parse
-	 * as a "normal" config file */
+	/*
+	 * Read from stdin until EOF, write to temp file and parse
+	 * as a "normal" config file
+	 */
 	size_t in_length;
 	char buf[JSON_FILE_BUF_SIZE];
 	struct json_object *js;
