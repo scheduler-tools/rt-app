@@ -1,58 +1,58 @@
 /*
-This file is part of rt-app - https://launchpad.net/rt-app
-Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
-Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
+ * This file is part of rt-app - https://launchpad.net/rt-app
+ * Copyright (C) 2010  Giacomo Bagnoli <g.bagnoli@asidev.com>
+ * Copyright (C) 2014  Juri Lelli <juri.lelli@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301, USA.
+ */
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
+#ifndef RTAPP_TYPES_H
+#define RTAPP_TYPES_H
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/
-
-#ifndef _RTAPP_TYPES_H_
-#define _RTAPP_TYPES_H_
+#include <pthread.h>
+#include <sched.h>
+#include <stdio.h>
+#include <time.h>
 
 #include "config.h"
 #ifdef DLSCHED
 #include "dl_syscalls.h"
 #endif
-#include <sched.h>
-#include <pthread.h>
-#include <time.h>
-#include <stdio.h>
-#include <sched.h>
 #ifdef AQUOSA
 #include <aquosa/qres_lib.h>
-#endif /* AQUOSA */
+#endif
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
 #define RTAPP_FTRACE_PATH_LENGTH 256
-/* exit codes */
 
+/* exit codes */
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 #define EXIT_INV_CONFIG 2
 #define EXIT_INV_COMMANDLINE 3
 
-typedef enum policy_t
-{
+typedef enum policy_t {
 	other = SCHED_OTHER,
 	rr = SCHED_RR,
 	fifo = SCHED_FIFO
-#ifdef AQUOSA
-	, aquosa = 1000
-#endif
 #ifdef DLSCHED
 	, deadline = SCHED_DEADLINE
+#endif
+#ifdef AQUOSA
+	, aquosa = 1000
 #endif
 } policy_t;
 
@@ -80,7 +80,7 @@ typedef struct _thread_data_t {
 	int lock_pages;
 	int duration;
 	cpu_set_t *cpuset;
-	char *cpuset_str;
+	const char *cpuset_str;
 	unsigned long wait_before_start;
 	struct timespec min_et, max_et;
 	struct timespec period, deadline;
@@ -94,14 +94,14 @@ typedef struct _thread_data_t {
 	rtapp_tasks_resource_list_t *blockages;
 	int nblockages;
 
+#ifdef DLSCHED
+	struct sched_attr dl_params;
+#endif
+
 #ifdef AQUOSA
 	int fragment;
 	int sid;
 	qres_params_t params;
-#endif
-
-#ifdef DLSCHED
-	struct sched_attr dl_params;
 #endif
 } thread_data_t;
 
@@ -154,4 +154,4 @@ typedef struct _timing_point_t {
 #endif
 } timing_point_t;
 
-#endif // _RTAPP_TYPES_H_
+#endif /* RTAPP_TYPES_H */
