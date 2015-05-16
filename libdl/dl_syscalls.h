@@ -10,11 +10,10 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License (COPYING file) for more details.
- *
  */
 
-#ifndef __DL_SYSCALLS__
-#define __DL_SYSCALLS__
+#ifndef DL_SYSCALLS_H
+#define DL_SYSCALLS_H
 
 #include <linux/kernel.h>
 #include <linux/unistd.h>
@@ -67,13 +66,12 @@ struct sched_attr {
 };
 
 int sched_setattr(pid_t pid,
-		      const struct sched_attr *attr,
-		      unsigned int flags);
+		  const struct sched_attr *attr,
+		  unsigned int flags);
 
 int sched_getattr(pid_t pid,
-		      struct sched_attr *attr,
-		      unsigned int size,
-		      unsigned int flags);
+		  struct sched_attr *attr,
+		  unsigned int size,
+		  unsigned int flags);
 
-#endif /* __DL_SYSCALLS__ */
-
+#endif /* DL_SYSCALLS_H */
