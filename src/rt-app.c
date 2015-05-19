@@ -114,7 +114,7 @@ static inline loadwait(unsigned long exec)
 
 static int run_event(event_data_t *event, int dry_run,
 		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources,
-		struct timespec *t_first, unsigned long *wu_latency)
+		struct timespec *t_first, unsigned long *wu_latency, long *slack)
 {
 	rtapp_resource_t *rdata = &(resources[event->res]);
 	rtapp_resource_t *ddata = &(resources[event->dep]);
@@ -173,7 +173,7 @@ static int run_event(event_data_t *event, int dry_run,
 		break;
 	case rtapp_timer:
 		{
-			struct timespec t_period, t_now, t_wu;
+			struct timespec t_period, t_now, t_wu, t_slack;
 			log_debug("timer %d ", event->duration);
 
 			t_period = usec_to_timespec(event->duration);
@@ -185,6 +185,8 @@ static int run_event(event_data_t *event, int dry_run,
 
 			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
+			t_slack = timespec_sub(&rdata->res.timer.t_next, &t_now);
+			*slack = timespec_to_usec_long(&t_slack);
 			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
 				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
@@ -217,7 +219,8 @@ int run(int ind, event_data_t *events,
 		int nbevents, unsigned long *duration,
 		rtapp_resource_t *resources,
 		struct timespec *t_first,
-		unsigned long *wu_latency)
+		unsigned long *wu_latency,
+		long *slack)
 {
 	int i, lock = 0;
 	unsigned long perf = 0;
@@ -232,7 +235,8 @@ int run(int ind, event_data_t *events,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] executing %d",
 						ind, i);
-		lock += run_event(&events[i], !continue_running, &perf, duration, resources, t_first, wu_latency);
+		lock += run_event(&events[i], !continue_running, &perf,
+				  duration, resources, t_first, wu_latency, slack);
 	}
 
 	return perf;
@@ -277,6 +281,7 @@ void *thread_body(void *arg)
 	struct timespec t_start, t_end, t_first;
 	unsigned long t_start_usec;
 	unsigned long perf, duration, wu_latency;
+	long slack;
 	timing_point_t *curr_timing;
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
@@ -404,9 +409,9 @@ void *thread_body(void *arg)
 
 	timings = NULL;
 
-	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s\n",
+	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s\n",
 				   "#idx", "perf", "run", "period",
-				   "start", "end", "rel_st", "wu_lat");
+				   "start", "end", "rel_st", "wu_lat", "slack");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -437,9 +442,10 @@ void *thread_body(void *arg)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
 		log_debug("[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);;
 
-		duration = wu_latency = 0;
+		duration = wu_latency = slack = 0;
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		perf = run(data->ind, pdata->events, pdata->nbevents, &duration, *(data->resources), &t_first, &wu_latency);
+		perf = run(data->ind, pdata->events, pdata->nbevents, &duration,
+			   *(data->resources), &t_first, &wu_latency, &slack);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
@@ -458,6 +464,7 @@ void *thread_body(void *arg)
 		curr_timing->duration = duration;
 		curr_timing->perf = perf;
 		curr_timing->wu_latency = wu_latency;
+		curr_timing->slack = slack;
 
 		if (!timings)
 			log_timing(data->log_handler, curr_timing);

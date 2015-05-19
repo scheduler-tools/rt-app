@@ -33,6 +33,12 @@ timespec_to_usec_ull(struct timespec *ts)
 	return llround((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
+long
+timespec_to_usec_long(struct timespec *ts)
+{
+	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
+}
+
 #ifdef DLSCHED
 __u64
 timespec_to_nsec(struct timespec *ts)
@@ -132,7 +138,7 @@ void
 log_timing(FILE *handler, timing_point_t *t)
 {
 	fprintf(handler,
-		"%4d %8lu %8lu %8lu %15llu %15llu %15llu %10lu",
+		"%4d %8lu %8lu %8lu %15llu %15llu %15llu %10lu %10ld",
 		t->ind,
 		t->perf,
 		t->duration,
@@ -140,7 +146,8 @@ log_timing(FILE *handler, timing_point_t *t)
 		t->start_time,
 		t->end_time,
 		t->rel_start_time,
-		t->wu_latency
+		t->wu_latency,
+		t->slack
 	);
 	fprintf(handler, "\n");
 }
