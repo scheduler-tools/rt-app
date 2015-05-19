@@ -192,6 +192,7 @@ typedef struct _timing_point_t {
 	unsigned long duration;
 	unsigned long period;
 	unsigned long wu_latency;
+	long slack;
 	__u64 start_time;
 	__u64 end_time;
 	__u64 rel_start_time;
