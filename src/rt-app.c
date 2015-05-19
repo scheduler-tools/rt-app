@@ -34,6 +34,8 @@ static pthread_t *threads;
 static int nthreads;
 static int p_load;
 rtapp_options_t opts;
+static struct timespec t_zero;
+static pthread_barrier_t threads_barrier;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
@@ -111,7 +113,8 @@ static inline loadwait(unsigned long exec)
 }
 
 static int run_event(event_data_t *event, int dry_run,
-		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources)
+		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources,
+		struct timespec *t_first)
 {
 	rtapp_resource_t *rdata = &(resources[event->res]);
 	rtapp_resource_t *ddata = &(resources[event->dep]);
@@ -177,7 +180,7 @@ static int run_event(event_data_t *event, int dry_run,
 
 			if (rdata->res.timer.init == 0) {
 				rdata->res.timer.init = 1;
-				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+				rdata->res.timer.t_next = *t_first;
 			}
 
 			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
@@ -209,7 +212,8 @@ static int run_event(event_data_t *event, int dry_run,
 
 int run(int ind, event_data_t *events,
 		int nbevents, unsigned long *duration,
-		rtapp_resource_t *resources)
+		rtapp_resource_t *resources,
+		struct timespec *t_first)
 {
 	int i, lock = 0;
 	unsigned long perf = 0;
@@ -224,7 +228,7 @@ int run(int ind, event_data_t *events,
 				log_ftrace(ft_data.marker_fd,
 						"[%d] executing %d",
 						ind, i);
-		lock += run_event(&events[i], !continue_running, &perf, duration, resources);
+		lock += run_event(&events[i], !continue_running, &perf, duration, resources, t_first);
 	}
 
 	return perf;
@@ -266,7 +270,7 @@ void *thread_body(void *arg)
 	thread_data_t *data = (thread_data_t*) arg;
 	phase_data_t *pdata;
 	struct sched_param param;
-	struct timespec t_start, t_end;
+	struct timespec t_start, t_end, t_first;
 	unsigned long t_start_usec;
 	unsigned long perf, duration;
 	timing_point_t *curr_timing;
@@ -381,6 +385,17 @@ void *thread_body(void *arg)
 		}
 	}
 
+	if (data->ind == 0) {
+		clock_gettime(CLOCK_MONOTONIC, &t_zero);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				"[%d] sets zero time",
+				data->ind);
+	}
+
+	pthread_barrier_wait(&threads_barrier);
+	t_first = t_zero;
+
 	log_notice("[%d] starting thread ...\n", data->ind);
 
 	timings = NULL;
@@ -418,7 +433,7 @@ void *thread_body(void *arg)
 
 		duration = 0;
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		perf = run(data->ind, pdata->events, pdata->nbevents, &duration, *(data->resources));
+		perf = run(data->ind, pdata->events, pdata->nbevents, &duration, *(data->resources), &t_first);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
@@ -497,6 +512,7 @@ int main(int argc, char* argv[])
 	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
+	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
