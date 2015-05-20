@@ -171,6 +171,15 @@ static int run_event(event_data_t *event, int dry_run,
 			*duration += timespec_to_usec(&t_end);
 		}
 		break;
+	case rtapp_delay:
+		{
+		struct timespec delay = usec_to_timespec(event->duration);
+		log_debug("delay %d ", event->duration);
+
+		*t_first = timespec_add(t_first, &delay);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, t_first, NULL);
+		}
+		break;
 	case rtapp_timer:
 		{
 			struct timespec t_period, t_now, t_wu, t_slack;

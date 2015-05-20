@@ -58,6 +58,7 @@ typedef enum resource_t
 	rtapp_signal,
 	rtapp_broadcast,
 	rtapp_sleep,
+	rtapp_delay,
 	rtapp_run,
 	rtapp_sig_and_wait,
 	rtapp_lock,

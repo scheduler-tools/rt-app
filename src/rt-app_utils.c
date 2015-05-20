@@ -215,6 +215,8 @@ string_to_resource(const char *name, resource_t *resource)
 		*resource = rtapp_sig_and_wait;
 	else if (strcmp(name, "sleep") == 0)
 		*resource = rtapp_sleep;
+	else if (strcmp(name, "delay") == 0)
+		*resource = rtapp_delay;
 	else if (strcmp(name, "run") == 0)
 		*resource = rtapp_run;
 	else if (strcmp(name, "timer") == 0)
@@ -245,6 +247,9 @@ resource_to_string(resource_t resource, char *resource_name)
 			break;
 		case rtapp_sleep:
 			strcpy(resource_name, "sleep");
+			break;
+		case rtapp_delay:
+			strcpy(resource_name, "delay");
 			break;
 		case rtapp_run:
 			strcpy(resource_name, "run");

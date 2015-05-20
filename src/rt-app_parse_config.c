@@ -316,7 +316,8 @@ parse_thread_event_data(char *name, struct json_object *obj,
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
-			!strncmp(name, "sleep", strlen("sleep"))) {
+			!strncmp(name, "sleep", strlen("sleep")) ||
+			!strncmp(name, "delay", strlen("delay"))) {
 
 		if (!json_object_is_type(obj, json_type_int))
 			goto unknown_event;
@@ -325,6 +326,8 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 		if (!strncmp(name, "sleep", strlen("sleep")))
 			data->type = rtapp_sleep;
+		else if (!strncmp(name, "delay", strlen("delay")))
+			data->type = rtapp_delay;
 		else
 			data->type = rtapp_run;
 
@@ -518,6 +521,8 @@ obj_is_event(char *name)
 			return rtapp_sig_and_wait;
 	if (!strncmp(name, "sleep", strlen("sleep")))
 			return rtapp_sleep;
+	if (!strncmp(name, "delay", strlen("delay")))
+			return rtapp_delay;
 	if (!strncmp(name, "run", strlen("run")))
 			return rtapp_run;
 	if (!strncmp(name, "timer", strlen("timer")))
