@@ -47,10 +47,11 @@ static ftrace_data_t ft_data = {
  * Function: to do some useless operation.
  * TODO: improve the waste loop with more heavy functions
  */
-void waste_cpu_cycles(int load_loops)
+void waste_cpu_cycles(unsigned long long load_loops)
 {
 	double param, result;
-	double n, i;
+	double n;
+	unsigned long long i;
 
 	param = 0.95;
 	n = 4;
@@ -104,8 +105,25 @@ int calibrate_cpu_cycles(int clock)
 
 static inline loadwait(unsigned long exec)
 {
-	unsigned long load_count;
+	unsigned long long load_count;
+	unsigned long secs;
+	int i;
 
+	/*
+	 * If exec is still to big, let's run it in bursts
+	 * so that we don't overflow load_count.
+	 */
+	secs = exec / 1000000;
+
+	for (i = 0; i < secs; i++) {
+		load_count = 1000000000/p_load;
+		waste_cpu_cycles(load_count);
+		exec -= 1000000;
+	}
+
+	/*
+	 * Run for the remainig exec (if any).
+	 */
 	load_count = (exec * 1000)/p_load;
 	waste_cpu_cycles(load_count);
 
