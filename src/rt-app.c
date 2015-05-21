@@ -346,7 +346,8 @@ void *thread_body(void *arg)
 	{
 		case rr:
 		case fifo:
-			fprintf(data->log_handler, "# Policy : %s priority : %d\n",
+			if (data->log_handler)
+				fprintf(data->log_handler, "# Policy : %s priority : %d\n",
 					(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"), data->sched_prio);
 			param.sched_priority = data->sched_prio;
 			ret = pthread_setschedparam(pthread_self(),
@@ -360,7 +361,8 @@ void *thread_body(void *arg)
 			break;
 
 		case other:
-			fprintf(data->log_handler, "# Policy : SCHED_OTHER priority : %d\n", data->sched_prio);
+			if (data->log_handler)
+				fprintf(data->log_handler, "# Policy : SCHED_OTHER priority : %d\n", data->sched_prio);
 
 			if (data->sched_prio > 19 || data->sched_prio < -20) {
 				log_critical("[%d] setpriority "
@@ -387,7 +389,8 @@ void *thread_body(void *arg)
 
 #ifdef DLSCHED
 		case deadline:
-			fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
+			if (data->log_handler)
+				fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
 			tid = gettid();
 			attr.size = sizeof(attr);
 			attr.sched_flags = 0;
@@ -436,9 +439,10 @@ void *thread_body(void *arg)
 
 	timings = NULL;
 
-	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s\n",
-				   "#idx", "perf", "run", "period",
-				   "start", "end", "rel_st", "wu_lat", "slack");
+	if (data->log_handler)
+		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s\n",
+					   "#idx", "perf", "run", "period",
+					   "start", "end", "rel_st", "wu_lat", "slack");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -493,7 +497,7 @@ void *thread_body(void *arg)
 		curr_timing->wu_latency = wu_latency;
 		curr_timing->slack = slack;
 
-		if (!timings)
+		if (!timings && data->log_handler)
 			log_timing(data->log_handler, curr_timing);
 
 		if (opts.ftrace)
@@ -524,7 +528,7 @@ void *thread_body(void *arg)
 		exit(EXIT_FAILURE);
 	}
 
-	if (timings)
+	if (timings && data->log_handler)
 		for (j=0; j < loop; j++)
 			log_timing(data->log_handler, &timings[j]);
 
@@ -613,7 +617,7 @@ int main(int argc, char* argv[])
 		tdata->main_app_start = t_start;
 		tdata->lock_pages = opts.lock_pages;
 
-		if (opts.logdir) {
+		if (strcmp(opts.logdir, "none") != 0) {
 			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.log",
 				 opts.logdir,
 				 opts.logbasename,
@@ -625,7 +629,7 @@ int main(int argc, char* argv[])
 				exit(EXIT_FAILURE);
 			}
 		} else {
-			tdata->log_handler = stdout;
+			tdata->log_handler = NULL;
 		}
 	}
 
