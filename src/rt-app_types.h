@@ -160,6 +160,14 @@ typedef struct _ftrace_data_t {
 	int marker_fd;
 } ftrace_data_t;
 
+typedef struct _log_data_t {
+	unsigned long perf;
+	unsigned long duration;
+	unsigned long wu_latency;
+	unsigned long c_period;
+	long slack;
+} log_data_t;
+
 typedef struct _rtapp_options_t {
 	int lock_pages;
 
