@@ -649,7 +649,7 @@ void *thread_body(void *arg)
 		curr_timing->slack = slack;
 		curr_timing->c_period = c_period;
 
-		if (opts.logsize && !timings)
+		if (opts.logsize && !timings && continue_running)
 			log_timing(data->log_handler, curr_timing);
 
 		if (opts.ftrace)
