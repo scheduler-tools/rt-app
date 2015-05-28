@@ -442,10 +442,10 @@ void *thread_body(void *arg)
 	timings = NULL;
 
 	if (data->log_handler)
-		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %8s %10s\n",
+		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s\n",
 					   "#idx", "perf", "run", "period",
 					   "start", "end", "rel_st", "slack",
-					   "c_prd", "wu_lat");
+					   "c_period", "wu_lat");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
