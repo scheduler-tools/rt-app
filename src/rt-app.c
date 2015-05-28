@@ -182,6 +182,7 @@ static int run_event(event_data_t *event, int dry_run,
 		{
 			struct timespec t_start, t_end;
 			log_debug("run %d ", event->duration);
+			ldata->c_run = event->duration;
 			clock_gettime(CLOCK_MONOTONIC, &t_start);
 			*perf += loadwait(event->duration);
 			clock_gettime(CLOCK_MONOTONIC, &t_end);
@@ -442,10 +443,10 @@ void *thread_body(void *arg)
 	timings = NULL;
 
 	if (data->log_handler)
-		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s\n",
+		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
 					   "#idx", "perf", "run", "period",
 					   "start", "end", "rel_st", "slack",
-					   "c_period", "wu_lat");
+					   "c_run", "c_period", "wu_lat");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -500,6 +501,7 @@ void *thread_body(void *arg)
 		curr_timing->wu_latency = ldata.wu_latency;
 		curr_timing->slack = ldata.slack;
 		curr_timing->c_period = ldata.c_period;
+		curr_timing->c_run = ldata.c_run;
 
 		if (!timings && data->log_handler && continue_running)
 			log_timing(data->log_handler, curr_timing);

@@ -150,6 +150,7 @@ typedef struct _log_data_t {
 	unsigned long perf;
 	unsigned long duration;
 	unsigned long wu_latency;
+	unsigned long c_run;
 	unsigned long c_period;
 	long slack;
 } log_data_t;
@@ -182,6 +183,7 @@ typedef struct _timing_point_t {
 	unsigned long perf;
 	unsigned long duration;
 	unsigned long period;
+	unsigned long c_run;
 	unsigned long c_period;
 	unsigned long wu_latency;
 	long slack;
