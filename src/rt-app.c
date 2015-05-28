@@ -215,11 +215,13 @@ static int run_event(event_data_t *event, int dry_run,
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 			t_slack = timespec_sub(&rdata->res.timer.t_next, &t_now);
 			ldata->slack = timespec_to_usec_long(&t_slack);
-			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
+			if (timespec_lower(&t_now, &rdata->res.timer.t_next)) {
 				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
-			clock_gettime(CLOCK_MONOTONIC, &t_now);
-			t_wu = timespec_sub(&t_now, &rdata->res.timer.t_next);
-			ldata->wu_latency = timespec_to_usec(&t_wu);
+				clock_gettime(CLOCK_MONOTONIC, &t_now);
+				t_wu = timespec_sub(&t_now, &rdata->res.timer.t_next);
+				ldata->wu_latency = timespec_to_usec(&t_wu);
+			} else
+				ldata->wu_latency = 0;
 		}
 		break;
 	case rtapp_suspend:
@@ -440,10 +442,10 @@ void *thread_body(void *arg)
 	timings = NULL;
 
 	if (data->log_handler)
-		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %8s\n",
+		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %8s %10s\n",
 					   "#idx", "perf", "run", "period",
-					   "start", "end", "rel_st", "wu_lat", "slack",
-					   "c_prd");
+					   "start", "end", "rel_st", "slack",
+					   "c_prd", "wu_lat");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
