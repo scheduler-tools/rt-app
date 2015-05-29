@@ -62,12 +62,59 @@ void waste_cpu_cycles(int load_loops)
 }
 
 /*
-* calibrate_cpu_cycles()
-* collects the time that waste_cycles runs.
+* calibrate_cpu_cycles_1()
+* 1st method to calibrate the ns per loop value
+* We alternate idle period and run period in order to not trig some hw
+* protection mechanism like thermal mitgation
 */
-int calibrate_cpu_cycles(int clock)
+int calibrate_cpu_cycles_1(int clock)
 {
-	struct timespec start, stop;
+	struct timespec start, stop, sleep;
+	int max_load_loop = 10000;
+	unsigned int diff;
+	int nsec_per_loop, avg_per_loop = 0;
+	int ret, cal_trial = 1000;
+
+	while (cal_trial) {
+		cal_trial--;
+		sleep.tv_sec = 1;
+		sleep.tv_nsec = 0;
+
+		clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
+
+		clock_gettime(clock, &start);
+		waste_cpu_cycles(max_load_loop);
+		clock_gettime(clock, &stop);
+
+		diff = (int)timespec_sub_to_ns(&stop, &start);
+		nsec_per_loop = diff / max_load_loop;
+		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+
+		/* collect a critical mass of samples.*/
+		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+			return avg_per_loop;
+
+		/*
+		* use several loop duration in order to be sure to not
+		* fall into a specific platform loop duration
+		*(like the cpufreq period)
+		*/
+		/*randomize the number of loops and recheck 1000 times*/
+		max_load_loop += 33333;
+		max_load_loop %= 1000000;
+	}
+	return 0;
+}
+
+/*
+* calibrate_cpu_cycles_2()
+* 2nd method to calibrate the ns per loop value
+* We continously runs something to ensure that CPU is set to max freq by the
+* governor
+*/
+int calibrate_cpu_cycles_2(int clock)
+{
+	struct timespec start, stop, sleep;
 	int max_load_loop = 10000;
 	unsigned int diff;
 	int nsec_per_loop, avg_per_loop = 0;
@@ -98,6 +145,28 @@ int calibrate_cpu_cycles(int clock)
 		max_load_loop %= 1000000;
 	}
 	return 0;
+}
+
+/*
+* calibrate_cpu_cycles()
+* Use several methods to calibrate the ns per loop and get the min value which
+* correspond to the highest achievable compute capacity.
+*/
+int calibrate_cpu_cycles(int clock)
+{
+	int calib1, calib2;
+
+	/* Run 1st method */
+	calib1 = calibrate_cpu_cycles_1(clock);
+
+	/* Run 2nd method */
+	calib2 = calibrate_cpu_cycles_2(clock);
+
+	if (calib1 < calib2)
+		return calib1;
+	else
+		return calib2;
+
 }
 
 static inline loadwait(unsigned long exec)
@@ -531,13 +600,14 @@ int main(int argc, char* argv[])
 
 	/* Needs to calibrate 'calib_cpu' core */
 	if (opts.calib_ns_per_loop == 0) {
+		log_notice("Calibrate ns per loop");
 		cpu_set_t calib_set;
 
 		CPU_ZERO(&calib_set);
 		CPU_SET(opts.calib_cpu, &calib_set);
 		sched_getaffinity(0, sizeof(cpu_set_t), &orig_set);
 		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
-		p_load = calibrate_cpu_cycles(CLOCK_THREAD_CPUTIME_ID);
+		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
 		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
 	} else {
