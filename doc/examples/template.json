@@ -1,0 +1,28 @@
+{
+	/*
+	 * Simple use case which creates 10% load
+	 * for 6 seconds.
+	 * A "sleep" : 0 has been added so the file can be used by tune_json.py to
+	 * use a sleep event instead of the timer. In this latter case, you need
+	 * to set the timer's period to 0
+	 */
+	"tasks" : {
+		"thread0" : {
+			"instance" : 1,
+			"loop" : -1,
+			"run" :   10000,
+			"sleep" : 0,
+			"timer" : { "ref" : "unique", "period" : 100000 }
+		}
+	},
+	"global" : {
+		"duration" : 6,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app2",
+		"gnuplot" : true
+	}
+}
