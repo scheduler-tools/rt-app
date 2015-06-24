@@ -1,0 +1,60 @@
+Measure the efficiency of cpufreq governors using rt-app
+
+BACKGROUND:
+    DVFS adds a latency in the execution of task because of the time to
+    decide to move at max freq. We need to measure this latency and check
+    that the governor stays in an acceptable range.
+
+    When rt-app runs a json file, a log file is created for each thread.
+    This log file records the number of loop that has been executed and
+    the duration for executing these loops (per phase). We can use these
+    figures to evaluate to latency that is added by a cpufreq governor
+    and its "performance efficiency".
+
+    We use the run+sleep pattern to do the measurement, for the run time per
+    loop, the performance governor should run the expected duration as the
+    CPU stays a max freq. At the opposite, the powersave governor will give
+    use the longest duration (as it stays at lowest OPP). Other governor will
+    be somewhere between the 2 previous duration as they will use several OPP
+    and will go back to max frequency after a defined duration which depends
+    on its monitoring period.
+
+    The formula:
+
+        duration of powersave gov - duration of the gov
+    --------------------------------------------------------  x 100%
+     duration of powersave gov - duration of performance gov
+
+    will give the efficiency of the governor. 100% means as efficient as
+    the perf governor and 0% means as efficient as the powersave governor.
+
+    This test offers json files and shell scripts to do the measurement.
+
+Usage:
+    ./calibration.sh <cpu>
+    cpu:            cpu number on which you want to run the test
+
+    ./test.sh <governor> <cpu> <runtime> <sleeptime> [<loops>]
+    governor:       target CPUFreq governor you want to test
+    cpu:            cpu number on which you want to run the test. Be the same
+                    as the one passing to "calibration.sh".
+    runtime:        running time in ms per loop of the workload pattern
+    sleeptime:      sleeping time in ms per loop of the workload pattern
+    loops:          repeat times of the workload pattern. default: 10
+
+Example:
+    "./calibration.sh 0" means to calculate the computing capacity of CPU0 which
+    will be used in the following test.
+
+    "./test.sh ondemand 0 100 100 20" means to
+    test "ondemand" on CPU0 with workload pattern "run 100ms + sleep 100ms"(20 loops).
+
+NOTE:
+    - Make sure there are "sed", "cut", "grep", "rt-app", etc tools on
+      your test machine, and run the scripts under root privilege.
+
+    - Run the test while the system is idle.
+
+    - You can change the target governor's parameters after running "calibration.sh",
+      but before "test.sh".
+

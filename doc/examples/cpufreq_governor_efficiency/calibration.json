@@ -1,0 +1,26 @@
+{
+	"tasks" : {
+		"thread" : {
+			"instance" : 1,
+			"loop" : 1,
+			"phases" : {
+				"run" : {
+					"loop" : 1,
+					"run" : 2000,
+				},
+				"sleep" : {
+					"loop" : 1,
+					"sleep" : 2000,
+				}
+			}
+		}
+	},
+	"global" : {
+		"default_policy" : "SCHED_FIFO",
+		"calibration" : "CPU0",
+		"lock_pages" : true,
+		"ftrace" : false,
+		"logdir" : "./",
+	}
+}
+

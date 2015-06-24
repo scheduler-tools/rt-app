@@ -1,0 +1,27 @@
+{
+	"tasks" : {
+		"thread" : {
+			"instance" : 1,
+			"cpus" : [0],
+"loop" : 21,
+			"phases" : {
+				"running" : {
+					"loop" : 1,
+					"run" : 100,
+				},
+				"sleeping" : {
+					"loop" : 1,
+					"sleep" : 100,
+				}
+			}
+		}
+	},
+	"global" : {
+		"default_policy" : "SCHED_OTHER",
+		"calibration" : 90,
+		"lock_pages" : true,
+		"ftrace" : false,
+		"logdir" : "./",
+	}
+}
+
