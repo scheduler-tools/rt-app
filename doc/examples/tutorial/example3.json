@@ -10,12 +10,12 @@
 			"phases" : {
 				"light" : {
 					"loop" : 10,
-					"run" :   1000,
+					"run" :   3000,
 					"timer" : { "ref" : "unique", "period" : 30000 }
 				},
 				"heavy" : {
 					"loop" : 10,
-					"run" :   4000,
+					"run" :   27000,
 					"timer" : { "ref" : "unique", "period" : 30000 }
 				}
 			}

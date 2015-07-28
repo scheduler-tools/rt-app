@@ -7,7 +7,7 @@
 		"thread0" : {
 			"instance" : 1,
 			"loop" : -1,
-			"run" :   20000,
+			"run" :   10000,
 			"timer" : { "ref" : "unique", "period" : 100000 }
 		}
 	},

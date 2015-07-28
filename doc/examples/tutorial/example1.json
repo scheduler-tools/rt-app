@@ -1,6 +1,6 @@
 {
 	/*
-	 * Simple use case which creates a thread that run 1ms then sleep 9ms
+	 * Simple use case which creates a thread that run 2ms then sleep 8ms
 	 * until the use case is stopped with Ctrl+C
 	 */
 	"tasks" : {
