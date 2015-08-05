@@ -253,6 +253,8 @@ static int run_event(event_data_t *event, int dry_run,
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
 				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
+			else
+				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
 		}
 		break;
 	case rtapp_suspend:
