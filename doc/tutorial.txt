@@ -61,6 +61,20 @@ the current directory (./).
 * log_basename : Text. Prefix used for all log files of the use case.
 "rt-app-" is used by default.
 
+* log_size : String or Integer. A Integer defines a fix size in MB of the
+temporary buffer (size per thread) that will be used to store the log data
+before saving them in a file. This temporary buffer is used as a cicular
+buffer so the oldest data will be lost in case of overflow. A string is used
+to set a predifined behavior:
+  - "file" will be used to store the log data directly in the file without
+	using a temporary buffer.
+  - "Disable" will disable the log mecahnism.
+  - "Auto" will let rt-app compute the buffer size to not overflow the latter 
+	during the use case.
+The use of a temporary buffer prevents the threads of unexpected wait during
+io access. The "Auto" mode is not implemented yet and fallback to "file" mode
+for the moment.
+
 * ftrace: Boolean. If enable, rt-app logs in ftrace the main events of the use
 case. Default value is False.
 
@@ -75,6 +89,7 @@ each threads (see gnuplot section for more details). Default value is False.
 		"pi_enabled" : false,
 		"lock_pages" : false,
 		"logdir" : "./",
+		"log_size" : "file",
 		"log_basename" : "rt-app",
 		"ftrace" : false,
 		"gnuplot" : false,

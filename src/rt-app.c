@@ -343,10 +343,11 @@ void *thread_body(void *arg)
 	timing_point_t *curr_timing;
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
+	unsigned int timings_size, timing_loop;
 	pid_t tid;
 	struct sched_attr attr;
 	unsigned int flags = 0;
-	int ret, i, j, loop;
+	int ret, i, j, loop, idx;
 
 	/* Set thread name */
 	ret = pthread_setname_np(pthread_self(), data->name);
@@ -440,6 +441,15 @@ void *thread_body(void *arg)
 			exit(EXIT_FAILURE);
 	}
 
+	if (opts.logsize > 0) {
+		timings = malloc(opts.logsize);
+		timings_size = opts.logsize / sizeof(timing_point_t);
+	} else {
+		timings = NULL;
+		timings_size = 0;
+	}
+	timing_loop = 0;
+
 	/* Lock pages */
 	if (data->lock_pages == 1)
 	{
@@ -453,8 +463,6 @@ void *thread_body(void *arg)
 	}
 
 	log_notice("[%d] starting thread ...\n", data->ind);
-
-	timings = NULL;
 
 	fprintf(data->log_handler, "#idx\tperf\trun\tperiod\tstart\t\tend\t\trel_st\n");
 
@@ -478,7 +486,7 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
-	i = j = loop = 0;
+	i = j = loop = idx = 0;
 
 	while (continue_running && (i != data->loop)) {
 		struct timespec t_diff, t_rel_start;
@@ -493,7 +501,7 @@ void *thread_body(void *arg)
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
-			curr_timing = &timings[loop];
+			curr_timing = &timings[idx];
 		else
 			curr_timing = &tmp_timing;
 
@@ -508,7 +516,7 @@ void *thread_body(void *arg)
 		curr_timing->duration = duration;
 		curr_timing->perf = perf;
 
-		if (!timings)
+		if (opts.logsize && !timings)
 			log_timing(data->log_handler, curr_timing);
 
 		if (opts.ftrace)
@@ -527,6 +535,12 @@ void *thread_body(void *arg)
 
 			pdata = &data->phases[j];
 		}
+
+		idx++;
+		if (idx >= timings_size) {
+			timing_loop = 1;
+			idx = 0;
+		}
 	}
 
 	param.sched_priority = 0;
@@ -539,9 +553,13 @@ void *thread_body(void *arg)
 		exit(EXIT_FAILURE);
 	}
 
-	if (timings)
-		for (j=0; j < loop; j++)
+	if (timings) {
+		for (j = idx; timing_loop && (j < timings_size); j++)
 			log_timing(data->log_handler, &timings[j]);
+		for (j = 0; j < idx; j++)
+			log_timing(data->log_handler, &timings[j]);
+	}
+
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);

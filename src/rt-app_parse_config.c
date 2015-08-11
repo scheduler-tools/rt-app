@@ -692,8 +692,8 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 static void
 parse_global(struct json_object *global, rtapp_options_t *opts)
 {
-	char *policy, *cal_str;
-	struct json_object *cal_obj;
+	char *policy, *tmp_str;
+	struct json_object *tmp_obj;
 	int scan_cnt;
 
 	log_info(PFX "Parsing global section");
@@ -708,6 +708,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->logdir = strdup("./");
 		opts->lock_pages = 1;
 		opts->logbasename = strdup("rt-app");
+		opts->logsize = 0;
 		opts->ftrace = 0;
 		opts->pi_enabled = 0;
 		return;
@@ -727,32 +728,64 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	 */
 	free(policy);
 
-	cal_obj = get_in_object(global, "calibration", TRUE);
-	if (cal_obj == NULL) {
+	tmp_obj = get_in_object(global, "calibration", TRUE);
+	if (tmp_obj == NULL) {
 		/* no setting ? Calibrate CPU0 */
 		opts->calib_cpu = 0;
 		opts->calib_ns_per_loop = 0;
 		log_error("missing calibration setting force CPU0");
 	} else {
-		if (json_object_is_type(cal_obj, json_type_int)) {
+		if (json_object_is_type(tmp_obj, json_type_int)) {
 			/* integer (no " ") detected. */
-			opts->calib_ns_per_loop = json_object_get_int(cal_obj);
+			opts->calib_ns_per_loop = json_object_get_int(tmp_obj);
 			log_debug("ns_per_loop %d", opts->calib_ns_per_loop);
 		} else {
 			/* Get CPU number */
-			cal_str = get_string_value_from(global, "calibration",
+			tmp_str = get_string_value_from(global, "calibration",
 					 TRUE, "CPU0");
-			scan_cnt = sscanf(cal_str, "CPU%d", &opts->calib_cpu);
+			scan_cnt = sscanf(tmp_str, "CPU%d", &opts->calib_cpu);
 			/*
 			 * get_string_value_from allocate the string so with have to free it
 			 * once useless
 			 */
-			free(cal_str);
+			free(tmp_str);
 			if (!scan_cnt) {
 				log_critical(PFX "Invalid calibration CPU%d", opts->calib_cpu);
 				exit(EXIT_INV_CONFIG);
 			}
 			log_debug("calibrating CPU%d", opts->calib_cpu);
+		}
+	}
+
+	tmp_obj = get_in_object(global, "log_size", TRUE);
+	if (tmp_obj == NULL) {
+		/* no size ? use file system */
+		opts->logsize = -2;
+	} else {
+		if (json_object_is_type(tmp_obj, json_type_int)) {
+			/* integer (no " ") detected. */
+			/* buffer size is set in MB */
+			opts->logsize = json_object_get_int(tmp_obj) << 20;
+			log_notice("Log buffer size fixed to %dMB per threads", (opts->logsize >> 20));
+		} else {
+			/* Get CPU number */
+			tmp_str = get_string_value_from(global, "log_size",
+					 TRUE, "disable");
+
+			if (strcmp(tmp_str, "disable"))
+				opts->logsize = 0;
+			else if (strcmp(tmp_str, "file"))
+				opts->logsize = -2;
+			else if (strcmp(tmp_str, "auto"))
+				opts->logsize = -2; /* Automatic buffer size computation is not supported yet so we fall back on file system mode */
+
+			log_debug("Log buffer set to %s mode", tmp_str);
+
+			/*
+			 * get_string_value_from allocate the string so with have to free it
+			 * once useless
+			 */
+			free(tmp_str);
 		}
 	}
 
