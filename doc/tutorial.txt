@@ -39,8 +39,8 @@ run indefinitly until all threads kill themselves (as an example if a finite
 number of loop has been defined in their running pattern) or if a signal
 is received to stop the use case.
 
-* calibration : Text or Integer: A text defines the CPU that will be used to
-calibrate the ns per loop value. "CPU0" is the default value (see run event
+* calibration : String or Integer: A String defines the CPU that will be used
+to calibrate the ns per loop value. "CPU0" is the default value (see run event
 section for details about ns per loop value). A integer skips the calibration
 step and uses the integer value as ns per loop.
 
@@ -55,10 +55,10 @@ ensures that your RT thread will not be stalled until a page is moved from swap
 to RAM.  The lock of the page is only possible for non CFS tasks. Default value
 is False. 
 
-* logdir : Text. Path to store the various log files. The default path is
+* logdir : String. Path to store the various log files. The default path is
 the current directory (./).
 
-* log_basename : Text. Prefix used for all log files of the use case.
+* log_basename : String. Prefix used for all log files of the use case.
 "rt-app-" is used by default.
 
 * log_size : String or Integer. A Integer defines a fix size in MB of the

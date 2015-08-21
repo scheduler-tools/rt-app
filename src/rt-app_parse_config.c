@@ -312,7 +312,8 @@ parse_thread_event_data(char *name, struct json_object *obj,
 {
 	rtapp_resource_t *rdata, *ddata;
 	char unique_name[22];
-	const char *ref, *tmp;
+	const char *ref;
+	char *tmp;
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
@@ -386,23 +387,23 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		else
 			data->type = rtapp_sig_and_wait;
 
-		ref = get_string_value_from(obj, "ref", TRUE, "unknown");
-		i = get_resource_index(ref, rtapp_wait, opts);
+		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
+		i = get_resource_index(tmp, rtapp_wait, opts);
 		/*
 		 * get_string_value_from allocate the string so with have to free it
 		 * once useless
 		 */
-		free(ref);
+		free(tmp);
 
 		data->res = i;
 
-		ref = get_string_value_from(obj, "mutex", TRUE, "unknown");
-		i = get_resource_index(ref, rtapp_mutex, opts);
+		tmp = get_string_value_from(obj, "mutex", TRUE, "unknown");
+		i = get_resource_index(tmp, rtapp_mutex, opts);
 		/*
 		 * get_string_value_from allocate the string so with have to free it
 		 * once useless
 		 */
-		free(ref);
+		free(tmp);
 
 		data->dep = i;
 
@@ -702,14 +703,14 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		log_info(PFX " No global section Found: Use default value");
 		opts->duration = -1;
 		opts->gnuplot = 0;
-		opts->policy = other; 
+		opts->policy = other;
 		opts->calib_cpu = 0;
 		opts->calib_ns_per_loop = 0;
 		opts->logdir = strdup("./");
-		opts->lock_pages = 1;
 		opts->logbasename = strdup("rt-app");
 		opts->logsize = 0;
 		opts->ftrace = 0;
+		opts->lock_pages = 1;
 		opts->pi_enabled = 0;
 		return;
 	}
@@ -790,10 +791,10 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	}
 
 	opts->logdir = get_string_value_from(global, "logdir", TRUE, "./");
-	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->logbasename = get_string_value_from(global, "log_basename",
 						  TRUE, "rt-app");
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
+	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
 
 }

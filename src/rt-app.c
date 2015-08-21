@@ -565,7 +565,7 @@ void *thread_body(void *arg)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 
 	log_notice("[%d] Exiting.", data->ind);
-//	fclose(data->log_handler);
+	fclose(data->log_handler);
 
 	pthread_exit(NULL);
 }
@@ -719,6 +719,7 @@ int main(int argc, char* argv[])
 				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, opts.threads_data[i].name,
+				opts.threads_data[i].ind,
 				opts.threads_data[i].name,
 				opts.threads_data[i].sched_policy_descr);
 
