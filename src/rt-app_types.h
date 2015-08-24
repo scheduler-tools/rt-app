@@ -65,6 +65,8 @@ typedef enum resource_t
 	rtapp_timer,
 	rtapp_suspend,
 	rtapp_resume,
+	rtapp_mem,
+	rtapp_iorun,
 } resource_t;
 
 struct _rtapp_mutex {
@@ -86,6 +88,15 @@ struct _rtapp_timer {
 	int init;
 };
 
+struct _rtapp_iomem_buf {
+	char *ptr;
+	int size;
+};
+
+struct _rtapp_iodev {
+	int fd;
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	union {
@@ -93,6 +104,8 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_cond cond;
 		struct _rtapp_signal signal;
 		struct _rtapp_timer timer;
+		struct _rtapp_iomem_buf buf;
+		struct _rtapp_iodev dev;
 	} res;
 	int index;
 	resource_t type;
@@ -104,6 +117,7 @@ typedef struct _event_data_t {
 	int res;
 	int dep;
 	int duration;
+	int count;
 } event_data_t;
 
 typedef struct _phase_data_t {
@@ -167,6 +181,8 @@ typedef struct _rtapp_options_t {
 
 	int ftrace;
 	int die_on_dmiss;
+	int mem_buffer_size;
+	char *io_device;
 } rtapp_options_t;
 
 typedef struct _timing_point_t {

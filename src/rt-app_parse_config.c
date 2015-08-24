@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define PIN2 PIN"    "
 #define PIN3 PIN2"    "
 #define JSON_FILE_BUF_SIZE 4096
+#define DEFAULT_MEM_BUF_SIZE (4 * 1024 * 1024)
 
 /* redefine foreach as in <json/json_object.h> but to be ANSI
  * compatible */
@@ -191,6 +192,21 @@ static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opt
 			&data->res.cond.attr);
 }
 
+static int init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN3 "Init: %s membuf", data->name);
+
+	data->res.buf.ptr = malloc(opts->mem_buffer_size);
+	data->res.buf.size = opts->mem_buffer_size;
+}
+
+static int init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN3 "Init: %s io device", data->name);
+
+	data->res.dev.fd = open(opts->io_device, O_CREAT | O_WRONLY, 0644);
+}
+
 static void
 init_resource_data(const char *name, int type, int idx, const rtapp_options_t *opts)
 {
@@ -210,6 +226,12 @@ init_resource_data(const char *name, int type, int idx, const rtapp_options_t *o
 			break;
 		case rtapp_wait:
 			init_cond_resource(data, opts);
+			break;
+		case rtapp_mem:
+			init_membuf_resource(data, opts);
+			break;
+		case rtapp_iorun:
+			init_iodev_resource(data, opts);
 			break;
 	}
 }
@@ -330,6 +352,32 @@ parse_thread_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_run;
 
 		log_info(PIN2 "type %d duration %d", data->type, data->duration);
+		return;
+	}
+
+	if (!strncmp(name, "mem", strlen("mem")) ||
+			!strncmp(name, "iorun", strlen("iorun"))) {
+		if (!json_object_is_type(obj, json_type_int))
+			goto unknown_event;
+
+		/* create an unique name for per-thread buffer */
+		ref = create_unique_name(unique_name, sizeof(unique_name), "mem", tag);
+		i = get_resource_index(ref, rtapp_mem, opts);
+		data->res = i;
+		data->count = json_object_get_int(obj);
+
+		/* A single IO devices for all threads */
+		if (strncmp(name, "iorun", strlen("iorun")) == 0) {
+			i = get_resource_index("io_device", rtapp_iorun, opts);
+			data->dep = i;
+		};
+
+		if (!strncmp(name, "mem", strlen("mem")))
+			data->type = rtapp_mem;
+		else
+			data->type = rtapp_iorun;
+
+		log_info(PIN2 "type %d count %d", data->type, data->count);
 		return;
 	}
 
@@ -527,6 +575,10 @@ obj_is_event(char *name)
 			return rtapp_suspend;
 	if (!strncmp(name, "resume", strlen("resume")))
 			return rtapp_resume;
+	if (!strncmp(name, "mem", strlen("mem")))
+			return rtapp_mem;
+	if (!strncmp(name, "iorun", strlen("iorun")))
+			return rtapp_iorun;
 
 	return 0;
 }
@@ -712,6 +764,8 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->ftrace = 0;
 		opts->lock_pages = 1;
 		opts->pi_enabled = 0;
+		opts->io_device = strdup("/dev/null");
+		opts->mem_buffer_size = DEFAULT_MEM_BUF_SIZE;
 		return;
 	}
 
@@ -796,6 +850,10 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
+	opts->io_device = get_string_value_from(global, "io_device", TRUE,
+						"/dev/null");
+	opts->mem_buffer_size = get_int_value_from(global, "mem_buffer_size",
+							TRUE, DEFAULT_MEM_BUF_SIZE);
 
 }
 

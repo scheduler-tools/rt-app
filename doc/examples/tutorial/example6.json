@@ -1,0 +1,29 @@
+{
+	/*
+	 * Simple use case which creates CPU-, memory-,
+	 * and IO-bouned load for 2 seconds duration.
+	 */
+	"tasks" : {
+		"thread0" : {
+			"instance" : 1,
+			"loop" : -1,
+			"run" : 1000,
+			"mem" : 1000,
+			"sleep" : 5000,
+			"iorun" : 100000
+		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app2",
+		"ftrace" : true,
+		"gnuplot" : true,
+		"io_device" : "/dev/null",
+		"mem_buffer_size" : 1048576
+	}
+}

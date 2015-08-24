@@ -81,6 +81,14 @@ case. Default value is False.
 * gnuplot : Boolean. if True, it will create a gnu plot compatible file for
 each threads (see gnuplot section for more details). Default value is False.
 
+"io_device" : Text. Path to the file which will be written to create IO-bounded
+busy loop. Specify it carefully since it might damage the specified file.
+Default value is "/dev/null".
+
+"mem_buffer_size" : Integer. The size of per-thread memory buffer in byte being
+used to create IO-bounded and memory-bounded busy loop. Default value is
+4194304(4MB).
+
 *** default global object:
 	"global" : {
 		"duration" : -1,
@@ -93,6 +101,8 @@ each threads (see gnuplot section for more details). Default value is False.
 		"log_basename" : "rt-app",
 		"ftrace" : false,
 		"gnuplot" : false,
+		"io_device" : "/dev/null"
+		"mem_buffer_size" : 4194304
 	}
 
 **** tasks object ****
@@ -186,6 +196,14 @@ frequency or the compute capacity of the CPU.
 
 * sleep : Integer. Emulate the sleep of a task. The duration is defined in
 usec.
+
+* mem : Integer. Emulate the memory write operation. The value defines the size
+in byte to be written into the memory buffer. The size of the memory buffer is
+defined by "mem_buffer_size" in "global" object.
+
+* iorun : Integer. Emulate the IO write operation. The value defined the size
+in byte to be write into the IO device specified by "io_device" in "global"
+object.
 
 * timer : Object. Emulate the wake up of the thread by a timer. Timer differs
 from sleep event by the start time of the timer duration. Sleep duration starts

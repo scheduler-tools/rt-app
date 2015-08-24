@@ -179,6 +179,42 @@ static inline loadwait(unsigned long exec)
 	return load_count;
 }
 
+static void ioload(unsigned long count, struct _rtapp_iomem_buf *iomem, int io_fd)
+{
+	ssize_t ret;
+
+	while (count != 0) {
+		unsigned long size;
+
+		if (count > iomem->size)
+			size = iomem->size;
+		else
+			size = count;
+
+		ret = write(io_fd, iomem->ptr, size);
+		if (ret == -1) {
+			perror("write");
+			return;
+		}
+		count -= ret;
+	}
+}
+
+static void memload(unsigned long count, struct _rtapp_iomem_buf *iomem)
+{
+	while (count > 0) {
+		unsigned long size;
+
+		if (count > iomem->size)
+			size = iomem->size;
+		else
+			size = count;
+
+		memset(iomem->ptr, 0, size);
+		count -= size;
+	}
+}
+
 static int run_event(event_data_t *event, int dry_run,
 		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources)
 {
@@ -273,6 +309,18 @@ static int run_event(event_data_t *event, int dry_run,
 		pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
+	case rtapp_mem:
+		{
+			log_debug("mem %d", event->count);
+			memload(event->count, &rdata->res.buf);
+		}
+		break;
+	case rtapp_iorun:
+		{
+			log_debug("iorun %d", event->count);
+			ioload(event->count, &rdata->res.buf, ddata->res.dev.fd);
+		}
+		break;
 	}
 
 	return lock;
