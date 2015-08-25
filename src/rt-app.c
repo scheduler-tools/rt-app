@@ -327,10 +327,11 @@ static int run_event(event_data_t *event, int dry_run,
 	return lock;
 }
 
-int run(int ind, event_data_t *events,
-		int nbevents, unsigned long *duration,
+int run(int ind, phase_data_t *pdata, unsigned long *duration,
 		rtapp_resource_t *resources)
 {
+	event_data_t *events = pdata->events;
+	int nbevents = pdata->nbevents;
 	int i, lock = 0;
 	unsigned long perf = 0;
 
@@ -550,7 +551,7 @@ void *thread_body(void *arg)
 
 		duration = 0;
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		perf = run(data->ind, pdata->events, pdata->nbevents, &duration, *(data->resources));
+		perf = run(data->ind, pdata, &duration, *(data->resources));
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
