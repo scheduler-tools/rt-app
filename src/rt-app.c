@@ -29,9 +29,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/resource.h>
 
 static int errno;
-static volatile int continue_running;
+static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
 static int nthreads;
+static volatile sig_atomic_t running_threads;
 static int p_load;
 rtapp_options_t opts;
 
@@ -353,6 +354,10 @@ static void
 shutdown(int sig)
 {
 	int i;
+
+	if(!continue_running)
+		return;
+
 	/* notify threads, join them, then exit */
 	continue_running = 0;
 
@@ -364,7 +369,7 @@ shutdown(int sig)
 	}
 
 	/* wait up all waiting threads */
-	for (i = 0; i < nthreads; i++)
+	for (i = 0; i < running_threads; i++)
 	{
 		pthread_join(threads[i], NULL);
 	}
@@ -634,6 +639,7 @@ int main(int argc, char* argv[])
 	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
+	running_threads = 0;
 
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
@@ -664,6 +670,7 @@ int main(int argc, char* argv[])
 		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
+	/* Init global running_variable */
 	continue_running = 1;
 
 	/* Needs to calibrate 'calib_cpu' core */
@@ -835,6 +842,7 @@ int main(int argc, char* argv[])
 				  (void*) tdata))
 			goto exit_err;
 	}
+	running_threads = nthreads;
 
 	if (opts.duration > 0) {
 		sleep(opts.duration);
