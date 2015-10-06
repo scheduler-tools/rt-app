@@ -364,6 +364,18 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	data->min_et = usec_to_timespec(exec);
 	data->max_et = usec_to_timespec(exec);
 
+	/* deadline */
+	dline = get_int_value_from(obj, "deadline", TRUE, period);
+	if (dline < exec) {
+		log_critical(PIN2 "Deadline cannot be less than exec time");
+		exit(EXIT_INV_CONFIG);
+	}
+	if (dline > period) {
+		log_critical(PIN2 "Deadline cannot be greater than period");
+		exit(EXIT_INV_CONFIG);
+	}
+	data->deadline = usec_to_timespec(dline);
+
 	/* policy */
 	policy_to_string(opts->policy, def_policy);
 	policy = get_string_value_from(obj, "policy", TRUE, def_policy);
@@ -378,18 +390,6 @@ parse_thread_data(char *name, struct json_object *obj, int idx,
 	/* priority */
 	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
 					      DEFAULT_THREAD_PRIORITY);
-
-	/* deadline */
-	dline = get_int_value_from(obj, "deadline", TRUE, period);
-	if (dline < exec) {
-		log_critical(PIN2 "Deadline cannot be less than exec time");
-		exit(EXIT_INV_CONFIG);
-	}
-	if (dline > period) {
-		log_critical(PIN2 "Deadline cannot be greater than period");
-		exit(EXIT_INV_CONFIG);
-	}
-	data->deadline = usec_to_timespec(dline);
 
 	/* cpu set */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
