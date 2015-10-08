@@ -12,6 +12,7 @@ AC_HEADER_STDC
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
 AC_CHECK_LIB([rt], [clock_gettime])
+AC_CHECK_LIB([json-c], [json_object_from_file])
 
 AC_ARG_WITH([deadline],
 	[AS_HELP_STRING([--with-deadline], 
@@ -22,17 +23,6 @@ AC_ARG_WITH([deadline],
 AS_IF([test "x$with_deadline" != xno],
 	[AC_DEFINE([DLSCHED], [1], [Define if you have SCHED_DEADLINE support])
      ])
-
-LIBJSON=
-      AC_CHECK_LIB([json-c], [json_object_from_file],
-	      	    [AC_SUBST([LIBJSON], ["-ljson-c"])
-        	     AC_DEFINE([JSON], [1], [Define if you have libjson-c])
-       	            ],
-       	            [AC_MSG_FAILURE([libjson-c test failed (use --without-json-c to disable or install json-c)])],
-                    [-ljson-c]
-		   )
-
-AM_CONDITIONAL([AMJSON], [ test x$with_json != xno])
 
 AC_ARG_VAR([LOGLVL], [verbosity level, from 0 to 100. 100 is very verbose])
 
