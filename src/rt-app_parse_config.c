@@ -659,9 +659,15 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 				 prior_def);
 
 	/* deadline params */
-	data->runtime = get_int_value_from(obj, "runtime", TRUE, 0);
-	data->period = get_int_value_from(obj, "period", TRUE, data->runtime);
-	data->deadline = get_int_value_from(obj, "period", TRUE, data->period);
+	data->runtime = get_int_value_from(obj, "dl-runtime", TRUE, 0) * 1000;
+	if (!data->runtime)
+		data->runtime = get_int_value_from(obj, "runtime", TRUE, 0);
+	data->period = get_int_value_from(obj, "dl-period", TRUE, 0) * 1000;
+	if (!data->period)
+		data->period = get_int_value_from(obj, "period", TRUE, data->runtime);
+	data->deadline = get_int_value_from(obj, "dl-deadline", TRUE, 0) * 1000;
+	if (!data->period)
+		data->deadline = get_int_value_from(obj, "deadline", TRUE, data->period);
 
 	/* cpuset */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);

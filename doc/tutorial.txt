@@ -163,14 +163,14 @@ is used if not defined
 must be aligned with the range allowed by the policy. The default priority is
 0 for sched_other class and 10 for other classes
 
-* runtime : Integer: Define the runtime budget for deadline scheduling class.
-Default value is 0.
+* dl-runtime : Integer: Define the runtime budget for deadline scheduling class.
+Default value is 0. The unit is usec.
 
-* period : Integer. Define the period duration for deadline scheduling class.
-Default value is runtime.
+* dl-period : Integer. Define the period duration for deadline scheduling class.
+Default value is runtime. The unit is usec.
 
-* deadline : Integer. Define the deadline parameter for deadline scheduling
-class. Default value is period.
+* dl-deadline : Integer. Define the deadline parameter for deadline scheduling
+class. Default value is period. The unit is usec.
 
 * cpus: Array of Integer. Define the CPU affinity of the thread. Default
 value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]

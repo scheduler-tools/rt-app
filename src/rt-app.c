@@ -479,7 +479,7 @@ void *thread_body(void *arg)
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = data->runtime;
-			attr.sched_deadline = data->deadline;
+			attr.sched_deadline = data->deadline; 
 			attr.sched_period = data->period;
 
 			log_notice("[%d] period: %lu, exec: %lu, deadline: %lu",
