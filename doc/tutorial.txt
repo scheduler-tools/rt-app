@@ -20,10 +20,33 @@ events e.g. a sequence of multiple sleep and run events.
 - Some values can be omitted and workgen will add them when it parses the file
 before starting the use case.
 
+**** Compiling and cross-compiling rt-app ****
+rt-app uses libjson-c to parse the .json file
+You can either install the libjson-c2 and libjson-c-dev deb packages or compile
+from source code available here: https://github.com/json-c/json-c
+
+The following sequence can be used to cross compile rt-app with static linkage
+for aarch64:
+
+For libjson-c:
+
+export ac_cv_func_malloc_0_nonnull=yes
+export ac_cv_func_realloc_0_nonnull=yes
+./autogen.sh
+./configure --host=aarch64-linux-gnu --disable-shared --enable-static
+make
+
+For rt-app:
+
+export ac_cv_lib_json_c_json_object_from_file=yes
+./autogen.sh
+./configure --host=aarch64-linux-gnu LDFLAGS=" --static	-L<path to parent of json repo>/json-c/. libs/" CFLAGS="-I<path to parent of json repo>" --with-deadline
+make
+
 **** json file skeleton ****
 
 The json file that describes a workload is made on 3 main objects: tasks,
-resources and global objects. Only task object is mandatory; default value will
+resources and global objects. Only tasks object is mandatory; default value will
 be used if global object is not defined and resources object is kept for
 backward compatibility with old version of rt-app but it doesn't give any
 benefit to declare it as the resources are now dynamically created by rt-app
