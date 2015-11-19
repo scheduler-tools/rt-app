@@ -10,7 +10,7 @@ SCHED_RR as well as the AQuoSA framework and SCHED_DEADLINE.
 
 Code is currently maintained on GitHub:
 
-	https://github.com/gbagnoli/rt-app
+	https://github.com/scheduler-tools/rt-app/
 
 
 ==============
