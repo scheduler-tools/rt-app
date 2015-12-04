@@ -1,0 +1,24 @@
+{
+    "tasks": {
+        "thread0": {
+            "instance": 8, 
+            "loop": -1, 
+            "run": 380, 
+            "sleep": 0, 
+            "timer": {
+                "ref": "unique", 
+                "period": 2000
+            }
+        }
+    }, 
+    "global": {
+        "duration": 20, 
+        "calibration": 452, 
+        "default_policy": "SCHED_OTHER", 
+        "pi_enabled": false, 
+        "lock_pages": false, 
+        "logdir": "./", 
+        "log_basename": "rt-app-19", 
+        "gnuplot": true
+    }
+}
