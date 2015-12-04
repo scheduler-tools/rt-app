@@ -94,6 +94,8 @@ if __name__ == '__main__':
     parser.add_argument('--loop', default=0,type=int, help='loop count of each thread/phase (-1 as infinite loop)')
     parser.add_argument('--loading', default=0, type=int, help='loading of each thread (%%)')
     parser.add_argument('--key', type=str, help='the key id of thread/phase in which the parameters will be changed')
+    parser.add_argument('--duration', default=0, type=int, help='max duration of the use case (s)')
+
 
     args = parser.parse_args()
 
@@ -115,6 +117,9 @@ if __name__ == '__main__':
 
     if args.period > 0:
         dict_find_and_replace_value(target, 'period', args.period)
+
+    if args.duration > 0:
+        dict_find_and_replace_value(target, 'duration', args.duration)
 
     if args.run > 0:
         dict_find_and_replace_value(target, 'run', args.run)
