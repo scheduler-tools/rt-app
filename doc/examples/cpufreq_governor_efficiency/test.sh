@@ -40,16 +40,16 @@ test_efficiency() {
 
 	# Get target gov data first
 	dvfs.sh $1 $2 $3 $4 $5 > $FILENAME
-	target=$(cat $FILENAME |sed -n '1p')
-
-	# Get powersave data
-	dvfs.sh powersave $2 $3 $4 $5 > $FILENAME
-	powersave=$(cat $FILENAME |sed -n '1p')
-
+	target=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 1)
+	over_target=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 2)
 	# Get performance data
 	dvfs.sh performance $2 $3 $4 $5 > $FILENAME
-	performance=$(cat $FILENAME |sed -n '1p')
-
+	performance=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 1)
+        over_perf=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 2)
+        # Get powersave data
+        dvfs.sh powersave $2 $3 $4 $5 > $FILENAME
+        powersave=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 1)
+        over_save=$(cat $FILENAME |sed -n '$p' | cut -d " " -f 2)
 	if [ $performance -ge $powersave ] ; then
 		echo "powersave: $powersave"
 		echo "performance: $performance"
@@ -57,8 +57,8 @@ test_efficiency() {
 		exit
 	fi
 
-	echo "\"powersave\" efficiency: 0%"
-	echo "\"performance\" efficiency: 100%"
+	echo "\"powersave\" efficiency: 0% overrun: "$over_save
+	echo "\"performance\" efficiency: 100% overrun: "$over_perf
 
 	denominator=$(expr $powersave - $performance)
 
@@ -73,7 +73,7 @@ test_efficiency() {
 		fi
 	fi
 
-	echo "\"$gov_target\" efficiency: $target%"
+	echo "\"$gov_target\" efficiency: $target% overrun: "$over_target
 
 	rm -f $FILENAME
 }

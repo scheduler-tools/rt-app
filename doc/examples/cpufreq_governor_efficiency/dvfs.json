@@ -2,26 +2,28 @@
 	"tasks" : {
 		"thread" : {
 			"instance" : 1,
-			"cpus" : [0],
-"loop" : 21,
+			"policy" : "SCHED_FIFO",
+			"cpus" : [1],
+			"loop" : 10,
 			"phases" : {
-				"running" : {
-					"loop" : 1,
-					"run" : 100,
-				},
 				"sleeping" : {
 					"loop" : 1,
-					"sleep" : 100,
+					"timer" :  { "ref" : "tick", "period" : 1200000, }
+                },
+				"running" : {
+					"loop" : 1,
+					"run" : 900000,
 				}
 			}
 		}
 	},
 	"global" : {
 		"default_policy" : "SCHED_OTHER",
-		"calibration" : 90,
+		"calibration" : 128,
 		"lock_pages" : true,
 		"ftrace" : false,
 		"logdir" : "./",
+		"log_size" : 2,
 	}
 }
 
