@@ -18,7 +18,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include "rt-app_utils.h"
+
+// Ignore return value (-Wunused-result)
+static void ignore(int ret) { (void) ret; }
 
 unsigned int
 timespec_to_msec(struct timespec *ts)
@@ -227,7 +234,7 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 
 		/* If it worked return success */
 		if (n > -1 && n < size) {
-			write(mark_fd, tmp, n);
+			ignore(write(mark_fd, tmp, n));
 			free(tmp);
 			return;
 		}

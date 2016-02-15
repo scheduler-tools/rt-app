@@ -17,8 +17,10 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
+#define _GNU_SOURCE
 #include <fcntl.h>
+#include <unistd.h>
+#include <pthread.h>
 #include "rt-app.h"
 #include "rt-app_utils.h"
 
@@ -34,7 +36,7 @@ static ftrace_data_t ft_data = {
 	.marker_fd = -1,
 };
 
-static inline busywait(struct timespec *to)
+static inline void busywait(struct timespec *to)
 {
 	struct timespec t_step;
 	while (1) {
@@ -245,6 +247,7 @@ void *thread_body(void *arg)
 			tid = gettid();
 			attr.size = sizeof(attr);
 			attr.sched_flags = 0;
+			attr.sched_nice = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +

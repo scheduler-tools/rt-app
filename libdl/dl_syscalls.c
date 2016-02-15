@@ -1,3 +1,7 @@
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include "dl_syscalls.h"
 
 int sched_setattr(pid_t pid,
