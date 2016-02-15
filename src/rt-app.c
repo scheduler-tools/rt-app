@@ -247,6 +247,7 @@ void *thread_body(void *arg)
 			tid = gettid();
 			attr.size = sizeof(attr);
 			attr.sched_flags = 0;
+			attr.sched_nice = 0;
 			attr.sched_policy = SCHED_DEADLINE;
 			attr.sched_priority = 0;
 			attr.sched_runtime = timespec_to_nsec(&data->max_et) +

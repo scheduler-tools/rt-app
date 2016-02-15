@@ -442,7 +442,7 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 		opts->nthreads++;
 	}
 	log_info(PFX "Found %d threads", opts->nthreads);
-	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
+	opts->threads_data = calloc(opts->nthreads, sizeof(thread_data_t));
 	foreach (tasks, entry, key, val, idx) {
 		parse_thread_data(key, val, idx, &opts->threads_data[idx], opts);
 	}
