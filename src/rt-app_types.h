@@ -67,6 +67,7 @@ typedef enum resource_t
 	rtapp_resume,
 	rtapp_mem,
 	rtapp_iorun,
+	rtapp_runtime,
 } resource_t;
 
 struct _rtapp_mutex {

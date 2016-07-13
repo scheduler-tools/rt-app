@@ -348,6 +348,8 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 		if (!strncmp(name, "sleep", strlen("sleep")))
 			data->type = rtapp_sleep;
+		else if (!strncmp(name, "runtime", strlen("runtime")))
+			data->type = rtapp_runtime;
 		else
 			data->type = rtapp_run;
 
@@ -558,6 +560,7 @@ static char *events[] = {
 	"broad",
 	"sync",
 	"sleep",
+	"runtime",
 	"run",
 	"timer",
 	"suspend",

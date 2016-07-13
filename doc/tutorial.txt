@@ -217,6 +217,11 @@ number of loop thanks to the ns per loop value (see calibration). This way of
 working enables to emulate a load with a duration that will vary with the
 frequency or the compute capacity of the CPU.
 
+* runtime : Integer.  The duration is define in usec.  Similar to the
+run event, it emulates the execution of a load.  Unlike run, runtime
+runs for a specific amount of time irrespective of the compute
+capacity of the CPU or the frequency.
+
 * sleep : Integer. Emulate the sleep of a task. The duration is defined in
 usec.
 

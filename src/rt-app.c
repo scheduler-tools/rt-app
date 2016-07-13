@@ -274,6 +274,26 @@ static int run_event(event_data_t *event, int dry_run,
 			*duration += timespec_to_usec(&t_end);
 		}
 		break;
+	case rtapp_runtime:
+		{
+			struct timespec t_start, t_end;
+			int64_t diff_ns;
+
+			log_debug("runtime %d ", event->duration);
+			clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+			do {
+				/* Do work for 32usec  */
+				*perf += loadwait(32);
+
+				clock_gettime(CLOCK_MONOTONIC, &t_end);
+				diff_ns = timespec_sub_to_ns(&t_end, &t_start);
+			} while ((diff_ns / 1000) < event->duration);
+
+			t_end = timespec_sub(&t_end, &t_start);
+			*duration += timespec_to_usec(&t_end);
+		}
+		break;
 	case rtapp_timer:
 		{
 			struct timespec t_period, t_now;
