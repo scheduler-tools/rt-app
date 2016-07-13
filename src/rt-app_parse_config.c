@@ -550,37 +550,35 @@ unknown_event:
 
 }
 
+static char *events[] = {
+	"lock",
+	"unlock",
+	"wait",
+	"signal",
+	"broad",
+	"sync",
+	"sleep",
+	"run",
+	"timer",
+	"suspend",
+	"resume",
+	"mem",
+	"iorun",
+	NULL
+};
+
 static int
 obj_is_event(char *name)
 {
-	if (!strncmp(name, "lock", strlen("lock")))
-			return rtapp_mutex;
-	if (!strncmp(name, "unlock", strlen("unlock")))
-			return rtapp_lock;
-	if (!strncmp(name, "wait", strlen("wait")))
-			return rtapp_unlock;
-	if (!strncmp(name, "signal", strlen("signal")))
-			return rtapp_signal;
-	if (!strncmp(name, "broad", strlen("broad")))
-			return rtapp_broadcast;
-	if (!strncmp(name, "sync", strlen("sync")))
-			return rtapp_sig_and_wait;
-	if (!strncmp(name, "sleep", strlen("sleep")))
-			return rtapp_sleep;
-	if (!strncmp(name, "run", strlen("run")))
-			return rtapp_run;
-	if (!strncmp(name, "timer", strlen("timer")))
-			return rtapp_timer;
-	if (!strncmp(name, "suspend", strlen("suspend")))
-			return rtapp_suspend;
-	if (!strncmp(name, "resume", strlen("resume")))
-			return rtapp_resume;
-	if (!strncmp(name, "mem", strlen("mem")))
-			return rtapp_mem;
-	if (!strncmp(name, "iorun", strlen("iorun")))
-			return rtapp_iorun;
+    char **pos;
 
-	return 0;
+    for (pos = events; *pos; pos++) {
+	    char *event = *pos;
+	    if (!strncmp(name, event, strlen(event)))
+		    return 1;
+    }
+
+    return 0;
 }
 
 static void
