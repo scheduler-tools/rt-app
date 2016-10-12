@@ -43,6 +43,31 @@ export ac_cv_lib_json_c_json_object_from_file=yes
 ./configure --host=aarch64-linux-gnu LDFLAGS=" --static	-L<path to parent of json repo>/json-c/. libs/" CFLAGS="-I<path to parent of json repo>" --with-deadline
 make
 
+e.g, with a directory structure like the following:
+
+$ tree -d
+.
+├── autom4te.cache
+├── build
+├── build-aux
+├── doc
+│   └── examples
+│       ├── cpufreq_governor_efficiency
+│       ├── merge
+│       └── tutorial
+├── json-c
+│   ├── autom4te.cache
+│   ├── doc
+│   │   └── html
+│   └── tests
+├── libdl
+├── m4
+└── src
+
+the configure step becomes
+
+./configure --host=aarch64-linux-gnu LDFLAGS="--static -L./../json-c/." CFLAGS="-I./.." --with-deadline
+
 **** json file skeleton ****
 
 The json file that describes a workload is made on 3 main objects: tasks,
