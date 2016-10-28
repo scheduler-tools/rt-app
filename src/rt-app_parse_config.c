@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "rt-app_utils.h"
 #include "rt-app_parse_config.h"
+#include "rt-app.h"
 
 #define PFX "[json] "
 #define PFL "         "PFX
@@ -160,6 +161,7 @@ get_string_value_from(struct json_object *where,
 {
 	struct json_object *value;
 	char *s_value;
+
 	value = get_in_object(where, key, have_def);
 	set_default_if_needed_str(key, value, have_def, def_value);
 	if (json_object_is_type(value, json_type_null)) {
@@ -751,9 +753,35 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	return NULL;
 }
 
+#ifdef HAVE_LIBCGROUP
 static void
-parse_thread_phase_data(struct json_object *obj,
-		  phase_data_t *data, rtapp_options_t *opts, long tag)
+parse_cgroup_data(struct json_object *obj, phase_data_t *pdata, thread_data_t *tdata, rtapp_options_t *opts, cgroup_t **cgroup)
+{
+	char *name = get_string_value_from(obj, "cgroup", TRUE, "");
+	sched_data_t *sched_data = pdata ? pdata->sched_data : tdata->sched_data;
+
+	if (sched_data && (sched_data->policy != other)) {
+		log_critical(PIN2 "No cgroup support for policy %s", policy_to_string(sched_data->policy));
+		exit(EXIT_INV_CONFIG);
+	}
+
+	if (strlen(name)) {
+		if (strcmp(name, ROOT_CGROUP))
+			split_cgroup_data(opts, name);
+	} else {
+		name = pdata ? tdata->cgroup->name : ROOT_CGROUP;
+	}
+
+	*cgroup = find_cgroup(opts, name);
+}
+#else
+static void
+parse_cgroup_data(struct json_object *obj, phase_data_t *pdata, thread_data_t *tdata, rtapp_options_t *opts, void **cgroup) {}
+#endif
+
+static void
+parse_thread_phase_data(struct json_object *obj, phase_data_t *data, thread_data_t *tdata,
+			rtapp_options_t *opts, long tag)
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
@@ -787,6 +815,7 @@ parse_thread_phase_data(struct json_object *obj,
 	parse_cpuset_data(obj, &data->cpu_data);
 	data->sched_data = parse_sched_data(obj, -1);
 
+	parse_cgroup_data(obj, data, tdata, opts, GET_CGROUP(&data));
 }
 
 static void
@@ -816,6 +845,8 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
 
+	parse_cgroup_data(obj, NULL, data, opts, GET_CGROUP(&data));
+
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
 
@@ -839,7 +870,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
-			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
+			parse_thread_phase_data(val, &data->phases[idx], data, opts, (long)data);
 		}
 
 		/* Get loop number */
@@ -848,7 +879,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	} else {
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
-		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
+		parse_thread_phase_data(obj, &data->phases[0], data, opts, (long)data);
 
 		/* There is no "phases" object which means that thread and phase will
 		 * use same scheduling parameters. But thread object looks for default

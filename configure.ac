@@ -18,6 +18,23 @@ AC_CHECK_LIB([rt], [clock_gettime])
 AC_CHECK_LIB([json-c], [json_object_from_file], [], [AC_MSG_ERROR([json-c libraries required])])
 AC_CHECK_FUNCS(sched_setattr, [], [])
 
+AC_ARG_WITH([cgroup],
+	[AS_HELP_STRING([--with-cgroup],
+	[Add support for cpu cgroups])],
+	[],
+	[with_cgroup=no])
+
+LIBCGROUP=
+AS_IF([test "x$with_cgroup" != xno],
+      AC_CHECK_LIB([cgroup], [cgroup_init],
+		   [AC_SUBST([LIBCGROUP], ["-lcgroup"])
+		   AC_DEFINE([HAVE_LIBCGROUP], [1], [Define if you have CGroup support])
+		   ],
+		   [AC_MSG_FAILURE([libcgroup test failed (use --without-cgroup to disable or install cgroup)])],
+		   [-lcgroup]
+		  )
+      )
+
 AC_ARG_WITH([deadline],
 	[AS_HELP_STRING([--with-deadline], 
 		[Add support for SCHED_DEADLINE])],
