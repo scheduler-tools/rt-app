@@ -37,6 +37,50 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
 
+#ifdef HAVE_LIBCGROUP
+/*
+ * Save and restore the following rt-app defines from src/config.h. libcgroup
+ * defines its own set and its public header libcgroup.h includes libcgroup's
+ * config.h.
+ */
+#define _VERSION VERSION
+#define _PACKAGE PACKAGE
+#define _PACKAGE_NAME PACKAGE_NAME
+#define _PACKAGE_VERSION PACKAGE_VERSION
+#define _PACKAGE_TARNAME PACKAGE_TARNAME
+#define _PACKAGE_STRING PACKAGE_STRING
+#define _PACKAGE_BUGREPORT PACKAGE_BUGREPORT
+#undef VERSION
+#undef PACKAGE
+#undef PACKAGE_NAME
+#undef PACKAGE_VERSION
+#undef PACKAGE_TARNAME
+#undef PACKAGE_STRING
+#undef PACKAGE_BUGREPORT
+#include <libcgroup.h>
+#undef VERSION
+#undef PACKAGE
+#undef PACKAGE_NAME
+#undef PACKAGE_VERSION
+#undef PACKAGE_TARNAME
+#undef PACKAGE_STRING
+#undef PACKAGE_BUGREPORT
+#define VERSION _VERSION
+#define PACKAGE _PACKAGE
+#define PACKAGE_NAME _PACKAGE_NAME
+#define PACKAGE_VERSION _PACKAGE_VERSION
+#define PACKAGE_TARNAME _PACKAGE_TARNAME
+#define PACKAGE_STRING _PACKAGE_STRING
+#define PACKAGE_BUGREPORT _PACKAGE_BUGREPORT
+#undef _VERSION
+#undef _PACKAGE
+#undef _PACKAGE_NAME
+#undef _PACKAGE_VERSION
+#undef _PACKAGE_TARNAME
+#undef _PACKAGE_STRING
+#undef _PACKAGE_BUGREPORT
+#endif
+
 static int errno;
 static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
@@ -539,6 +583,223 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 	strncat(cpu_data->cpuset_str, " ]", size_needed - idx - 1);
 }
 
+#ifdef HAVE_LIBCGROUP
+static void add_taskgroup(rtapp_options_t *opts, const char *name)
+{
+	taskgroup_t *tg, *new;
+
+	new = malloc(sizeof *new);
+
+	if (!new) {
+		log_error("Cannot allocate taskgroup");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(new->name, name);
+
+	if (TAILQ_EMPTY(&opts->taskgroups)) {
+		TAILQ_INSERT_HEAD(&opts->taskgroups, new, taskgroups);
+	} else {
+		TAILQ_FOREACH(tg, &opts->taskgroups, taskgroups) {
+			int n = strcmp(new->name, tg->name);
+
+			if (n < 0) {
+				TAILQ_INSERT_BEFORE(tg, new, taskgroups);
+				return;
+			}
+
+			/* Do not add taskgroup twice */
+			if (!n)
+				return;
+		}
+		TAILQ_INSERT_TAIL(&opts->taskgroups, new, taskgroups);
+	}
+}
+
+void split_taskgroup_data(rtapp_options_t *opts, char *name)
+{
+	char *tmp, *p = name;
+
+	if (!strcmp(name, ROOT_TASKGROUP))
+		return;
+
+	if (strlen(p) >= PATH_LENGTH) {
+		log_error("Taskgroup path length %lu not supported", strlen(p));
+		exit(EXIT_FAILURE);
+	}
+
+	tmp = malloc(PATH_LENGTH);
+
+	if (!tmp) {
+		log_error("Cannot allocate tmp buffer");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(tmp, p);
+
+	/* remove trailing slash */
+	p = &tmp[strlen(tmp)-1];
+
+	if (*p == '/') { *p = '\0'; }
+
+	for (p = tmp; p;) {
+		p = strchr(p, '/');
+
+		if (p) { *p = '\0'; }
+
+		if (strlen(tmp))
+			add_taskgroup(opts, tmp);
+
+		if (p) { *p++ = '/'; }
+	}
+
+	free(tmp);
+}
+
+static void create_taskgroup(taskgroup_t *tg)
+{
+	struct cgroup_controller *ctlr;
+	struct cgroup *cgroup;
+	int res;
+
+	if (!strcmp(tg->name, ROOT_TASKGROUP))
+		return;
+
+	log_notice("Create taskgroup [%s]", tg->name);
+
+	cgroup = cgroup_new_cgroup(tg->name);
+
+	if (!cgroup) {
+		log_critical("Cannot add new taskgroup [%s] (libcgroup error: %s)",
+			     tg->name, cgroup_strerror(ECGFAIL));
+		exit(EXIT_FAILURE);
+	}
+
+	ctlr = cgroup_add_controller(cgroup, "cpu");
+
+	if (!ctlr) {
+		log_critical("Cannot add cpu controller to taskgroup [%s]", tg->name);
+		exit(EXIT_FAILURE);
+	}
+
+	res = cgroup_create_cgroup(cgroup, 1);
+
+	if (res) {
+		log_critical("Cannot create taskgroup [%s] (libcgroup error: %s)",
+			     tg->name, cgroup_strerror(res));
+		exit(EXIT_FAILURE);
+	}
+
+	tg->obj = cgroup;
+}
+
+static void create_taskgroups(rtapp_options_t *opts)
+{
+	taskgroup_t *tg;
+
+	TAILQ_FOREACH(tg, &opts->taskgroups, taskgroups) {
+		create_taskgroup(tg);
+	}
+}
+
+static void destroy_taskgroup(taskgroup_t *tg)
+{
+	int res;
+
+	if (!strcmp(tg->name, ROOT_TASKGROUP))
+		return;
+
+	log_notice("Destroy taskgroup [%s]", tg->name);
+
+	res = cgroup_delete_cgroup(tg->obj, CGFLAG_DELETE_IGNORE_MIGRATION);
+
+	if (res) {
+		log_notice("Cannot destroy taskgroup (libcgroup error: %s), continue ...",
+			   cgroup_strerror(res));
+		return;
+	}
+
+	cgroup_free(&tg->obj);
+}
+
+static void destroy_taskgroups(rtapp_options_t *opts)
+{
+	taskgroup_t *tg;
+
+	while ((tg = TAILQ_LAST(&opts->taskgroups, taskgrouplist))) {
+		destroy_taskgroup(tg);
+		TAILQ_REMOVE(&opts->taskgroups, tg, taskgroups);
+		free(tg);
+	}
+}
+
+taskgroup_t* find_taskgroup(rtapp_options_t *opts, char *name)
+{
+	taskgroup_t *tg = NULL, *tmp;
+
+	TAILQ_FOREACH(tmp, &opts->taskgroups, taskgroups) {
+		if (!strcmp(tmp->name, name)) {
+			tg = tmp;
+			break;
+		}
+	}
+
+	return tg;
+}
+
+static void set_taskgroup(taskgroup_t *tg)
+{
+	int res;
+
+	if (!tg)
+		return;
+
+	log_info("Set taskgroup [%s]", tg->name);
+
+	res = cgroup_attach_task(tg->obj);
+
+	if (res) {
+		log_critical("Cannot attach task to taskgroup [%s] (libcgroup error: %s)",
+			     tg->name, cgroup_strerror(res));
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void init_taskgroups(void)
+{
+	char *mount;
+	int res;
+
+	TAILQ_INIT(&opts.taskgroups);
+	opts.cpu_ctlr_avail = 0;
+
+	res = cgroup_init();
+
+	if (res) {
+		log_notice("Cannot initialize cgroup library (libcgroup error: %s)",
+			   cgroup_strerror(res));
+		return;
+	}
+
+	res = cgroup_get_subsys_mount_point("cpu", &mount);
+
+	if (res) {
+		log_notice("Cannot get 'cpu' cgroup controller's moint point (libcgroup error: %s)",
+			   cgroup_strerror(res));
+		return;
+	}
+
+	add_taskgroup(&opts, "/");
+	opts.cpu_ctlr_avail = 1;
+}
+
+#else /* HAVE_LIBCGROUP */
+static void init_taskgroups(void) {}
+static void set_taskgroup(void *tg) {}
+static void create_taskgroups(rtapp_options_t *opts) {}
+static void destroy_taskgroups(rtapp_options_t *opts) {}
+#endif /* HAVE_LIBCGROUP */
+
 static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 {
 	int ret;
@@ -808,6 +1069,8 @@ void *thread_body(void *arg)
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
 
+		set_taskgroup(GET_TASKGROUP(pdata));
+
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
 				   "[%d] begins thread_loop %d phase %d phase_loop %d",
@@ -919,6 +1182,9 @@ int main(int argc, char* argv[])
 	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
+	int status = EXIT_SUCCESS;
+
+	init_taskgroups();
 
 	parse_command_line(argc, argv, &opts);
 
@@ -1113,6 +1379,8 @@ int main(int argc, char* argv[])
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
+	create_taskgroups(&opts);
+
 	/* Start the use case */
 	for (i = 0; i < nthreads; i++) {
 		tdata = &opts.threads_data[i];
@@ -1120,8 +1388,10 @@ int main(int argc, char* argv[])
 		if (pthread_create(&threads[i],
 				  NULL,
 				  thread_body,
-				  (void*) tdata))
-			goto exit_err;
+				  (void*) tdata)) {
+			status = EXIT_FAILURE;
+			goto out;
+		}
 	}
 	running_threads = nthreads;
 
@@ -1140,9 +1410,8 @@ int main(int argc, char* argv[])
 		log_ftrace(ft_data.marker_fd, "main ends\n");
 		close(ft_data.marker_fd);
 	}
-	exit(EXIT_SUCCESS);
+out:
+	destroy_taskgroups(&opts);
 
-
-exit_err:
-	exit(EXIT_FAILURE);
+	exit(status);
 }

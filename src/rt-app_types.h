@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "config.h"
 #include "dl_syscalls.h"
+#include <sys/queue.h>
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
 #define RTAPP_RESOURCE_DESCR_LENGTH 16
@@ -134,6 +135,18 @@ typedef struct _rtapp_resource_t {
 	char *name;
 } rtapp_resource_t;
 
+#ifdef HAVE_LIBCGROUP
+typedef struct _taskgroup_t {
+	char name[PATH_LENGTH];
+	struct cgroup *obj;
+	TAILQ_ENTRY(_taskgroup_t) taskgroups;
+} taskgroup_t;
+#define ROOT_TASKGROUP	"/"
+#define GET_TASKGROUP(p)	(p->taskgroup)
+#else
+#define GET_TASKGROUP(p)	(NULL)
+#endif
+
 typedef struct _event_data_t {
 	resource_t type;
 	int res;
@@ -163,6 +176,9 @@ typedef struct _phase_data_t {
 	int sched_prio;
 	cpuset_data_t cpu_data;
 	sched_data_t *sched_data;
+#ifdef HAVE_LIBCGROUP
+	taskgroup_t *taskgroup;
+#endif
 } phase_data_t;
 
 typedef struct _thread_data_t {
@@ -188,6 +204,9 @@ typedef struct _thread_data_t {
 	FILE *log_handler;
 
 	unsigned long delay;
+#ifdef HAVE_LIBCGROUP
+	taskgroup_t *taskgroup;
+#endif
 } thread_data_t;
 
 typedef struct _ftrace_data_t {
@@ -231,6 +250,11 @@ typedef struct _rtapp_options_t {
 	char *io_device;
 
 	int cumulative_slack;
+
+#ifdef HAVE_LIBCGROUP
+	TAILQ_HEAD(taskgrouplist, _taskgroup_t) taskgroups;
+	int cpu_ctlr_avail;
+#endif
 } rtapp_options_t;
 
 typedef struct _timing_point_t {
