@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "config.h"
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
+#include "rt-app_taskgroups.h"
 
 static int errno;
 static volatile sig_atomic_t continue_running;
@@ -501,12 +502,15 @@ static void __shutdown(bool force_terminate)
 		close(ft_data.marker_fd);
 	}
 
+	remove_taskgroups(&opts);
+
 	/*
 	 * If we unlock the joining_mutex here we could risk a late SIGINT
 	 * causing us to re-enter this loop. Since we are calling exit() to
 	 * terminate the application and release all resources - we don't
 	 * really need to unlock the mutex anyway.
 	 */
+
 	exit(EXIT_SUCCESS);
 }
 
@@ -631,7 +635,6 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 	policy_t policy;
 #ifdef DLSCHED
 	struct sched_attr dl_params;
-	pid_t tid;
 	unsigned int flags = 0;
 #endif
 	int ret;
@@ -716,7 +719,6 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 					policy_to_string(sched_data->policy), sched_data->period,
 					sched_data->runtime, sched_data->deadline);
 
-			tid = gettid();
 			dl_params.size = sizeof(struct sched_attr);
 			dl_params.sched_flags = 0;
 			dl_params.sched_policy = SCHED_DEADLINE;
@@ -725,7 +727,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			dl_params.sched_deadline = sched_data->deadline;
 			dl_params.sched_period = sched_data->period;
 
-			ret = sched_setattr(tid, &dl_params, flags);
+			ret = sched_setattr(data->tid, &dl_params, flags);
 			if (ret != 0) {
 				log_critical("[%d] sched_setattr "
 						"returned %d", data->ind, ret);
@@ -767,6 +769,9 @@ void *thread_body(void *arg)
 	if (ret !=  0) {
 		perror("pthread_setname_np thread name over 16 characters");
 	}
+
+	/* Set thread id */
+	data->tid = gettid();
 
 	/* Get the 1st phase's data */
 	pdata = &data->phases[0];
@@ -855,6 +860,7 @@ void *thread_body(void *arg)
 
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
+		set_taskgroup(data, pdata->taskgroup);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
@@ -946,6 +952,7 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, &timings[j]);
 	}
 
+	reset_taskgroup(data);
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
@@ -1018,6 +1025,13 @@ int main(int argc, char* argv[])
 		log_notice("pLoad = %dns", p_load);
 	}
 
+	if (init_taskgroups()) {
+		log_error("Cannot initialize taskgroup support");
+		exit(EXIT_FAILURE);
+	}
+
+	create_taskgroups(&opts);
+
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
@@ -1039,7 +1053,7 @@ int main(int argc, char* argv[])
 				tdata->log_handler = fopen(tmp, "w");
 				if (!tdata->log_handler) {
 					log_error("Cannot open logfile %s", tmp);
-					exit(EXIT_FAILURE);
+					goto exit_err;
 				}
 			} else {
 				tdata->log_handler = stdout;
@@ -1189,5 +1203,7 @@ int main(int argc, char* argv[])
 	__shutdown(false);
 
 exit_err:
+	remove_taskgroups(&opts);
+
 	exit(EXIT_FAILURE);
 }

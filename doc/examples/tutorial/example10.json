@@ -1,0 +1,42 @@
+{
+	/*
+	 * Use case which creates a thread with 3 phases. In each phase the thread
+	 * runs for 2ms and then sleeps for 8ms. In phase0 the thread runs in
+	 * taskgroup /tg1/tg11. Phase1 does not specify a taskgroup so the thread
+	 * will continue to run in taskgroup /tg1/tg11. In phase2 the thread will
+	 * run in taskgroup / (the root taskgroup). The use case runs for 2secs or
+	 * until it is stopped with Ctrl+C.
+	 */
+	"tasks" : {
+		"thread0" : {
+			"loop" : -1,
+			"phases" : {
+				"phase0" : {
+					"run" : 20000,
+					"sleep" : 80000,
+					"taskgroup" : "/tg1/tg11"
+				},
+				"phase1" : {
+					"run" : 20000,
+					"sleep" : 80000
+				},
+				"phase2" : {
+					"run" : 20000,
+					"sleep" : 80000,
+					"taskgroup" : "/"
+				}
+			}
+		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : true,
+		"gnuplot" : true
+	}
+}

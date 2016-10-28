@@ -134,6 +134,12 @@ typedef struct _rtapp_resource_t {
 	char *name;
 } rtapp_resource_t;
 
+typedef struct _taskgroup_t {
+	char name[FILENAME_MAX];
+	/* Start of taskgroup part which is under control of rt-app run. */
+	int offset;
+} taskgroup_t;
+
 typedef struct _event_data_t {
 	resource_t type;
 	int res;
@@ -162,11 +168,13 @@ typedef struct _phase_data_t {
 	int nbevents;
 	cpuset_data_t cpu_data;
 	sched_data_t *sched_data;
+	taskgroup_t *taskgroup;
 } phase_data_t;
 
 typedef struct _thread_data_t {
 	int ind;
 	char *name;
+	pid_t tid;
 	int lock_pages;
 	int duration;
 	rtapp_resource_t **resources;
@@ -177,6 +185,8 @@ typedef struct _thread_data_t {
 
 	sched_data_t *sched_data; /* scheduler policy information */
 	sched_data_t *curr_sched_data; /* current scheduler policy */
+
+	taskgroup_t *curr_taskgroup;
 
 	int loop;
 	int nphases;

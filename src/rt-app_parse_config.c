@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <json-c/json.h>
 
 #include "rt-app_utils.h"
+#include "rt-app_taskgroups.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "
@@ -757,6 +758,66 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	return NULL;
 }
 
+static taskgroup_t *parse_taskgroup_data(struct json_object *obj, rtapp_options_t *opts)
+{
+	char *name = get_string_value_from(obj, "taskgroup", TRUE, ""), *curr;
+	taskgroup_t *tg = NULL;
+
+	if (strlen(name)) {
+		tg = malloc(sizeof(*tg));
+		if (!tg) {
+			log_critical(PIN2 "Cannot allocate taskgroup");
+			exit(EXIT_FAILURE);
+		}
+
+		curr = tg->name;
+		/* Enforce leading slash. */
+		*curr = '/';
+
+		for (; *name != '\0'; name++)
+			/* Reduce sequence of slashes to one slash. */
+			if (*name != '/' || *name != *curr)
+				*(++curr) = *name;
+
+		/* Remove trailing slash except for root taskgroup. */
+		if (curr == tg->name || *curr != '/')
+			curr++;
+		*curr = '\0';
+
+		get_taskgroup_ctrl()->in_use = 1;
+	}
+
+	return tg;
+}
+
+static int has_taskgroup_data(struct json_object *obj)
+{
+	char *name = get_string_value_from(obj, "taskgroup", TRUE, "");
+
+	return strlen(name) ? 1 : 0;
+}
+
+static void check_taskgroup_policy_dep(thread_data_t *tdata, phase_data_t *pdata)
+{
+	/* Save sched_data/taskgroup as thread's current sched_data/taskgroup. */
+	if (pdata->sched_data)
+		tdata->curr_sched_data = pdata->sched_data;
+
+	if (pdata->taskgroup)
+		tdata->curr_taskgroup = pdata->taskgroup;
+
+	/*
+	 * Detect policy/taskgroup misconfiguration: a task which specifies a
+	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 */
+	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
+	    tdata->curr_taskgroup) {
+		log_critical(PIN2 "No taskgroup support for policy %s",
+			     policy_to_string(tdata->curr_sched_data->policy));
+		exit(EXIT_INV_CONFIG);
+	}
+}
+
 static void
 parse_thread_phase_data(struct json_object *obj,
 		  phase_data_t *data, rtapp_options_t *opts, long tag)
@@ -796,7 +857,7 @@ parse_thread_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	data->sched_data = parse_sched_data(obj, -1);
-
+	data->taskgroup = parse_taskgroup_data(obj, opts);
 }
 
 static void
@@ -819,12 +880,17 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset = NULL;
 	data->def_cpu_data.cpuset_str = NULL;
 
-	data->curr_sched_data = NULL;
-
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
+
+	/*
+	 * Thread's current sched_data/taskgroup are used to detect
+	 * policy/taskgroup misconfiguration.
+	 */
+	data->curr_sched_data = data->sched_data;
+	data->curr_taskgroup = NULL;
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
@@ -838,6 +904,15 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		assure_type_is(phases_obj, obj, "phases",
 					json_type_object);
 
+		/*
+		 * Taskgroup should only be specified on thread level if the thread
+		 * does not contain one or more phases.
+		 */
+		if (has_taskgroup_data(obj)) {
+			log_critical("Specify taskgroup in phase rather than thread");
+			exit(EXIT_INV_CONFIG);
+		}
+
 		log_info(PIN "Parsing phases section");
 		data->nphases = 0;
 		foreach(phases_obj, entry, key, val, idx) {
@@ -850,6 +925,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
 			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
+			check_taskgroup_policy_dep(data, &data->phases[idx]);
 		}
 
 		/* Get loop number */
@@ -868,6 +944,8 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		free(data->phases[0].sched_data);
 		data->phases[0].sched_data = NULL;
 
+		check_taskgroup_policy_dep(data, &data->phases[0]);
+
 		/*
 		 * Get loop number:
 		 *
@@ -884,6 +962,9 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 			data->loop = -1;
 	}
 
+	/* Reset thread's current sched_data/taskgroup after parsing. */
+	data->curr_sched_data = NULL;
+	data->curr_taskgroup = NULL;
 }
 
 static void
