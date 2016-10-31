@@ -45,5 +45,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 void
 parse_config(const char *filename, rtapp_options_t *opts);
+void
+parse_config_stdin(rtapp_options_t *opts);
 
 #endif // _RTAPP_PARSE_CONFIG_H

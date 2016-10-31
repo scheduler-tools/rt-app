@@ -170,7 +170,7 @@ int calibrate_cpu_cycles(int clock)
 
 }
 
-static inline loadwait(unsigned long exec)
+static inline unsigned long loadwait(unsigned long exec)
 {
 	unsigned long load_count;
 
@@ -358,7 +358,7 @@ int run(int ind, phase_data_t *pdata, unsigned long *duration,
 	for (i = 0; i < nbevents; i++)
 	{
 		if (!continue_running && !lock)
-			return;
+			return perf;
 
 		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
 		if (opts.ftrace)

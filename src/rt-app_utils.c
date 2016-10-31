@@ -19,6 +19,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#include <errno.h>
+#include <string.h>
 #include "rt-app_utils.h"
 
 unsigned long
@@ -253,7 +255,7 @@ resource_to_string(resource_t resource, char *resource_name)
 void ftrace_write(int mark_fd, const char *fmt, ...)
 {
 	va_list ap;
-	int n, size = BUF_SIZE;
+	int n, size = BUF_SIZE, ret;
 	char *tmp, *ntmp;
 
 	if (mark_fd < 0) {
@@ -274,8 +276,15 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 
 		/* If it worked return success */
 		if (n > -1 && n < size) {
-			write(mark_fd, tmp, n);
+			ret = write(mark_fd, tmp, n);
 			free(tmp);
+			if (ret < 0) {
+				log_error("Cannot write mark_fd: %s\n",
+						strerror(errno));
+				exit(EXIT_FAILURE);
+			} else if (ret < n) {
+				log_debug("Cannot write all bytes at once into mark_fd\n");
+			}
 			return;
 		}
 
