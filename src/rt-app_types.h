@@ -149,6 +149,8 @@ typedef struct _thread_data_t {
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
 
+	unsigned long delay;
+
 #ifdef DLSCHED
 	struct sched_attr dl_params;
 #endif

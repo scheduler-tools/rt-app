@@ -611,6 +611,16 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
+
+	if (data->delay > 0) {
+		struct timespec delay = usec_to_timespec(data->delay);
+
+		log_debug("initial delay %d ", data->delay);
+		t_first = timespec_add(&t_first, &delay);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_first,
+				NULL);
+	}
+
 	i = j = loop = idx = 0;
 
 	while (continue_running && (i != data->loop)) {

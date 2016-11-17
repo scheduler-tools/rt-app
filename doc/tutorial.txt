@@ -200,6 +200,9 @@ class. Default value is period. The unit is usec.
 * cpus: Array of Integer. Define the CPU affinity of the thread. Default
 value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]
 
+* delay: Integer. Initial delay before a thread starts execution. The unit
+is usec.
+
 * phases: Object. The phases object described TBF
 
 If there is only 1 phase, the sequence of events can be directly put in the
