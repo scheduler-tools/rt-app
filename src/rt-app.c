@@ -40,7 +40,6 @@ static pthread_barrier_t threads_barrier;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
-	.trace_fd = -1,
 	.marker_fd = -1,
 };
 
@@ -431,10 +430,8 @@ shutdown(int sig)
 	}
 
 	if (opts.ftrace) {
-		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
-		close(ft_data.trace_fd);
+		log_notice("deconfiguring ftrace");
 		close(ft_data.marker_fd);
 	}
 
@@ -732,21 +729,14 @@ int main(int argc, char* argv[])
 		log_notice("configuring ftrace");
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/tracing_on");
-		ft_data.trace_fd = open(tmp, O_WRONLY);
-		if (ft_data.trace_fd < 0) {
-			log_error("Cannot open trace_fd file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/trace_marker");
 		ft_data.marker_fd = open(tmp, O_WRONLY);
-		if (ft_data.trace_fd < 0) {
+		if (ft_data.marker_fd < 0) {
 			log_error("Cannot open trace_marker file %s", tmp);
 			exit(EXIT_FAILURE);
 		}
 
-		log_ftrace(ft_data.trace_fd, "1");
 		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
@@ -936,10 +926,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (opts.ftrace) {
-		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
-		close(ft_data.trace_fd);
 		close(ft_data.marker_fd);
 	}
 	exit(EXIT_SUCCESS);
