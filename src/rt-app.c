@@ -557,7 +557,9 @@ void *thread_body(void *arg)
 
 	log_notice("[%d] starting thread ...\n", data->ind);
 
-	fprintf(data->log_handler, "#idx\tperf\trun\tperiod\tstart\t\tend\t\trel_st\n");
+	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s\n",
+				   "#idx", "perf", "run", "period",
+				   "start", "end", "rel_st");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
