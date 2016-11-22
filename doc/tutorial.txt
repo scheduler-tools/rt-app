@@ -321,6 +321,70 @@ below:
 		}
 	}
 
+Timers can work with a "relative" or an "absolute" reference. By default they
+work in "relative" mode, but this mode can also be explicity specified as the
+following:
+
+	"phases" : {
+		"phase0" : {
+			"loop" : 10,
+			"run0" :  10000,
+			"timer0" : { "ref" : "unique", "period" : 20000, "mode" : "relative" },
+	}
+
+"relative" mode means that the reference for setting the next timer event is
+relative to the end of the current phase. This in turn means that if, for some
+reason (i.e., clock frequency was too low), events in a certain phase took too
+long to execute and the timer of that phase couldn't actually fire at all, the
+next phase won't be affected. For example:
+
+  +---- +     +-----+     +-------------------+-----+     +---
+  |r0   |     |r0   |     |r0                 |r0   |     |r0
+  |     |     |     |     |                   |     |     |
+  o-----------o-----------o-------------------o-----------o------->
+  0    10    20    30    40    50    60    70    80   100   120
+              ^           ^           ^                   ^
+              |           |           | MISS!             |
+              +           +           +                   +
+            Timer0      Timer0       Timer0              Timer0
+
+In this example character "o" denotes when phases finish/start. Third
+activation of Timer0 is missed, since r0 executed for more that 20ms. However
+the next phase is not affected as Timer0 was set considering the instant of
+time when the misbehaving r0 finished executing.
+
+"absolute" mode is specified as the following:
+
+	"phases" : {
+		"phase0" : {
+			"loop" : 10,
+			"run0" :  10000,
+			"timer0" : { "ref" : "unique", "period" : 20000, "mode" : "absolute" },
+	}
+
+"absolute" mode means that the reference for setting the next timer event is
+fixed and always consider the starting time of the first phase. This means that
+if, for some reason (i.e., clock frequency was too low), events in a certain
+phase took too long to execute and the timer of that phase couldn't actually
+fire at all, the next phase (and potentially other subsequent phases) _will_ be
+affected. For example, considering again the example above:
+
+  +---- +     +-----+     +-------------------+-----+-----+   +---
+  |r0   |     |r0   |     |r0                 |r0   |r0   |   |r0
+  |     |     |     |     |                   |     |     |   |
+  o-----------o-----------o-------------------o-----o---------o---->
+  0    10    20    30    40    50    60    70    80   100   120
+              ^           ^           ^           ^           ^
+              |           |           | MISS!     | MISS!     |
+              +           +           +           +           +
+            Timer0      Timer0       Timer0      Timer0      Timer0
+
+Third activation of Timer0 is missed, since r0 executed for more that 20ms.
+Even if 4th activation of r0 executes for 10ms (as specified in the
+configuration), 4th Timer0 is still missed because the reference didn't change.
+In this example 5th activation of r0 then managed to recover, but in general it
+depends on how badly a certain phase misbehaves.
+
 * lock : String. Lock the mutex defined by the string value.
 
 * unlock : String. Unlock the mutex defined by the string value.

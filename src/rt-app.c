@@ -339,7 +339,8 @@ static int run_event(event_data_t *event, int dry_run,
 				t_wu = timespec_sub(&t_now, &rdata->res.timer.t_next);
 				ldata->wu_latency += timespec_to_usec(&t_wu);
 			} else {
-				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+				if (rdata->res.timer.relative)
+					clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
 				ldata->wu_latency = 0UL;
 			}
 		}

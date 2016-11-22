@@ -181,6 +181,7 @@ static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *op
 {
 	log_info(PIN3 "Init: %s timer", data->name);
 	data->res.timer.init = 0;
+	data->res.timer.relative = 1;
 }
 
 static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
@@ -488,6 +489,11 @@ parse_thread_event_data(char *name, struct json_object *obj,
 
 		rdata = &(opts->resources[data->res]);
 		ddata = &(opts->resources[data->dep]);
+
+		tmp = get_string_value_from(obj, "mode", TRUE, "relative");
+		if (!strncmp(tmp, "absolute", strlen("absolute")))
+			rdata->res.timer.relative = 0;
+		free(tmp);
 
 		log_info(PIN2 "type %d target %s [%d] period %d", data->type, rdata->name, rdata->index, data->duration);
 		return;
