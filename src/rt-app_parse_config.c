@@ -784,6 +784,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->pi_enabled = 0;
 		opts->io_device = strdup("/dev/null");
 		opts->mem_buffer_size = DEFAULT_MEM_BUF_SIZE;
+		opts->cumulative_slack = 0;
 		return;
 	}
 
@@ -872,6 +873,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 						"/dev/null");
 	opts->mem_buffer_size = get_int_value_from(global, "mem_buffer_size",
 							TRUE, DEFAULT_MEM_BUF_SIZE);
+	opts->cumulative_slack = get_bool_value_from(global, "cumulative_slack", TRUE, 0);
 
 }
 

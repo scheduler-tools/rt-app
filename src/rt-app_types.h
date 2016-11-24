@@ -196,6 +196,8 @@ typedef struct _rtapp_options_t {
 	int die_on_dmiss;
 	int mem_buffer_size;
 	char *io_device;
+
+	int cumulative_slack;
 } rtapp_options_t;
 
 typedef struct _timing_point_t {

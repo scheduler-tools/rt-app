@@ -332,7 +332,10 @@ static int run_event(event_data_t *event, int dry_run,
 			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
 			t_slack = timespec_sub(&rdata->res.timer.t_next, &t_now);
-			ldata->slack = timespec_to_usec_long(&t_slack);
+			if (opts.cumulative_slack)
+				ldata->slack += timespec_to_usec_long(&t_slack);
+			else
+				ldata->slack = timespec_to_usec_long(&t_slack);
 			if (timespec_lower(&t_now, &rdata->res.timer.t_next)) {
 				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
 				clock_gettime(CLOCK_MONOTONIC, &t_now);

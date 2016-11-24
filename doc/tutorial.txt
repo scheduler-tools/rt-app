@@ -137,6 +137,10 @@ Default value is "/dev/null".
 used to create IO-bounded and memory-bounded busy loop. Default value is
 4194304(4MB).
 
+* cumulative_slack : Boolean. Accumulate slack (see below) measured during
+  successive timer events in a phase. Default value is False (time between the
+  end of last event and the end of the phase).
+
 *** default global object:
 	"global" : {
 		"duration" : -1,
@@ -150,7 +154,8 @@ used to create IO-bounded and memory-bounded busy loop. Default value is
 		"ftrace" : false,
 		"gnuplot" : false,
 		"io_device" : "/dev/null"
-		"mem_buffer_size" : 4194304
+		"mem_buffer_size" : 4194304,
+		"cumulative_slack" : false
 	}
 
 **** tasks object ****
@@ -499,8 +504,8 @@ metrics are:
 - start/end : absolute start and end time of a phase. Same time base is used in
   ftrace
 - rel_st: start time of a phase relatively to the beg of the use case
-- slack: for periodic phases (phases that ends with a timer), time between the
-  end of last event and the end of the phase, e.g.
+- slack: if global option "cumulative_slack" (see above) is false, time between
+  the end of last event and the end of the phase, e.g.
 
   taskA ...|-- run5 --|- sleep5 -|-- run5--|..timer20.|-- run5 --|- sleep5 -|-- run6 --|.timer20.|
             <--------------- period 20 --------------> <--------------- period 20 -------------->
@@ -512,6 +517,10 @@ metrics are:
   taskA ...|-- run5 --|- sleep5 -|------- run30 ------xxxxxxxxxx|
             <--------------- period 20 -------------->
                                                        <slack-5>
+
+  if global option "cumulative_slack" is true, all the intermediate slacks of a
+  phase with multiple timers are accumulated and reported when the phase
+  completes
 
 - c_duration: sum of the configured duration of run/runtime events
 - c_period: sum of the timer(s) period(s)
