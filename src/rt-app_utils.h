@@ -28,6 +28,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
 #include "rt-app_types.h"
 
 #ifndef LOG_PREFIX
@@ -88,6 +91,9 @@ timespec_to_usec(struct timespec *ts);
 
 unsigned long long
 timespec_to_usec_ull(struct timespec *ts);
+
+long
+timespec_to_usec_long(struct timespec *ts);
 
 struct timespec
 usec_to_timespec(unsigned long usec);

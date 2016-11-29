@@ -87,6 +87,7 @@ struct _rtapp_signal {
 struct _rtapp_timer {
 	struct timespec t_next;
 	int init;
+	int relative;
 };
 
 struct _rtapp_iomem_buf {
@@ -149,6 +150,8 @@ typedef struct _thread_data_t {
 	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
 	int sched_prio;
 
+	unsigned long delay;
+
 #ifdef DLSCHED
 	struct sched_attr dl_params;
 #endif
@@ -159,6 +162,15 @@ typedef struct _ftrace_data_t {
 	int trace_fd;
 	int marker_fd;
 } ftrace_data_t;
+
+typedef struct _log_data_t {
+	unsigned long perf;
+	unsigned long duration;
+	unsigned long wu_latency;
+	unsigned long c_duration;
+	unsigned long c_period;
+	long slack;
+} log_data_t;
 
 typedef struct _rtapp_options_t {
 	int lock_pages;
@@ -184,6 +196,8 @@ typedef struct _rtapp_options_t {
 	int die_on_dmiss;
 	int mem_buffer_size;
 	char *io_device;
+
+	int cumulative_slack;
 } rtapp_options_t;
 
 typedef struct _timing_point_t {
@@ -191,6 +205,10 @@ typedef struct _timing_point_t {
 	unsigned long perf;
 	unsigned long duration;
 	unsigned long period;
+	unsigned long c_duration;
+	unsigned long c_period;
+	unsigned long wu_latency;
+	long slack;
 	__u64 start_time;
 	__u64 end_time;
 	__u64 rel_start_time;

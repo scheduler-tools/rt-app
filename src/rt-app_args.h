@@ -36,10 +36,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifdef DLSCHED
 #include "dl_syscalls.h"
 #endif
-
-#ifdef JSON
 #include "rt-app_parse_config.h"
-#endif
 
 #define DEFAULT_THREAD_PRIORITY 10
 #define PATH_LENGTH 256

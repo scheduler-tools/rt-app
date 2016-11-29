@@ -43,6 +43,31 @@ export ac_cv_lib_json_c_json_object_from_file=yes
 ./configure --host=aarch64-linux-gnu LDFLAGS=" --static	-L<path to parent of json repo>/json-c/. libs/" CFLAGS="-I<path to parent of json repo>" --with-deadline
 make
 
+e.g, with a directory structure like the following:
+
+$ tree -d
+.
+├── autom4te.cache
+├── build
+├── build-aux
+├── doc
+│   └── examples
+│       ├── cpufreq_governor_efficiency
+│       ├── merge
+│       └── tutorial
+├── json-c
+│   ├── autom4te.cache
+│   ├── doc
+│   │   └── html
+│   └── tests
+├── libdl
+├── m4
+└── src
+
+the configure step becomes
+
+./configure --host=aarch64-linux-gnu LDFLAGS="--static -L./../json-c/." CFLAGS="-I./.." --with-deadline
+
 **** json file skeleton ****
 
 The json file that describes a workload is made on 3 main objects: tasks,
@@ -112,6 +137,10 @@ Default value is "/dev/null".
 used to create IO-bounded and memory-bounded busy loop. Default value is
 4194304(4MB).
 
+* cumulative_slack : Boolean. Accumulate slack (see below) measured during
+  successive timer events in a phase. Default value is False (time between the
+  end of last event and the end of the phase).
+
 *** default global object:
 	"global" : {
 		"duration" : -1,
@@ -125,7 +154,8 @@ used to create IO-bounded and memory-bounded busy loop. Default value is
 		"ftrace" : false,
 		"gnuplot" : false,
 		"io_device" : "/dev/null"
-		"mem_buffer_size" : 4194304
+		"mem_buffer_size" : 4194304,
+		"cumulative_slack" : false
 	}
 
 **** tasks object ****
@@ -174,6 +204,9 @@ class. Default value is period. The unit is usec.
 
 * cpus: Array of Integer. Define the CPU affinity of the thread. Default
 value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]
+
+* delay: Integer. Initial delay before a thread starts execution. The unit
+is usec.
 
 * phases: Object. The phases object described TBF
 
@@ -293,6 +326,70 @@ below:
 		}
 	}
 
+Timers can work with a "relative" or an "absolute" reference. By default they
+work in "relative" mode, but this mode can also be explicity specified as the
+following:
+
+	"phases" : {
+		"phase0" : {
+			"loop" : 10,
+			"run0" :  10000,
+			"timer0" : { "ref" : "unique", "period" : 20000, "mode" : "relative" },
+	}
+
+"relative" mode means that the reference for setting the next timer event is
+relative to the end of the current phase. This in turn means that if, for some
+reason (i.e., clock frequency was too low), events in a certain phase took too
+long to execute and the timer of that phase couldn't actually fire at all, the
+next phase won't be affected. For example:
+
+  +---- +     +-----+     +-------------------+-----+     +---
+  |r0   |     |r0   |     |r0                 |r0   |     |r0
+  |     |     |     |     |                   |     |     |
+  o-----------o-----------o-------------------o-----------o------->
+  0    10    20    30    40    50    60    70    80   100   120
+              ^           ^           ^                   ^
+              |           |           | MISS!             |
+              +           +           +                   +
+            Timer0      Timer0       Timer0              Timer0
+
+In this example character "o" denotes when phases finish/start. Third
+activation of Timer0 is missed, since r0 executed for more that 20ms. However
+the next phase is not affected as Timer0 was set considering the instant of
+time when the misbehaving r0 finished executing.
+
+"absolute" mode is specified as the following:
+
+	"phases" : {
+		"phase0" : {
+			"loop" : 10,
+			"run0" :  10000,
+			"timer0" : { "ref" : "unique", "period" : 20000, "mode" : "absolute" },
+	}
+
+"absolute" mode means that the reference for setting the next timer event is
+fixed and always consider the starting time of the first phase. This means that
+if, for some reason (i.e., clock frequency was too low), events in a certain
+phase took too long to execute and the timer of that phase couldn't actually
+fire at all, the next phase (and potentially other subsequent phases) _will_ be
+affected. For example, considering again the example above:
+
+  +---- +     +-----+     +-------------------+-----+-----+   +---
+  |r0   |     |r0   |     |r0                 |r0   |r0   |   |r0
+  |     |     |     |     |                   |     |     |   |
+  o-----------o-----------o-------------------o-----o---------o---->
+  0    10    20    30    40    50    60    70    80   100   120
+              ^           ^           ^           ^           ^
+              |           |           | MISS!     | MISS!     |
+              +           +           +           +           +
+            Timer0      Timer0       Timer0      Timer0      Timer0
+
+Third activation of Timer0 is missed, since r0 executed for more that 20ms.
+Even if 4th activation of r0 executes for 10ms (as specified in the
+configuration), 4th Timer0 is still missed because the reference didn't change.
+In this example 5th activation of r0 then managed to recover, but in general it
+depends on how badly a certain phase misbehaves.
+
 * lock : String. Lock the mutex defined by the string value.
 
 * unlock : String. Unlock the mutex defined by the string value.
@@ -405,20 +502,42 @@ metrics are:
 - run: time spent by the thread to execute the run events
 - period: duration to execute the complte phase
 - start/end : absolute start and end time of a phase. Same time base is used in
-ftrace
+  ftrace
 - rel_st: start time of a phase relatively to the beg of the use case
+- slack: if global option "cumulative_slack" (see above) is false, time between
+  the end of last event and the end of the phase, e.g.
+
+  taskA ...|-- run5 --|- sleep5 -|-- run5--|..timer20.|-- run5 --|- sleep5 -|-- run6 --|.timer20.|
+            <--------------- period 20 --------------> <--------------- period 20 -------------->
+                                            <-slack5->                                  <slack4->
+
+  it can also be negative if the execution of a phases' events overshoots the
+  current period, e.g.
+
+  taskA ...|-- run5 --|- sleep5 -|------- run30 ------xxxxxxxxxx|
+            <--------------- period 20 -------------->
+                                                       <slack-5>
+
+  if global option "cumulative_slack" is true, all the intermediate slacks of a
+  phase with multiple timers are accumulated and reported when the phase
+  completes
+
+- c_duration: sum of the configured duration of run/runtime events
+- c_period: sum of the timer(s) period(s)
+- wu_lat: sum of wakeup latencies after timer events
 
 Below is an extract of a log:
 
 # Policy : SCHED_OTHER priority : 0
-#idx	perf	run		period	start			end				rel_st
-0		500000	34382	114492	175604833899	175604948391	785
-0		500000	29786	109863	175604948437	175605058300	115323
-0		500000	26977	107077	175605058336	175605165413	225223
-0		500000	28667	108771	175605165458	175605274229	332344
-0		500000	26644	106745	175605274274	175605381019	441160
-0		500000	26745	106867	175605381061	175605487928	547947
-0		500000	29513	109620	175605487974	175605597595	654860
+#idx     perf      run   period           start             end          rel_st      slack c_duration   c_period     wu_lat
+   0    92164    19935    98965    504549567051    504549666016            2443      78701      20000     100000        266
+   0    92164    19408    99952    504549666063    504549766015          101455      80217      20000     100000        265
+   0    92164    19428    99952    504549766062    504549866014          201454      80199      20000     100000        264
+   0    92164    19438    99955    504549866060    504549966015          301452      80190      20000     100000        265
+   0    92164    19446    99952    504549966061    504550066013          401453      80093      20000     100000        264
+   0    92164    19415    99953    504550066060    504550166013          501452      80215      20000     100000        263
+   0    92164    19388    99954    504550166059    504550266013          601451      80242      20000     100000        264
+   0    92164    19444    99956    504550266060    504550366015          701452      80185      20000     100000        265
 
 Some gnuplot files are also created to generate charts based on the log files 
 for each thread and for each kind of metrics. The format of the chart that

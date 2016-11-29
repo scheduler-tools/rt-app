@@ -17,7 +17,9 @@
 #define __DL_SYSCALLS__
 
 #include <linux/kernel.h>
-#include <linux/unistd.h>
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <linux/types.h>
 

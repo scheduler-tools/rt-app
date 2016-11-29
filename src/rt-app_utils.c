@@ -19,6 +19,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#include <errno.h>
+#include <string.h>
 #include "rt-app_utils.h"
 
 unsigned long
@@ -31,6 +33,12 @@ unsigned long long
 timespec_to_usec_ull(struct timespec *ts)
 {
 	return llround((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
+}
+
+long
+timespec_to_usec_long(struct timespec *ts)
+{
+	return round((ts->tv_sec * 1E9 + ts->tv_nsec) / 1000.0);
 }
 
 #ifdef DLSCHED
@@ -132,14 +140,18 @@ void
 log_timing(FILE *handler, timing_point_t *t)
 {
 	fprintf(handler,
-		"%d\t%lu\t%lu\t%lu\t%llu\t%llu\t%llu",
+		"%4d %8lu %8lu %8lu %15llu %15llu %15llu %10ld %10lu %10lu %10lu",
 		t->ind,
 		t->perf,
 		t->duration,
 		t->period,
 		t->start_time,
 		t->end_time,
-		t->rel_start_time
+		t->rel_start_time,
+		t->slack,
+		t->c_duration,
+		t->c_period,
+		t->wu_latency
 	);
 	fprintf(handler, "\n");
 }
@@ -253,7 +265,7 @@ resource_to_string(resource_t resource, char *resource_name)
 void ftrace_write(int mark_fd, const char *fmt, ...)
 {
 	va_list ap;
-	int n, size = BUF_SIZE;
+	int n, size = BUF_SIZE, ret;
 	char *tmp, *ntmp;
 
 	if (mark_fd < 0) {
@@ -274,8 +286,15 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 
 		/* If it worked return success */
 		if (n > -1 && n < size) {
-			write(mark_fd, tmp, n);
+			ret = write(mark_fd, tmp, n);
 			free(tmp);
+			if (ret < 0) {
+				log_error("Cannot write mark_fd: %s\n",
+						strerror(errno));
+				exit(EXIT_FAILURE);
+			} else if (ret < n) {
+				log_debug("Cannot write all bytes at once into mark_fd\n");
+			}
 			return;
 		}
 

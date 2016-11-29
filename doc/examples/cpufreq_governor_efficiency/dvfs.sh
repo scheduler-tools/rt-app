@@ -32,7 +32,7 @@ if [ $1 ] ; then
 	sum=0
 	loop=0
 	overrun=0
-	for i in $(cat rt-app_$1_run$3us_sleep$4us.log | sed '1d;n;d' | sed '1d' |cut -f 3); do
+	for i in $(cat rt-app_$1_run$3us_sleep$4us.log | sed '1d;n;d' | sed '1d' | awk '{print $3}'); do
 		loop=$(expr $loop + 1)
 		sum=$(expr $sum + $i)
 		if [ $4 -le $i ] ; then

@@ -35,10 +35,11 @@ static int nthreads;
 static volatile sig_atomic_t running_threads;
 static int p_load;
 rtapp_options_t opts;
+static struct timespec t_zero;
+static pthread_barrier_t threads_barrier;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
-	.trace_fd = -1,
 	.marker_fd = -1,
 };
 
@@ -46,10 +47,11 @@ static ftrace_data_t ft_data = {
  * Function: to do some useless operation.
  * TODO: improve the waste loop with more heavy functions
  */
-void waste_cpu_cycles(int load_loops)
+void waste_cpu_cycles(unsigned long long load_loops)
 {
 	double param, result;
-	double n, i;
+	double n;
+	unsigned long long i;
 
 	param = 0.95;
 	n = 4;
@@ -170,10 +172,27 @@ int calibrate_cpu_cycles(int clock)
 
 }
 
-static inline loadwait(unsigned long exec)
+static inline unsigned long loadwait(unsigned long exec)
 {
 	unsigned long load_count;
+	unsigned long secs;
+	int i;
 
+	/*
+	 * If exec is still too big, let's run it in bursts
+	 * so that we don't overflow load_count.
+	 */
+	secs = exec / 1000000;
+
+	for (i = 0; i < secs; i++) {
+		load_count = 1000000000/p_load;
+		waste_cpu_cycles(load_count);
+		exec -= 1000000;
+	}
+
+	/*
+	 * Run for the remainig exec (if any).
+	 */
 	load_count = (exec * 1000)/p_load;
 	waste_cpu_cycles(load_count);
 
@@ -217,7 +236,8 @@ static void memload(unsigned long count, struct _rtapp_iomem_buf *iomem)
 }
 
 static int run_event(event_data_t *event, int dry_run,
-		unsigned long *perf, unsigned long *duration, rtapp_resource_t *resources)
+		unsigned long *perf, rtapp_resource_t *resources,
+		struct timespec *t_first, log_data_t *ldata)
 {
 	rtapp_resource_t *rdata = &(resources[event->res]);
 	rtapp_resource_t *ddata = &(resources[event->dep]);
@@ -267,11 +287,12 @@ static int run_event(event_data_t *event, int dry_run,
 		{
 			struct timespec t_start, t_end;
 			log_debug("run %d ", event->duration);
+			ldata->c_duration += event->duration;
 			clock_gettime(CLOCK_MONOTONIC, &t_start);
 			*perf += loadwait(event->duration);
 			clock_gettime(CLOCK_MONOTONIC, &t_end);
 			t_end = timespec_sub(&t_end, &t_start);
-			*duration += timespec_to_usec(&t_end);
+			ldata->duration += timespec_to_usec(&t_end);
 		}
 		break;
 	case rtapp_runtime:
@@ -280,6 +301,7 @@ static int run_event(event_data_t *event, int dry_run,
 			int64_t diff_ns;
 
 			log_debug("runtime %d ", event->duration);
+			ldata->c_duration += event->duration;
 			clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 			do {
@@ -291,27 +313,39 @@ static int run_event(event_data_t *event, int dry_run,
 			} while ((diff_ns / 1000) < event->duration);
 
 			t_end = timespec_sub(&t_end, &t_start);
-			*duration += timespec_to_usec(&t_end);
+			ldata->duration += timespec_to_usec(&t_end);
 		}
 		break;
 	case rtapp_timer:
 		{
-			struct timespec t_period, t_now;
+			struct timespec t_period, t_now, t_wu, t_slack;
 			log_debug("timer %d ", event->duration);
 
 			t_period = usec_to_timespec(event->duration);
+			ldata->c_period += event->duration;
 
 			if (rdata->res.timer.init == 0) {
 				rdata->res.timer.init = 1;
-				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+				rdata->res.timer.t_next = *t_first;
 			}
 
 			rdata->res.timer.t_next = timespec_add(&rdata->res.timer.t_next, &t_period);
 			clock_gettime(CLOCK_MONOTONIC, &t_now);
-			if (timespec_lower(&t_now, &rdata->res.timer.t_next))
-				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
+			t_slack = timespec_sub(&rdata->res.timer.t_next, &t_now);
+			if (opts.cumulative_slack)
+				ldata->slack += timespec_to_usec_long(&t_slack);
 			else
-				clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+				ldata->slack = timespec_to_usec_long(&t_slack);
+			if (timespec_lower(&t_now, &rdata->res.timer.t_next)) {
+				clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rdata->res.timer.t_next, NULL);
+				clock_gettime(CLOCK_MONOTONIC, &t_now);
+				t_wu = timespec_sub(&t_now, &rdata->res.timer.t_next);
+				ldata->wu_latency += timespec_to_usec(&t_wu);
+			} else {
+				if (rdata->res.timer.relative)
+					clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
+				ldata->wu_latency = 0UL;
+			}
 		}
 		break;
 	case rtapp_suspend:
@@ -347,8 +381,11 @@ static int run_event(event_data_t *event, int dry_run,
 	return lock;
 }
 
-int run(int ind, phase_data_t *pdata, unsigned long *duration,
-		rtapp_resource_t *resources)
+int run(int ind,
+	phase_data_t *pdata,
+	rtapp_resource_t *resources,
+	struct timespec *t_first,
+	log_data_t *ldata)
 {
 	event_data_t *events = pdata->events;
 	int nbevents = pdata->nbevents;
@@ -358,14 +395,15 @@ int run(int ind, phase_data_t *pdata, unsigned long *duration,
 	for (i = 0; i < nbevents; i++)
 	{
 		if (!continue_running && !lock)
-			return;
+			return perf;
 
 		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
 		if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
 						"[%d] executing %d",
 						ind, i);
-		lock += run_event(&events[i], !continue_running, &perf, duration, resources);
+		lock += run_event(&events[i], !continue_running, &perf,
+				  resources, t_first, ldata);
 	}
 
 	return perf;
@@ -396,10 +434,8 @@ shutdown(int sig)
 	}
 
 	if (opts.ftrace) {
-		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
-		close(ft_data.trace_fd);
+		log_notice("deconfiguring ftrace");
 		close(ft_data.marker_fd);
 	}
 
@@ -410,10 +446,11 @@ void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
 	phase_data_t *pdata;
+	log_data_t ldata;
 	struct sched_param param;
-	struct timespec t_start, t_end;
+	struct timespec t_start, t_end, t_first;
 	unsigned long t_start_usec;
-	unsigned long perf, duration;
+	long slack;
 	timing_point_t *curr_timing;
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
@@ -536,9 +573,27 @@ void *thread_body(void *arg)
 		}
 	}
 
+	if (data->ind == 0) {
+		/*
+		 * Only first thread sets t_zero. Other threads sync with this
+		 * timestamp.
+		 */
+		clock_gettime(CLOCK_MONOTONIC, &t_zero);
+		if (opts.ftrace)
+			log_ftrace(ft_data.marker_fd,
+				"[%d] sets zero time",
+				data->ind);
+	}
+
+	pthread_barrier_wait(&threads_barrier);
+	t_first = t_zero;
+
 	log_notice("[%d] starting thread ...\n", data->ind);
 
-	fprintf(data->log_handler, "#idx\tperf\trun\tperiod\tstart\t\tend\t\trel_st\n");
+	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
+				   "#idx", "perf", "run", "period",
+				   "start", "end", "rel_st", "slack",
+				   "c_duration", "c_period", "wu_lat");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -560,6 +615,16 @@ void *thread_body(void *arg)
 		}
 	}
 #endif
+
+	if (data->delay > 0) {
+		struct timespec delay = usec_to_timespec(data->delay);
+
+		log_debug("initial delay %d ", data->delay);
+		t_first = timespec_add(&t_first, &delay);
+		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_first,
+				NULL);
+	}
+
 	i = j = loop = idx = 0;
 
 	while (continue_running && (i != data->loop)) {
@@ -569,9 +634,10 @@ void *thread_body(void *arg)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
 		log_debug("[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);;
 
-		duration = 0;
+		memset(&ldata, 0, sizeof(ldata));
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		perf = run(data->ind, pdata, &duration, *(data->resources));
+		ldata.perf = run(data->ind, pdata, *(data->resources),
+				&t_first, &ldata);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
@@ -587,10 +653,14 @@ void *thread_body(void *arg)
 		curr_timing->start_time = timespec_to_usec_ull(&t_start);
 		curr_timing->end_time = timespec_to_usec_ull(&t_end);
 		curr_timing->period = timespec_to_usec(&t_diff);
-		curr_timing->duration = duration;
-		curr_timing->perf = perf;
+		curr_timing->duration = ldata.duration;
+		curr_timing->perf = ldata.perf;
+		curr_timing->wu_latency = ldata.wu_latency;
+		curr_timing->slack = ldata.slack;
+		curr_timing->c_period = ldata.c_period;
+		curr_timing->c_duration = ldata.c_duration;
 
-		if (opts.logsize && !timings)
+		if (opts.logsize && !timings && continue_running)
 			log_timing(data->log_handler, curr_timing);
 
 		if (opts.ftrace)
@@ -660,7 +730,7 @@ int main(int argc, char* argv[])
 	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
-	running_threads = 0;
+	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
@@ -673,21 +743,14 @@ int main(int argc, char* argv[])
 		log_notice("configuring ftrace");
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/tracing_on");
-		ft_data.trace_fd = open(tmp, O_WRONLY);
-		if (ft_data.trace_fd < 0) {
-			log_error("Cannot open trace_fd file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/trace_marker");
 		ft_data.marker_fd = open(tmp, O_WRONLY);
-		if (ft_data.trace_fd < 0) {
+		if (ft_data.marker_fd < 0) {
 			log_error("Cannot open trace_marker file %s", tmp);
 			exit(EXIT_FAILURE);
 		}
 
-		log_ftrace(ft_data.trace_fd, "1");
 		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
 
@@ -877,10 +940,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (opts.ftrace) {
-		log_notice("stopping ftrace");
 		log_ftrace(ft_data.marker_fd, "main ends\n");
-		log_ftrace(ft_data.trace_fd, "0");
-		close(ft_data.trace_fd);
 		close(ft_data.marker_fd);
 	}
 	exit(EXIT_SUCCESS);

@@ -181,6 +181,7 @@ static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *op
 {
 	log_info(PIN3 "Init: %s timer", data->name);
 	data->res.timer.init = 0;
+	data->res.timer.relative = 1;
 }
 
 static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
@@ -489,6 +490,11 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		rdata = &(opts->resources[data->res]);
 		ddata = &(opts->resources[data->dep]);
 
+		tmp = get_string_value_from(obj, "mode", TRUE, "relative");
+		if (!strncmp(tmp, "absolute", strlen("absolute")))
+			rdata->res.timer.relative = 0;
+		free(tmp);
+
 		log_info(PIN2 "type %d target %s [%d] period %d", data->type, rdata->name, rdata->index, data->duration);
 		return;
 	}
@@ -689,6 +695,11 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	}
 	log_info(PIN "key: cpus %s", data->cpuset_str);
 
+	/* initial delay */
+	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
+	if (data->delay < 0)
+		data->delay = 0;
+
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
@@ -773,6 +784,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->pi_enabled = 0;
 		opts->io_device = strdup("/dev/null");
 		opts->mem_buffer_size = DEFAULT_MEM_BUF_SIZE;
+		opts->cumulative_slack = 0;
 		return;
 	}
 
@@ -861,6 +873,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 						"/dev/null");
 	opts->mem_buffer_size = get_int_value_from(global, "mem_buffer_size",
 							TRUE, DEFAULT_MEM_BUF_SIZE);
+	opts->cumulative_slack = get_bool_value_from(global, "cumulative_slack", TRUE, 0);
 
 }
 
