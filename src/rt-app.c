@@ -59,7 +59,7 @@ static pthread_barrier_t threads_barrier;
 static pthread_mutex_t joining_mutex;
 static pthread_mutex_t fork_mutex;
 
-static ftrace_data_t ft_data = {
+ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
 	.marker_fd = -1,
 };
