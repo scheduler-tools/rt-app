@@ -406,13 +406,15 @@ int run(int ind,
 	int nbevents = pdata->nbevents;
 	int i, lock = 0;
 	unsigned long perf = 0;
+	char type_name[64];
 
 	for (i = 0; i < nbevents; i++)
 	{
 		if (!continue_running && !lock)
 			return perf;
 
-		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
+		log_debug("[%d] runs events %d type %d %s ", ind, i, events[i].type,
+			  ( resource_to_string(events[i].type, type_name), type_name) );
 		if (opts.ftrace)
 				log_ftrace(ft_data.marker_fd,
 						"[%d] executing %d",
