@@ -366,7 +366,7 @@ static void memload(unsigned long count, struct _rtapp_iomem_buf *iomem)
 
 static int run_event(event_data_t *event, int dry_run,
 		unsigned long *perf, rtapp_resource_t *resources,
-		struct timespec *t_first, log_data_t *ldata)
+		struct timespec *t_first, log_data_t *ldata, int task_idx)
 {
 	rtapp_resource_t *rdata = &(resources[event->res]);
 	rtapp_resource_t *ddata = &(resources[event->dep]);
@@ -374,14 +374,16 @@ static int run_event(event_data_t *event, int dry_run,
 
 	switch(event->type) {
 	case rtapp_lock:
-		log_debug("lock %s ", rdata->name);
+		log_debug("[%d] lock %s ", task_idx, rdata->name);
 		pthread_mutex_lock(&(rdata->res.mtx.obj));
 		lock = 1;
+		log_debug("[%d] lock - complete %s ", task_idx, rdata->name);
 		break;
 	case rtapp_unlock:
-		log_debug("unlock %s ", rdata->name);
+		log_debug("[%d] unlock %s ", task_idx, rdata->name);
 		pthread_mutex_unlock(&(rdata->res.mtx.obj));
 		lock = -1;
+		log_debug("[%d] unlock - complete %s ", task_idx, rdata->name);
 		break;
 	default:
 		break;
@@ -392,52 +394,61 @@ static int run_event(event_data_t *event, int dry_run,
 
 	switch(event->type) {
 	case rtapp_wait:
-		log_debug("wait %s ", rdata->name);
+		log_debug("[%d] wait %s ", task_idx, rdata->name);
 		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+		log_debug("[%d] wait - complete %s ", task_idx, rdata->name);
 		break;
 	case rtapp_signal:
-		log_debug("signal %s ", rdata->name);
+		log_debug("[%d] signal %s ", task_idx, rdata->name);
 		pthread_cond_signal(&(rdata->res.cond.obj));
+		log_debug("[%d] signal - complete %s ", task_idx, rdata->name);
 		break;
 	case rtapp_barrier:
-		log_debug("barrier %s ", rdata->name);
 		pthread_mutex_lock(&(rdata->res.barrier.m_obj));
 		if (rdata->res.barrier.waiting == 0) {
 			/* everyone is already waiting, signal */
+			log_debug("[%d] barrier - signal %s ", task_idx, rdata->name);
 			pthread_cond_broadcast(&(rdata->res.barrier.c_obj));
 		} else {
+			log_debug("[%d] barrier - wait %s ", task_idx, rdata->name);
 			/* not everyone is waiting, mark then wait */
 			rdata->res.barrier.waiting -= 1;
 			pthread_cond_wait(&(rdata->res.barrier.c_obj), &(rdata->res.barrier.m_obj));
 			rdata->res.barrier.waiting += 1;
 		}
 		pthread_mutex_unlock(&(rdata->res.barrier.m_obj));
+		log_debug("[%d] barrier - complete %s ", task_idx, rdata->name);
 		break;
 	case rtapp_sig_and_wait:
-		log_debug("signal and wait %s", rdata->name);
+		log_debug("[%d] sync - signal %s", task_idx, rdata->name);
 		pthread_cond_signal(&(rdata->res.cond.obj));
+		log_debug("[%d] sync - wait %s", task_idx, rdata->name);
 		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+		log_debug("[%d] sync -complete %s", task_idx, rdata->name);
 		break;
 	case rtapp_broadcast:
+		log_debug("[%d] broadcast %s", task_idx, rdata->name);
 		pthread_cond_broadcast(&(rdata->res.cond.obj));
 		break;
 	case rtapp_sleep:
 		{
 		struct timespec sleep = usec_to_timespec(event->duration);
-		log_debug("sleep %d ", event->duration);
+		log_debug("[%d] sleep %d start", task_idx, event->duration);
 		nanosleep(&sleep, NULL);
+		log_debug("[%d] sleep %d end", task_idx, event->duration);
 		}
 		break;
 	case rtapp_run:
 		{
 			struct timespec t_start, t_end;
-			log_debug("run %d ", event->duration);
+			log_debug("[%d] run %d start", task_idx, event->duration);
 			ldata->c_duration += event->duration;
 			clock_gettime(CLOCK_MONOTONIC, &t_start);
 			*perf += loadwait(event->duration);
 			clock_gettime(CLOCK_MONOTONIC, &t_end);
 			t_end = timespec_sub(&t_end, &t_start);
 			ldata->duration += timespec_to_usec(&t_end);
+			log_debug("[%d] run %d end. managed %lu usec", task_idx, event->duration, ldata->duration);
 		}
 		break;
 	case rtapp_runtime:
@@ -445,7 +456,7 @@ static int run_event(event_data_t *event, int dry_run,
 			struct timespec t_start, t_end;
 			int64_t diff_ns;
 
-			log_debug("runtime %d ", event->duration);
+			log_debug("[%d] runtime %d ", task_idx, event->duration);
 			ldata->c_duration += event->duration;
 			clock_gettime(CLOCK_MONOTONIC, &t_start);
 
@@ -459,12 +470,13 @@ static int run_event(event_data_t *event, int dry_run,
 
 			t_end = timespec_sub(&t_end, &t_start);
 			ldata->duration += timespec_to_usec(&t_end);
+			log_debug("[%d] runtime %d end. managed %lu usec", task_idx, event->duration, timespec_to_usec(&t_end));
 		}
 		break;
 	case rtapp_timer:
 		{
 			struct timespec t_period, t_now, t_wu, t_slack;
-			log_debug("timer %d ", event->duration);
+			log_debug("[%d] timer %d ", task_idx, event->duration);
 
 			t_period = usec_to_timespec(event->duration);
 			ldata->c_period += event->duration;
@@ -491,45 +503,52 @@ static int run_event(event_data_t *event, int dry_run,
 					clock_gettime(CLOCK_MONOTONIC, &rdata->res.timer.t_next);
 				ldata->wu_latency = 0UL;
 			}
+			log_debug("[%d] timer %d complete ", task_idx, event->duration);
 		}
 		break;
 	case rtapp_suspend:
 		{
-		log_debug("suspend %s ", rdata->name);
+		log_debug("[%d] suspend - lock %s ", task_idx, rdata->name);
 		pthread_mutex_lock(&(ddata->res.mtx.obj));
+		log_debug("[%d] suspend - lock complete. wait %s ", task_idx, rdata->name);
 		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+		log_debug("[%d] suspend - wait complete. unlock %s ", task_idx, rdata->name);
 		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+		log_debug("[%d] suspend - unlock complete %s ", task_idx, rdata->name);
 		break;
 		}
 	case rtapp_resume:
 		{
-		log_debug("resume %s ", rdata->name);
+		log_debug("[%d] resume - lock %s ", task_idx, rdata->name);
 		pthread_mutex_lock(&(ddata->res.mtx.obj));
+		log_debug("[%d] resume - lock complete. broadcast %s ", task_idx, rdata->name);
 		pthread_cond_broadcast(&(rdata->res.cond.obj));
+		log_debug("[%d] resume - broadcast complete. unlock %s ", task_idx, rdata->name);
 		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+		log_debug("[%d] resume - unlocked. done %s ", task_idx, rdata->name);
 		break;
 		}
 	case rtapp_mem:
 		{
-			log_debug("mem %d", event->count);
+			log_debug("[%d] mem %d", task_idx, event->count);
 			memload(event->count, &rdata->res.buf);
 		}
 		break;
 	case rtapp_iorun:
 		{
-			log_debug("iorun %d", event->count);
+			log_debug("[%d] iorun %d", task_idx, event->count);
 			ioload(event->count, &rdata->res.buf, ddata->res.dev.fd);
 		}
 		break;
 	case rtapp_yield:
 		{
-			log_debug("yield %d", event->count);
+			log_debug("[%d] yield %d", task_idx, event->count);
 			pthread_yield();
 		}
 		break;
 	case rtapp_fork:
 		{
-			log_debug("fork %s", rdata->res.fork.ref);
+			log_debug("[%d] fork %s", task_idx, rdata->res.fork.ref);
 
 			/*
 			 * Check if the current thread reached its limit of
@@ -607,7 +626,7 @@ int run(int ind,
 		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
 		log_ftrace("[%d] executing %d", ind, i);
 		lock += run_event(&events[i], !continue_running, &perf,
-				  resources, t_first, ldata);
+				  resources, t_first, ldata, ind);
 	}
 
 	return perf;
