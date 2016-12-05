@@ -267,7 +267,29 @@ resource_to_string(resource_t resource, char *resource_name)
 		case rtapp_barrier:
 			strcpy(resource_name, "barrier");
 			break;
+		case rtapp_lock:
+			strcpy(resource_name, "lock");
+			break;
+		case rtapp_unlock:
+			strcpy(resource_name, "unlock");
+			break;
+		case rtapp_suspend:
+			strcpy(resource_name, "suspend");
+			break;
+		case rtapp_resume:
+			strcpy(resource_name, "resume");
+			break;
+		case rtapp_mem:
+			strcpy(resource_name, "mem");
+			break;
+		case rtapp_iorun:
+			strcpy(resource_name, "iorun");
+			break;
+		case rtapp_runtime:
+			strcpy(resource_name, "runtime");
+			break;
 		default:
+			resource_name[0] = 0;
 			return 1;
 	}
 	return 0;

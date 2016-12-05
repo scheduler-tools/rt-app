@@ -617,13 +617,15 @@ int run(int ind,
 	int nbevents = pdata->nbevents;
 	int i, lock = 0;
 	unsigned long perf = 0;
+	char type_name[RTAPP_RESOURCE_DESCR_LENGTH];
 
 	for (i = 0; i < nbevents; i++)
 	{
 		if (!continue_running && !lock)
 			return perf;
 
-		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
+		log_debug("[%d] runs events %d type %s ", ind, i,
+			  ( resource_to_string(events[i].type, type_name), type_name) );
 		log_ftrace("[%d] executing %d", ind, i);
 		lock += run_event(&events[i], !continue_running, &perf,
 				  resources, t_first, ldata, ind);
