@@ -47,7 +47,7 @@ rtapp_options_t opts;
 static struct timespec t_zero;
 static pthread_barrier_t threads_barrier;
 
-static ftrace_data_t ft_data = {
+ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
 	.marker_fd = -1,
 };

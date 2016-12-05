@@ -296,12 +296,12 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 	char *tmp, *ntmp;
 
 	if (mark_fd < 0) {
-		log_error("invalid mark_fd");
+		log_error_no_ftrace("invalid mark_fd");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((tmp = malloc(size)) == NULL) {
-		log_error("Cannot allocate ftrace buffer");
+		log_error_no_ftrace("Cannot allocate ftrace buffer");
 		exit(EXIT_FAILURE);
 	}
 
@@ -316,11 +316,11 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 			ret = write(mark_fd, tmp, n);
 			free(tmp);
 			if (ret < 0) {
-				log_error("Cannot write mark_fd: %s\n",
+				log_error_no_ftrace("Cannot write mark_fd: %s\n",
 						strerror(errno));
 				exit(EXIT_FAILURE);
 			} else if (ret < n) {
-				log_debug("Cannot write all bytes at once into mark_fd\n");
+				log_debug_no_ftrace("Cannot write all bytes at once into mark_fd\n");
 			}
 			return;
 		}
@@ -333,7 +333,7 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 
 		if ((ntmp = realloc(tmp, size)) == NULL) {
 			free(tmp);
-			log_error("Cannot reallocate ftrace buffer");
+			log_error_no_ftrace("Cannot reallocate ftrace buffer");
 			exit(EXIT_FAILURE);
 		} else {
 			tmp = ntmp;

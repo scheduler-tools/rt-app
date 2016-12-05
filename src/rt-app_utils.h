@@ -43,12 +43,28 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define BUF_SIZE 100
 
+extern ftrace_data_t ft_data;
+
 /* This prepend a string to a message */
-#define rtapp_log_to(where, level, level_pfx, msg, args...)		\
-do {									\
-    if (level <= LOG_LEVEL) {						\
-        fprintf(where, LOG_PREFIX level_pfx msg "\n", ##args);		\
-    }									\
+#define rtapp_log_to_min(where, level, level_pfx, msg, args...)         \
+do {                                                                    \
+    if (level <= LOG_LEVEL) {                                           \
+        struct timespec t_now;                                          \
+        clock_gettime(CLOCK_MONOTONIC, &t_now);                         \
+        fprintf(where, LOG_PREFIX level_pfx " %06ld.%09ld " msg "\n", t_now.tv_sec, t_now.tv_nsec, ##args);		\
+    }                                                                   \
+} while (0);
+
+#define rtapp_log_to(where, level, level_pfx, msg, args...)             \
+do {                                                                    \
+    if (level <= LOG_LEVEL) {                                           \
+        struct timespec t_now;                                          \
+        clock_gettime(CLOCK_MONOTONIC, &t_now);                         \
+        fprintf(where, LOG_PREFIX level_pfx " %06ld.%09ld " msg "\n", t_now.tv_sec, t_now.tv_nsec, ##args); \
+        if(ft_data.marker_fd != -1) {                                   \
+            ftrace_write(ft_data.marker_fd, msg, ##args);               \
+        }                                                               \
+    }                                                                   \
 } while (0);
 
 #define log_ftrace(mark_fd, msg, args...)				\
@@ -71,9 +87,19 @@ do {									\
     rtapp_log_to(stderr, LOG_LEVEL_ERROR, "<error> ", msg, ##args);	\
 } while (0);
 
+#define log_error_no_ftrace(msg, args...)						\
+do {									\
+    rtapp_log_to_min(stderr, LOG_LEVEL_ERROR, "<error> ", msg, ##args);	\
+} while (0);
+
 #define log_debug(msg, args...)						\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_DEBUG, "<debug> ", msg, ##args);	\
+} while (0);
+
+#define log_debug_no_ftrace(msg, args...)						\
+do {									\
+    rtapp_log_to_min(stderr, LOG_LEVEL_DEBUG, "<debug> ", msg, ##args);	\
 } while (0);
 
 #define log_critical(msg, args...)					\
