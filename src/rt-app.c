@@ -619,7 +619,7 @@ void *thread_body(void *arg)
 	if (data->delay > 0) {
 		struct timespec delay = usec_to_timespec(data->delay);
 
-		log_debug("initial delay %d ", data->delay);
+		log_debug("initial delay %lu ", data->delay);
 		t_first = timespec_add(&t_first, &delay);
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_first,
 				NULL);
