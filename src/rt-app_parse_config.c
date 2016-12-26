@@ -546,6 +546,11 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
 		return;
 	}
+	if (!strncmp(name, "yield", strlen("yield"))) {
+		data->type = rtapp_yield;
+		log_info(PIN2 "type %d", data->type);
+		return;
+	}
 
 unknown_resource:
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
@@ -573,6 +578,7 @@ static char *events[] = {
 	"resume",
 	"mem",
 	"iorun",
+	"yield",
 	NULL
 };
 

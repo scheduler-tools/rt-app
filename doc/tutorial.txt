@@ -431,6 +431,8 @@ the right thread's name before starting the use case.
 taskA ...|run 5|suspend |----------------|run 5|suspend |----------------
 taskB ...-------------------|resume taskA|run 10    |-------------------- 
 
+* yield: String. Calls pthread_yield(), freeing the CPU for other tasks. This has a 
+special meaning for SCHED_DEADLINE tasks. String can be empty.
 
 **** Trace and Log ****
 
