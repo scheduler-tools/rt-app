@@ -376,6 +376,12 @@ static int run_event(event_data_t *event, int dry_run,
 			ioload(event->count, &rdata->res.buf, ddata->res.dev.fd);
 		}
 		break;
+	case rtapp_yield:
+		{
+			log_debug("yield %d", event->count);
+			pthread_yield();
+		}
+		break;
 	}
 
 	return lock;
