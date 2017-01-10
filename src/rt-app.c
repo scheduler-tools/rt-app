@@ -546,8 +546,11 @@ void *thread_body(void *arg)
 			attr.sched_deadline = data->deadline; 
 			attr.sched_period = data->period;
 
-			log_notice("[%d] period: %lu, exec: %lu, deadline: %lu",
-				data->ind, data->period, data->runtime, data->deadline);
+			if (data->reclaim)
+				attr.sched_flags |= SCHED_FLAG_RECLAIM;
+
+			log_notice("[%d] period: %lu, exec: %lu, deadline: %lu reclaim: %d",
+				data->ind, data->period, data->runtime, data->deadline, data->reclaim);
 			break;
 #endif
 

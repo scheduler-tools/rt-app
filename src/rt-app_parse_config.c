@@ -684,6 +684,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		if (!data->deadline)
 			data->deadline = data->period;
 	}
+	data->reclaim = get_bool_value_from(obj, "dl-reclaim", TRUE, 0);
 
 	/* cpuset */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);

@@ -139,6 +139,7 @@ typedef struct _thread_data_t {
 	char *cpuset_str;
 
 	unsigned long runtime, deadline, period;
+	int reclaim;
 
 	int loop;
 	int nphases;
