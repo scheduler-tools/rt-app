@@ -718,6 +718,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.runtime = get_int_value_from(obj, "dl-runtime", TRUE, 0);
 	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
 	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
+	tmp_data.reclaim = get_bool_value_from(obj, "dl-reclaim", TRUE, 0);
 
 
 	if (def_policy != -1) {

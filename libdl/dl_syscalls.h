@@ -65,14 +65,7 @@
 #endif
 #endif
 
-#define SF_SIG_RORUN		2
-#define SF_SIG_DMISS		4
-#define SF_BWRECL_DL		8
-#define SF_BWRECL_RT		16
-#define SF_BWRECL_OTH		32
-
-#define RLIMIT_DLDLINE		16
-#define RLIMIT_DLRTIME		17
+#define SCHED_FLAG_RECLAIM		0x02
 
 struct sched_attr {
 	__u32 size;

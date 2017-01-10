@@ -154,6 +154,7 @@ typedef struct _sched_data_t {
 	unsigned long runtime;
 	unsigned long deadline;
 	unsigned long period;
+	int reclaim;
 } sched_data_t;
 
 typedef struct _phase_data_t {

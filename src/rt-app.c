@@ -679,6 +679,9 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			dl_params.sched_deadline = sched_data->deadline;
 			dl_params.sched_period = sched_data->period;
 
+			if (sched_data->reclaim)
+				dl_params.sched_flags |= SCHED_FLAG_RECLAIM;
+
 			ret = sched_setattr(tid, &dl_params, flags);
 			if (ret != 0) {
 				log_critical("[%d] sched_setattr "
