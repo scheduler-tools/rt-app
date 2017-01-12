@@ -1,0 +1,31 @@
+{
+	"tasks" : {
+		"thread0" : {
+			"instance" : 4,
+			"loop" : -1,
+			"run" :   30000,
+			"timer" : { "ref" : "unique", "period" : 30000 },
+			"dl-runtime" : 10000,
+			"dl-period"  : 30000,
+			"dl-reclaim" : true
+		},
+		"thread1" : {
+			"instance" : 1,
+			"loop" : -1,
+			"run" :   30000,
+			"timer" : { "ref" : "unique", "period" : 30000 },
+			"dl-runtime" : 3000,
+			"dl-period"  : 30000,
+			"dl-reclaim" : true
+		}
+	},
+	"global" : {
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_DEADLINE",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app2",
+		"gnuplot" : false
+	}
+}

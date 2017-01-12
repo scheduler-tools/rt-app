@@ -1,0 +1,58 @@
+{
+	"tasks" : {
+		"thread0" : {
+			"instance" : 3,
+			"loop" : -1,
+			"run" :   30000,
+			"timer" : { "ref" : "unique", "period" : 30000 },
+			"dl-runtime" : 10000,
+			"dl-period"  : 30000,
+			"dl-reclaim" : true
+		},
+		"thread1" : {
+			"instance" : 2,
+			"loop" : -1,
+			"run" :   30000,
+			"timer" : { "ref" : "unique", "period" : 30000 },
+			"dl-runtime" : 3000,
+			"dl-period"  : 30000,
+			"dl-reclaim" : true
+		},
+		"thread2" : {
+			"instance" : 2,
+			"loop" : -1,
+			"run" :   30000,
+			"timer" : { "ref" : "unique", "period" : 30000 },
+			"dl-runtime" : 2000,
+			"dl-period"  : 10000,
+			"dl-reclaim" : true
+		},
+		"thread3" : {
+			"instance" : 2,
+			"loop" : -1,
+			"run" :   100000,
+			"timer" : { "ref" : "unique", "period" : 100000 },
+			"dl-runtime" : 15000,
+			"dl-period"  : 55000,
+			"dl-reclaim" : false
+		},
+		"thread4" : {
+			"instance" : 1,
+			"loop" : -1,
+			"run" :   100000,
+			"timer" : { "ref" : "unique", "period" : 100000 },
+			"dl-runtime" : 17000,
+			"dl-period"  : 85000,
+			"dl-reclaim" : false
+		}
+	},
+	"global" : {
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_DEADLINE",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app2",
+		"gnuplot" : false
+	}
+}
