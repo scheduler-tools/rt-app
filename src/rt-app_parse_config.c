@@ -751,7 +751,8 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	int i, instance;
+	int i, j, instance, instances;
+	char *name;
 
 	log_info(PFX "Parsing tasks section");
 	opts->nthreads = 0;
@@ -762,12 +763,26 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 
 	log_info(PFX "Found %d tasks", opts->nthreads);
 	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
+	name = calloc(16, sizeof(char));
 	i = instance = 0;
 	foreach (tasks, entry, key, val, idx) {
-		instance += get_int_value_from(val, "instance", TRUE, 1);
-		for (; i < instance; i++)
-			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
+		j = 0;
+		if (strlen(key) > 16)
+			log_notice(PFX "Thread name (%s) exceeds the allowed limit and it's going to be truncated", key);
+
+		instances = get_int_value_from(val, "instance", TRUE, 1);
+		if (instances < 2)
+			snprintf(name, 16, "%s", key);
+
+		instance += instances;
+		for (; i < instance; i++) {
+			if (instances > 1)
+				snprintf(name, 16, "%s:%d", key, j++);
+
+			parse_thread_data(name, val, i, &opts->threads_data[i], opts);
+		}
 	}
+	free(name);
 }
 
 static void
