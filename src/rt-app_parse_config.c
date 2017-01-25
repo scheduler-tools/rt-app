@@ -637,7 +637,6 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 {
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
-	struct array_list *cpuset;
 	struct json_object *cpuset_obj, *phases_obj, *cpu, *resources, *locks;
 	int i, cpu_idx, prior_def;
 
@@ -688,7 +687,6 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
 		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
 		data->cpuset = malloc(sizeof(cpu_set_t));
-		cpuset = json_object_get_array(cpuset_obj);
 		CPU_ZERO(data->cpuset);
 		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
