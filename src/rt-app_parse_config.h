@@ -39,10 +39,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 #include <json-c/json.h>
 
-#define DEFAULT_THREAD_PRIORITY 10
-#define DEFAULT_THREAD_NICE	0
-#define PATH_LENGTH 256
-
 void
 parse_config(const char *filename, rtapp_options_t *opts);
 void

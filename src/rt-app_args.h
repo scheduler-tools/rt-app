@@ -38,9 +38,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #endif
 #include "rt-app_parse_config.h"
 
-#define DEFAULT_THREAD_PRIORITY 10
-#define PATH_LENGTH 256
-
 void
 usage (const char* msg, int ex_code);
 
