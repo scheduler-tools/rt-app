@@ -22,13 +22,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef _RTAPP_TYPES_H_
 #define _RTAPP_TYPES_H_
 
+#include <pthread.h>
+
 #include "config.h"
 #include "dl_syscalls.h"
-#include <sched.h>
-#include <pthread.h>
-#include <time.h>
-#include <stdio.h>
-#include <sched.h>
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
 #define RTAPP_RESOURCE_DESCR_LENGTH 16

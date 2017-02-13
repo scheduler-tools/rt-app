@@ -21,22 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #ifndef _RTAPP_ARGS_H_
 #define _RTAPP_ARGS_H_
-/* for CPU_SET macro */
-#define _GNU_SOURCE
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sched.h>
-#include <getopt.h>
-#include <sys/stat.h>
-#include <string.h>
 #include "rt-app_types.h"
-#include "rt-app_utils.h"
-#ifdef DLSCHED
-#include "dl_syscalls.h"
-#endif
-#include "rt-app_parse_config.h"
 
 void
 usage (const char* msg, int ex_code);
