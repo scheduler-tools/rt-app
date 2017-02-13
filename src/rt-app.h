@@ -34,8 +34,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_types.h"
 #include "rt-app_args.h"
 
-#define BUDGET_OVERP 5
-
 void *thread_body(void *arg);
 
 #endif /* _RT_APP_H_ */
