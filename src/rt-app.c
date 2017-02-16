@@ -19,14 +19,23 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+/* for CPU_SET macro */
 #define _GNU_SOURCE
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
-#include "rt-app.h"
-#include "rt-app_utils.h"
-#include <sched.h>
-#include "pthread.h"
+#include <math.h>
+#include <pthread.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/mman.h>  /* for memlock */
+
+#include "config.h"
+#include "rt-app_utils.h"
+#include "rt-app_args.h"
 
 static int errno;
 static volatile sig_atomic_t continue_running;

@@ -23,14 +23,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define _TIMESPEC_UTILS_H_
 
 #include <time.h>
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
+#include <stdint.h>
+
+#include "config.h"
 #include "rt-app_types.h"
 
 #ifndef LOG_PREFIX

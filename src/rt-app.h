@@ -22,20 +22,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef _RT_APP_H_
 #define _RT_APP_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <error.h>
-#include <time.h>
-#include <sched.h>
-#include <pthread.h>
-#include <signal.h>
-#include <sys/mman.h>  /* for memlock */
-#include "config.h"
-#include "rt-app_types.h"
-#include "rt-app_args.h"
-
-#define BUDGET_OVERP 5
-
 void *thread_body(void *arg);
 
 #endif /* _RT_APP_H_ */

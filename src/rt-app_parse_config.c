@@ -18,7 +18,16 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-#include <json-c/bits.h>
+
+/* for CPU_SET macro */
+#define _GNU_SOURCE
+
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include <json-c/json.h>
+
+#include "rt-app_utils.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "

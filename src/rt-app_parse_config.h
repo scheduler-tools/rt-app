@@ -21,27 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #ifndef _RTAPP_PARSE_CONFIG_H
 #define _RTAPP_PARSE_CONFIG_H 
-/* for CPU_SET macro */
-#define _GNU_SOURCE
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <sched.h>
-#include <string.h>
 #include "rt-app_types.h"
-#include "rt-app_utils.h"
-#ifdef DLSCHED
-#include "dl_syscalls.h"
-#endif
-#include <json-c/json.h>
-
-#define DEFAULT_THREAD_PRIORITY 10
-#define DEFAULT_THREAD_NICE	0
-#define PATH_LENGTH 256
 
 void
 parse_config(const char *filename, rtapp_options_t *opts);
