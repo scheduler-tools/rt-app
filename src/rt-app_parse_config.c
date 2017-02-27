@@ -895,7 +895,7 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 {
 	struct json_object *global, *tasks, *resources;
 
-	if (is_error(root)) {
+	if (root == NULL) {
 		log_error(PFX "Error while parsing input JSON");
 		exit(EXIT_INV_CONFIG);
 	}
