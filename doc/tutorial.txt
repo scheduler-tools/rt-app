@@ -422,6 +422,39 @@ following sequence:
 	"unlock" : "mutexA"
 }
 
+* barrier : String. Used as at least a pair where the name must match.
+Any number of matching uses will cause all threads hitting the barrier event
+to wait for a signal. The number of users is recorded, so that when the last user
+hits the barrier event, that thread will broadcast and continue to the next
+step. This is conceptually exactly the same as a pthread_barrier_wait operation
+however, using a pthread_barrier would impose some strict conditions on usage
+around thread cleanups - primarily that you cannot cancel an in-progress barrier
+operation which would mean that we have to restrict cleanup to only be possible
+at the end of a loop cycle (i.e. all phases are complete). This would be too
+restrictive for most uses so here we use an alternative.
+
+In this implementation, the barrier event manages its own mutex and uses a
+variable shared between users to track waiting tasks, protected by the mutex.
+
+You must use a unique name for each sync event since the number of users is
+taken from the number of references to the name in the input json. i.e. each
+name must represent a single sync point, and be shared amongst all threads
+which wish to syncronise at that point.
+
+The barrier event "barrier" : "SyncPointA"
+generates the following sequence:
+{
+    "lock" : "SyncPointA" (internal mutex),
+    If the shared variable is 0:
+      "signal" : "SyncPointA" (internal condvar),
+    Else:
+      decrement the shared variable,
+      "wait" : { "ref" : "SyncPointA" (internal condvar),
+                 "mutex" : "SyncPointA" (internal mutex) },
+      increment the shared variable,
+    "unlock" : "SyncPointA" (internal mutex)
+}
+
 * suspend : String. Block the calling thread until another thread wakes it up
 with resume. The String can be let empty as it will be filled by workgen with
 the right thread's name before starting the use case.

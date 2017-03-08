@@ -1,0 +1,64 @@
+{
+    /* Simple use case with two tasks driving each other in
+       turn. This demonstrates that the barrier event causes
+       tasks to be synchronized no matter which task reaches
+       the barrier first. The sequence which should be seen is:
+
+       time       task0                    task1
+        0000:      run                      run
+        1000:      sleep                    run
+        2000:      sleep                    wait FIRST
+        3000:      wait FIRST, then run     wait FIRST, then run
+        4000:      run                      sleep
+        5000:      wait SECOND              sleep
+        6000:      wait SECOND, then run    wait SECOND, then run
+
+       (These times will not be exactly reflected when you run
+        the example as we don't account for any scheduling effects
+        or run/sleep time variation in the explanation)
+
+       At 2000, task1 is waiting for the FIRST barrier however
+       task0 doesn't enter this barrier until the 2000-usec
+       sleep event completes at 3000. In this first barrier,
+       task1 waits for task0 to reach the synchronization point.
+
+       At 5000, task0 is waiting for the SECOND barrier, however
+       task1 does not enter this barrier until the 2000-usec
+       sleep event completes at 6000. In this second barrier,
+       task0 waits for task1 to reach the synchronization point.
+    */
+	"tasks" : {
+		"task0" : {
+			"loop" : -1,
+			"runtime1" : 1000,
+			"sleep1" : 2000,
+			"barrier1" : "FIRST",
+			"runtime2" : 2000,
+			"barrier2" : "SECOND",
+			"runtime3" : 1000,
+			"sleep3" : 2000,
+			"barrier3" : "THIRD",
+		},
+		"task1" : {
+			"loop" : -1,
+			"runtime1" : 2000,
+			"barrier1" : "FIRST",
+			"runtime2" : 1000,
+			"sleep2" : 2000,
+			"barrier2" : "SECOND",
+			"runtime3" : 2000,
+			"barrier3" : "THIRD",
+		},
+	},
+	"global" : {
+		"duration" : 5,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : true,
+		"gnuplot" : false,
+	}
+}

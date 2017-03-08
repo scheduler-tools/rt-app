@@ -70,7 +70,8 @@ typedef enum resource_t
 	rtapp_mem,
 	rtapp_iorun,
 	rtapp_runtime,
-	rtapp_yield
+	rtapp_yield,
+	rtapp_barrier
 } resource_t;
 
 struct _rtapp_mutex {
@@ -81,6 +82,20 @@ struct _rtapp_mutex {
 struct _rtapp_cond {
 	pthread_cond_t obj;
 	pthread_condattr_t attr;
+};
+
+struct _rtapp_barrier_like {
+	/* sync operation which works without ordering - everyone waits
+	 * until the last task arrives at the sync point. Conceptually
+	 * just like pthread_barrier except we don't have any cleanup
+	 * issues which barrier would impose */
+	/* mutex to guard read/write of the flag */
+	pthread_mutex_t m_obj;
+	pthread_mutexattr_t m_attr;
+	/* flag to indicate how many are waiting */
+	int waiting;
+	/* condvar to wait/signal on */
+	pthread_cond_t c_obj;
 };
 
 struct _rtapp_signal {
@@ -111,6 +126,7 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_timer timer;
 		struct _rtapp_iomem_buf buf;
 		struct _rtapp_iodev dev;
+		struct _rtapp_barrier_like barrier;
 	} res;
 	int index;
 	resource_t type;
