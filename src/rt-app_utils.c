@@ -261,7 +261,29 @@ resource_to_string(resource_t resource, char *resource_name)
 		case rtapp_timer:
 			strcpy(resource_name, "timer");
 			break;
+		case rtapp_lock:
+			strcpy(resource_name, "lock");
+			break;
+		case rtapp_unlock:
+			strcpy(resource_name, "unlock");
+			break;
+		case rtapp_suspend:
+			strcpy(resource_name, "suspend");
+			break;
+		case rtapp_resume:
+			strcpy(resource_name, "resume");
+			break;
+		case rtapp_mem:
+			strcpy(resource_name, "mem");
+			break;
+		case rtapp_iorun:
+			strcpy(resource_name, "iorun");
+			break;
+		case rtapp_runtime:
+			strcpy(resource_name, "runtime");
+			break;
 		default:
+			resource_name[0] = 0;
 			return 1;
 	}
 	return 0;
@@ -274,12 +296,12 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 	char *tmp, *ntmp;
 
 	if (mark_fd < 0) {
-		log_error("invalid mark_fd");
+		log_error_no_ftrace("invalid mark_fd");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((tmp = malloc(size)) == NULL) {
-		log_error("Cannot allocate ftrace buffer");
+		log_error_no_ftrace("Cannot allocate ftrace buffer");
 		exit(EXIT_FAILURE);
 	}
 
@@ -294,11 +316,11 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 			ret = write(mark_fd, tmp, n);
 			free(tmp);
 			if (ret < 0) {
-				log_error("Cannot write mark_fd: %s\n",
+				log_error_no_ftrace("Cannot write mark_fd: %s\n",
 						strerror(errno));
 				exit(EXIT_FAILURE);
 			} else if (ret < n) {
-				log_debug("Cannot write all bytes at once into mark_fd\n");
+				log_debug_no_ftrace("Cannot write all bytes at once into mark_fd\n");
 			}
 			return;
 		}
@@ -311,7 +333,7 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 
 		if ((ntmp = realloc(tmp, size)) == NULL) {
 			free(tmp);
-			log_error("Cannot reallocate ftrace buffer");
+			log_error_no_ftrace("Cannot reallocate ftrace buffer");
 			exit(EXIT_FAILURE);
 		} else {
 			tmp = ntmp;
