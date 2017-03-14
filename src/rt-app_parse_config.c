@@ -217,6 +217,27 @@ static int init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *op
 	data->res.dev.fd = open(opts->io_device, O_CREAT | O_WRONLY, 0644);
 }
 
+static int init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN3 "Init: %s barrier", data->name);
+
+	/* each task waiting for this resource will increment this counter.
+	 * start at -1 so that when we see this is zero we are the last man
+	 * to enter the sync point and should wake everyone else.
+	 */
+	data->res.barrier.waiting = -1;
+	pthread_mutexattr_init(&data->res.barrier.m_attr);
+	if (opts->pi_enabled) {
+		pthread_mutexattr_setprotocol(
+				&data->res.barrier.m_attr,
+				PTHREAD_PRIO_INHERIT);
+	}
+	pthread_mutex_init(&data->res.barrier.m_obj,
+			&data->res.barrier.m_attr);
+
+	pthread_cond_init(&data->res.barrier.c_obj, NULL);
+}
+
 static void
 init_resource_data(const char *name, int type, int idx, const rtapp_options_t *opts)
 {
@@ -242,6 +263,9 @@ init_resource_data(const char *name, int type, int idx, const rtapp_options_t *o
 			break;
 		case rtapp_iorun:
 			init_iodev_resource(data, opts);
+			break;
+		case rtapp_barrier:
+			init_barrier_resource(data, opts);
 			break;
 	}
 }
@@ -474,6 +498,24 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+    if (!strncmp(name, "barrier", strlen("barrier"))) {
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		data->type = rtapp_barrier;
+
+		ref = json_object_get_string(obj);
+		i = get_resource_index(ref, rtapp_barrier, opts);
+
+		data->res = i;
+		rdata = &(opts->resources[data->res]);
+		rdata->res.barrier.waiting += 1;
+
+		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
+		return;
+	}
+
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
@@ -588,6 +630,7 @@ static char *events[] = {
 	"mem",
 	"iorun",
 	"yield",
+	"barrier",
 	NULL
 };
 

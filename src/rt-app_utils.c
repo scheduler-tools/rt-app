@@ -261,6 +261,9 @@ resource_to_string(resource_t resource, char *resource_name)
 		case rtapp_timer:
 			strcpy(resource_name, "timer");
 			break;
+		case rtapp_barrier:
+			strcpy(resource_name, "barrier");
+			break;
 		default:
 			return 1;
 	}

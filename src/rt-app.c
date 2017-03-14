@@ -277,6 +277,20 @@ static int run_event(event_data_t *event, int dry_run,
 		log_debug("signal %s ", rdata->name);
 		pthread_cond_signal(&(rdata->res.cond.obj));
 		break;
+	case rtapp_barrier:
+		log_debug("barrier %s ", rdata->name);
+		pthread_mutex_lock(&(rdata->res.barrier.m_obj));
+		if (rdata->res.barrier.waiting == 0) {
+			/* everyone is already waiting, signal */
+			pthread_cond_broadcast(&(rdata->res.barrier.c_obj));
+		} else {
+			/* not everyone is waiting, mark then wait */
+			rdata->res.barrier.waiting -= 1;
+			pthread_cond_wait(&(rdata->res.barrier.c_obj), &(rdata->res.barrier.m_obj));
+			rdata->res.barrier.waiting += 1;
+		}
+		pthread_mutex_unlock(&(rdata->res.barrier.m_obj));
+		break;
 	case rtapp_sig_and_wait:
 		log_debug("signal and wait %s", rdata->name);
 		pthread_cond_signal(&(rdata->res.cond.obj));
@@ -439,6 +453,9 @@ shutdown(int sig)
 	for (i = 0; i <  opts.nresources; i++) {
 		if (opts.resources[i].type == rtapp_wait) {
 			pthread_cond_broadcast(&opts.resources[i].res.cond.obj);
+		}
+		if (opts.resources[i].type == rtapp_barrier) {
+			pthread_cond_broadcast(&opts.resources[i].res.barrier.c_obj);
 		}
 	}
 
