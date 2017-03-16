@@ -1,0 +1,40 @@
+{
+	/*
+	 * Simple use case which creates a thread with 3 phases each running for
+	 * 1.5ms. In phase 1 the thread will be affined to CPU 0, in phase 2 it
+	 * will be affined to CPU 1 and in the third phase it will be affined to
+	 * CPUs 2 (inherit from "cpus" at task level).
+	 */
+	"tasks" : {
+		"thread0" : {
+			"cpus" : [2],
+			"phases" : {
+				"phase1" : {
+					"cpus" : [0],
+					"loop" : 1,
+					"run" : 1500
+				},
+				"phase2" : {
+					"cpus" : [1],
+					"loop" : 1,
+					"run" : 1500
+				},
+				"phase3" : {
+					"loop" : 1,
+					"run" : 1500
+				}
+			}
+		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : true,
+		"gnuplot" : true
+	}
+}

@@ -474,6 +474,116 @@ shutdown(int sig)
 	exit(EXIT_SUCCESS);
 }
 
+static void create_cpuset_str(cpuset_data_t *cpu_data)
+{
+	unsigned int cpu_count = CPU_COUNT_S(cpu_data->cpusetsize,
+							cpu_data->cpuset);
+	unsigned int i;
+	unsigned int idx = 0;
+
+	/*
+	 * Assume we can go up to 9999 cpus. Each cpu would take up to 4 + 2
+	 * bytes (4 for the number and 2 for the comma and space). 2 bytes
+	 * for beginning bracket + space and 2 bytes for end bracket and space
+	 * and finally null-terminator.
+	 */
+	unsigned int size_needed = cpu_count * 6 + 2 + 2 + 1;
+
+	if (cpu_count > 9999) {
+		log_error("Too many cpus specified. Up to 9999 cpus supported");
+		exit(EXIT_FAILURE);
+	}
+
+	cpu_data->cpuset_str = malloc(size_needed);
+	strcpy(cpu_data->cpuset_str, "[ ");
+	idx += 2;
+
+	for (i = 0; i < 10000 && cpu_count; ++i) {
+		unsigned int n;
+
+		if (CPU_ISSET(i, cpu_data->cpuset)) {
+			--cpu_count;
+			if (size_needed <= (idx + 1)) {
+				log_error("Not enough memory for array");
+				exit(EXIT_FAILURE);
+			}
+			n = snprintf(&cpu_data->cpuset_str[idx],
+						size_needed - idx - 1, "%d", i);
+			if (n > 0) {
+				idx += n;
+			} else {
+				log_error("Error creating array");
+				exit(EXIT_FAILURE);
+			}
+			if (size_needed <= (idx + 1)) {
+				log_error("Not enough memory for array");
+				exit(EXIT_FAILURE);
+			}
+			if (cpu_count) {
+				strncat(cpu_data->cpuset_str, ", ",
+							size_needed - idx - 1);
+				idx += 2;
+			}
+		}
+	}
+	strncat(cpu_data->cpuset_str, " ]", size_needed - idx - 1);
+}
+
+static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
+{
+	int ret;
+	cpuset_data_t *actual_cpu_data = &data->cpu_data;
+
+	if (data->def_cpu_data.cpuset == NULL) {
+		/* Get default affinity */
+		cpu_set_t cpuset;
+		unsigned int cpu_count;
+		unsigned int cpu = 0;
+
+		ret = pthread_getaffinity_np(pthread_self(),
+						    sizeof(cpu_set_t), &cpuset);
+		if (ret != 0) {
+			errno = ret;
+			perror("pthread_get_affinity");
+			exit(EXIT_FAILURE);
+		}
+		cpu_count = CPU_COUNT(&cpuset);
+		data->def_cpu_data.cpusetsize = CPU_ALLOC_SIZE(cpu_count);
+		data->def_cpu_data.cpuset = CPU_ALLOC(cpu_count);
+		memcpy(data->def_cpu_data.cpuset, &cpuset,
+						data->def_cpu_data.cpusetsize);
+		create_cpuset_str(&data->def_cpu_data);
+		data->curr_cpu_data = &data->def_cpu_data;
+	}
+
+	/*
+	 * Order of preference:
+	 * 1. Phase cpuset
+	 * 2. Task level cpuset
+	 * 3. Default cpuset
+	 */
+	if (cpu_data->cpuset != NULL)
+		actual_cpu_data = cpu_data;
+
+	if (actual_cpu_data->cpuset == NULL)
+		actual_cpu_data = &data->def_cpu_data;
+
+	if (!CPU_EQUAL(actual_cpu_data->cpuset, data->curr_cpu_data->cpuset))
+	{
+		log_debug("[%d] setting cpu affinity to CPU(s) %s", data->ind,
+			actual_cpu_data->cpuset_str);
+		ret = pthread_setaffinity_np(pthread_self(),
+						actual_cpu_data->cpusetsize,
+						actual_cpu_data->cpuset);
+		if (ret != 0) {
+			errno = ret;
+			perror("pthread_setaffinity_np");
+			exit(EXIT_FAILURE);
+		}
+		data->curr_cpu_data = actual_cpu_data;
+	}
+}
+
 void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
@@ -500,20 +610,6 @@ void *thread_body(void *arg)
 
 	/* Get the 1st phase's data */
 	pdata = &data->phases[0];
-
-	/* Set thread affinity */
-	if (data->cpuset != NULL)
-	{
-		log_notice("[%d] setting cpu affinity to CPU(s) %s", data->ind,
-			 data->cpuset_str);
-		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
-						data->cpuset);
-		if (ret < 0) {
-			errno = ret;
-			perror("pthread_setaffinity_np");
-			exit(EXIT_FAILURE);
-		}
-	}
 
 	/* Set scheduling policy and print pretty info on stdout */
 	log_notice("[%d] Using %s policy with priority %d", data->ind, data->sched_policy_descr, data->sched_prio);
@@ -661,6 +757,8 @@ void *thread_body(void *arg)
 
 	while (continue_running && (i != data->loop)) {
 		struct timespec t_diff, t_rel_start;
+
+		set_thread_affinity(data, &pdata->cpu_data);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);

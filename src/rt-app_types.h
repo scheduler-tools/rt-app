@@ -141,10 +141,17 @@ typedef struct _event_data_t {
 	int count;
 } event_data_t;
 
+typedef struct _cpuset_data_t {
+	cpu_set_t *cpuset;
+	char *cpuset_str;
+	size_t cpusetsize;
+} cpuset_data_t;
+
 typedef struct _phase_data_t {
 	int loop;
 	event_data_t *events;
 	int nbevents;
+	cpuset_data_t cpu_data;
 } phase_data_t;
 
 typedef struct _thread_data_t {
@@ -153,8 +160,9 @@ typedef struct _thread_data_t {
 	int lock_pages;
 	int duration;
 	rtapp_resource_t **resources;
-	cpu_set_t *cpuset;
-	char *cpuset_str;
+	cpuset_data_t cpu_data; /* cpu set information */
+	cpuset_data_t *curr_cpu_data; /* Current cpu set being used */
+	cpuset_data_t def_cpu_data; /* Default cpu set for task */
 
 	unsigned long runtime, deadline, period;
 
