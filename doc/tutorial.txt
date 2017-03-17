@@ -232,6 +232,43 @@ below are equals:
 	}
 }
 
+"cpus" can be specified at task level or phase level. As an example, below
+creates two threads. One thread will run with affinity of CPU 2 and 3. The
+second task will run first phase with affinity to CPU 0 and 1, second phase with
+affinity to CPU 2, and the third phase with affinity to CPU 4, 5, and 6 (it will
+inherit the affinity from the task level):
+
+"task" : {
+	"thread1" : {
+		"cpus" : [2,3],
+		"phases" : {
+			"phase1" : {
+				"run" : 10,
+				"sleep" : 10
+			}
+		}
+	}
+	"thread2" : {
+		"cpus" : [4,5,6],
+		"phases" : {
+			"phase1" : {
+				"cpus" : [0,1],
+				"run" : 10,
+				"sleep" : 10
+			}
+			"phase2" : {
+				"cpus" : [2],
+				"run" : 10,
+				"sleep" : 10
+			}
+			"phase3" : {
+				"run" : 10,
+				"sleep" : 10
+			}
+		}
+	}
+}
+
 * loop: Integer. Define the number of times the parent object must be run.
 The parent object can be a phase or a thread. For phase object, the loop
 defines the number of time the phase will be executed before starting the next

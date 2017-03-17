@@ -648,6 +648,41 @@ obj_is_event(char *name)
     return 0;
 }
 
+static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
+{
+	struct json_object *cpuset_obj, *cpu;
+	unsigned int max_cpu = sysconf(_SC_NPROCESSORS_CONF) - 1;
+
+	/* cpuset */
+	cpuset_obj = get_in_object(obj, "cpus", TRUE);
+	if (cpuset_obj) {
+		unsigned int i;
+		unsigned int cpu_idx;
+
+		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
+		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
+		data->cpusetsize = sizeof(cpu_set_t);
+		data->cpuset = malloc(data->cpusetsize);
+		CPU_ZERO(data->cpuset);
+		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
+			cpu = json_object_array_get_idx(cpuset_obj, i);
+			cpu_idx = json_object_get_int(cpu);
+			if (cpu_idx > max_cpu) {
+				log_critical(PIN2 "Invalid cpu %d in cpuset %s", cpu_idx, data->cpuset_str);
+				free(data->cpuset);
+				free(data->cpuset_str);
+				exit(EXIT_INV_CONFIG);
+			}
+			CPU_SET(cpu_idx, data->cpuset);
+		}
+	} else {
+		data->cpuset_str = strdup("-");
+		data->cpuset = NULL;
+		data->cpusetsize = 0;
+	}
+	log_info(PIN "key: cpus %s", data->cpuset_str);
+}
+
 static void
 parse_thread_phase_data(struct json_object *obj,
 		  phase_data_t *data, rtapp_options_t *opts, long tag)
@@ -681,6 +716,7 @@ parse_thread_phase_data(struct json_object *obj,
 			i++;
 		}
 	}
+	parse_cpuset_data(obj, &data->cpu_data);
 }
 
 static void
@@ -689,8 +725,8 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 {
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
-	struct json_object *cpuset_obj, *phases_obj, *cpu, *resources, *locks;
-	int i, cpu_idx, prior_def;
+	struct json_object *phases_obj, *resources;
+	int prior_def;
 
 	log_info(PFX "Parsing thread %s [%d]", name, index);
 
@@ -699,8 +735,11 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	data->ind = index;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
-	data->cpuset = NULL;
-	data->cpuset_str = NULL;
+	data->cpu_data.cpuset = NULL;
+	data->cpu_data.cpuset_str = NULL;
+	data->curr_cpu_data = NULL;
+	data->def_cpu_data.cpuset = NULL;
+	data->def_cpu_data.cpuset_str = NULL;
 
 	/* policy */
 	policy_to_string(opts->policy, def_policy);
@@ -734,22 +773,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->deadline = get_int_value_from(obj, "deadline", TRUE, data->period);
 
 	/* cpuset */
-	cpuset_obj = get_in_object(obj, "cpus", TRUE);
-	if (cpuset_obj) {
-		assure_type_is(cpuset_obj, obj, "cpus", json_type_array);
-		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
-		data->cpuset = malloc(sizeof(cpu_set_t));
-		CPU_ZERO(data->cpuset);
-		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
-			cpu = json_object_array_get_idx(cpuset_obj, i);
-			cpu_idx = json_object_get_int(cpu);
-			CPU_SET(cpu_idx, data->cpuset);
-		}
-	} else {
-		data->cpuset_str = strdup("-");
-		data->cpuset = NULL;
-	}
-	log_info(PIN "key: cpus %s", data->cpuset_str);
+	parse_cpuset_data(obj, &data->cpu_data);
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
