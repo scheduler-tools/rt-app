@@ -16,7 +16,7 @@ if [ $4 ] ; then
 fi
 
 if [ $5 ] ; then
-	sed 's/^"loop" : .*,/"loop" : '$5',/' -i dvfs.json
+	sed '0,/"loop"/s/"loop" : .*,/"loop" : '$5',/' -i dvfs.json
 fi
 
 sync
