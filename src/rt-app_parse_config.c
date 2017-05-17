@@ -810,7 +810,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
 		/* Get loop number */
-		data->loop = 1;
+		data->loop = -1;
 	}
 
 }
