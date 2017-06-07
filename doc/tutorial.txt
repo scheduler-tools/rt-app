@@ -570,7 +570,7 @@ finished to execute its events.
 
 You can log some metrics for each phase that is executed by a thread. These
 metrics are:
-- perf: number of loop that has been executed by run events
+- perf: fixed amount of work perfomed during a phase (c_duration/calibration)
 - run: time spent by the thread to execute the run events
 - period: duration to execute the complte phase
 - start/end : absolute start and end time of a phase. Same time base is used in
