@@ -799,6 +799,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
+			assure_type_is(val, phases_obj, key, json_type_object);
 			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
 		}
 
