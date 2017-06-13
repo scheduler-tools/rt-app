@@ -600,7 +600,7 @@ void *thread_body(void *arg)
 	pid_t tid;
 	struct sched_attr attr;
 	unsigned int flags = 0;
-	int ret, i, j, loop, idx;
+	int ret, phase, phase_loop, thread_loop, log_idx;
 
 	/* Set thread name */
 	ret = pthread_setname_np(pthread_self(), data->name);
@@ -753,16 +753,28 @@ void *thread_body(void *arg)
 				NULL);
 	}
 
-	i = j = loop = idx = 0;
+	/*
+	 * phase        - index of current phase in data->phases array
+	 * phase_loop   - current iteration of current phase
+	 *                (corresponds to "loop" at phase level)
+	 * thread_loop  - current iteration of thread/phases
+	 *                (corresponds to "loop" at task level
+	 * log_idx      - index of current row in the log buffer
+	 */
+	phase = phase_loop = thread_loop = log_idx = 0;
 
-	while (continue_running && (i != data->loop)) {
+	/* The following is executed for each phase. */
+	while (continue_running && thread_loop != data->loop) {
 		struct timespec t_diff, t_rel_start;
 
 		set_thread_affinity(data, &pdata->cpu_data);
 
 		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, "[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);
-		log_debug("[%d] begins loop %d phase %d step %d", data->ind, i, j, loop);;
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] begins thread_loop %d phase %d phase_loop %d",
+				   data->ind, thread_loop, phase, phase_loop);
+		log_debug("[%d] begins thread_loop %d phase %d phase_loop %d",
+			  data->ind, thread_loop, phase, phase_loop);
 
 		memset(&ldata, 0, sizeof(ldata));
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -771,7 +783,7 @@ void *thread_body(void *arg)
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
-			curr_timing = &timings[idx];
+			curr_timing = &timings[log_idx];
 		else
 			curr_timing = &tmp_timing;
 
@@ -794,26 +806,37 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, curr_timing);
 
 		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, "[%d] end loop %d phase %d step %d",
-				   data->ind, i, j, loop);
+			log_ftrace(ft_data.marker_fd,
+				   "[%d] end thread_loop %d phase %d phase_loop %d",
+				   data->ind, thread_loop, phase, phase_loop);
 
-		loop++;
-		if (loop == pdata->loop) {
-			loop = 0;
+		phase_loop++;
+		/* Reached the specified number of loops for this phase. */
+		if (phase_loop == pdata->loop) {
+			phase_loop = 0;
 
-			j++;
-			if (j == data->nphases) {
-				j = 0;
-				i++;
+			phase++;
+			if (phase == data->nphases) {
+				/*
+				 * Phases are finished, but we might potentially have
+				 * to start over (depending on data->loop).
+				 */
+				phase = 0;
+				thread_loop++;
+				/*
+				 * Overflow due to data->loop being -1 (looping forever)
+				 * Reset thread_loop, so that we can continue looping.
+				 */
+				if (thread_loop < 0)
+					thread_loop = 0;
 			}
-
-			pdata = &data->phases[j];
+			pdata = &data->phases[phase];
 		}
 
-		idx++;
-		if (idx >= timings_size) {
+		log_idx++;
+		if (log_idx >= timings_size) {
 			timing_loop = 1;
-			idx = 0;
+			log_idx = 0;
 		}
 	}
 
@@ -828,9 +851,11 @@ void *thread_body(void *arg)
 	}
 
 	if (timings) {
-		for (j = idx; timing_loop && (j < timings_size); j++)
+		int j;
+
+		for (j = log_idx; timing_loop && (j < timings_size); j++)
 			log_timing(data->log_handler, &timings[j]);
-		for (j = 0; j < idx; j++)
+		for (j = 0; j < log_idx; j++)
 			log_timing(data->log_handler, &timings[j]);
 	}
 

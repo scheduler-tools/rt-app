@@ -799,6 +799,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
+			assure_type_is(val, phases_obj, key, json_type_object);
 			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
 		}
 
@@ -809,8 +810,21 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
-		/* Get loop number */
-		data->loop = -1;
+
+		/*
+		 * Get loop number:
+		 *
+		 * If loop is specified, we already parsed it in
+		 * parse_thread_phase_data() above, so we just need to remember
+		 * that we don't want to loop forever.
+		 *
+		 * If not specified we want to loop forever.
+		 *
+		 */
+		if (get_in_object(obj, "loop", TRUE))
+			data->loop = 1;
+		else
+			data->loop = -1;
 	}
 
 }

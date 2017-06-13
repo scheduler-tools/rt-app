@@ -269,11 +269,12 @@ inherit the affinity from the task level):
 	}
 }
 
-* loop: Integer. Define the number of times the parent object must be run.
-The parent object can be a phase or a thread. For phase object, the loop
-defines the number of time the phase will be executed before starting the next
-phase. For thread object, the loop defines the number of times that the
-complete "phases" object will be executed. The default value is -1.
+* loop: Integer. Define the number of times the parent object must be run.  The
+  parent object can be a phase or a thread. For phase object, the loop defines
+the number of time the phase will be executed before starting the next phase.
+For thread object, the loop defines the number of times that the complete
+"phases" object will be executed. The default value is -1 for thread object and
+1 for phases.
 
 *** events ***
 
