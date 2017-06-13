@@ -183,9 +183,15 @@ int calibrate_cpu_cycles(int clock)
 
 static inline unsigned long loadwait(unsigned long exec)
 {
-	unsigned long load_count;
-	unsigned long secs;
+	unsigned long load_count, secs, perf;
 	int i;
+
+	/*
+	 * Performace is the fixed amount of work that is performed by this run
+	 * phase. We need to compute it here because both load_count and exec
+	 * might be modified below.
+	 */
+	perf = exec / p_load;
 
 	/*
 	 * If exec is still too big, let's run it in bursts
@@ -205,7 +211,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	load_count = (exec * 1000)/p_load;
 	waste_cpu_cycles(load_count);
 
-	return load_count;
+	return perf;
 }
 
 static void ioload(unsigned long count, struct _rtapp_iomem_buf *iomem, int io_fd)
