@@ -544,7 +544,6 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 		/* Get default affinity */
 		cpu_set_t cpuset;
 		unsigned int cpu_count;
-		unsigned int cpu = 0;
 
 		ret = pthread_getaffinity_np(pthread_self(),
 						    sizeof(cpu_set_t), &cpuset);
