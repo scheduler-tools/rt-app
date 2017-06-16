@@ -85,7 +85,7 @@ int calibrate_cpu_cycles_1(int clock)
 	int max_load_loop = 10000;
 	unsigned int diff;
 	int nsec_per_loop, avg_per_loop = 0;
-	int ret, cal_trial = 1000;
+	int cal_trial = 1000;
 
 	while (cal_trial) {
 		cal_trial--;
@@ -126,11 +126,11 @@ int calibrate_cpu_cycles_1(int clock)
 */
 int calibrate_cpu_cycles_2(int clock)
 {
-	struct timespec start, stop, sleep;
+	struct timespec start, stop;
 	int max_load_loop = 10000;
 	unsigned int diff;
 	int nsec_per_loop, avg_per_loop = 0;
-	int ret, cal_trial = 1000;
+	int cal_trial = 1000;
 
 	while (cal_trial) {
 		cal_trial--;
