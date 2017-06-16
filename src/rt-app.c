@@ -514,7 +514,7 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 				exit(EXIT_FAILURE);
 			}
 			n = snprintf(&cpu_data->cpuset_str[idx],
-						size_needed - idx - 1, "%d", i);
+						size_needed - idx - 1, "%u", i);
 			if (n > 0) {
 				idx += n;
 			} else {
