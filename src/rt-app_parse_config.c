@@ -172,7 +172,7 @@ get_string_value_from(struct json_object *where,
 	return s_value;
 }
 
-static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s mutex", data->name);
 
@@ -186,14 +186,14 @@ static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *op
 			&data->res.mtx.attr);
 }
 
-static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s timer", data->name);
 	data->res.timer.init = 0;
 	data->res.timer.relative = 1;
 }
 
-static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s wait", data->name);
 
@@ -202,7 +202,7 @@ static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opt
 			&data->res.cond.attr);
 }
 
-static int init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s membuf", data->name);
 
@@ -210,14 +210,14 @@ static int init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *o
 	data->res.buf.size = opts->mem_buffer_size;
 }
 
-static int init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s io device", data->name);
 
 	data->res.dev.fd = open(opts->io_device, O_CREAT | O_WRONLY, 0644);
 }
 
-static int init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s barrier", data->name);
 
