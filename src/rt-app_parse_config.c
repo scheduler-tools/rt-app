@@ -316,7 +316,6 @@ add_resource_data(const char *name, int type, rtapp_options_t *opts)
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
-	int i;
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
 	log_info(PFX "Parsing resource section");
@@ -725,7 +724,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 {
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
-	struct json_object *phases_obj, *resources;
+	struct json_object *phases_obj;
 	int prior_def;
 
 	log_info(PFX "Parsing thread %s [%d]", name, index);
@@ -1029,7 +1028,6 @@ parse_config_stdin(rtapp_options_t *opts)
 void
 parse_config(const char *filename, rtapp_options_t *opts)
 {
-	int done;
 	char *fn = strdup(filename);
 	struct json_object *js;
 	log_info(PFX "Reading JSON config from %s", fn);
