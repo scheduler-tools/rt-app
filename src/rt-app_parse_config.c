@@ -267,6 +267,8 @@ init_resource_data(const char *name, int type, int idx, const rtapp_options_t *o
 		case rtapp_barrier:
 			init_barrier_resource(data, opts);
 			break;
+		default:
+			break;
 	}
 }
 

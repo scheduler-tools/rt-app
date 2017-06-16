@@ -269,6 +269,8 @@ static int run_event(event_data_t *event, int dry_run,
 		pthread_mutex_unlock(&(rdata->res.mtx.obj));
 		lock = -1;
 		break;
+	default:
+		break;
 	}
 
 	if (dry_run)
@@ -410,6 +412,8 @@ static int run_event(event_data_t *event, int dry_run,
 			log_debug("yield %d", event->count);
 			pthread_yield();
 		}
+		break;
+	default:
 		break;
 	}
 
