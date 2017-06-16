@@ -777,8 +777,6 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
-	if (data->delay < 0)
-		data->delay = 0;
 
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
