@@ -602,7 +602,6 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
-unknown_resource:
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
 
