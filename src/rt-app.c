@@ -85,7 +85,7 @@ int calibrate_cpu_cycles_1(int clock)
 	int max_load_loop = 10000;
 	unsigned int diff;
 	int nsec_per_loop, avg_per_loop = 0;
-	int ret, cal_trial = 1000;
+	int cal_trial = 1000;
 
 	while (cal_trial) {
 		cal_trial--;
@@ -126,11 +126,11 @@ int calibrate_cpu_cycles_1(int clock)
 */
 int calibrate_cpu_cycles_2(int clock)
 {
-	struct timespec start, stop, sleep;
+	struct timespec start, stop;
 	int max_load_loop = 10000;
 	unsigned int diff;
 	int nsec_per_loop, avg_per_loop = 0;
-	int ret, cal_trial = 1000;
+	int cal_trial = 1000;
 
 	while (cal_trial) {
 		cal_trial--;
@@ -268,6 +268,8 @@ static int run_event(event_data_t *event, int dry_run,
 		log_debug("unlock %s ", rdata->name);
 		pthread_mutex_unlock(&(rdata->res.mtx.obj));
 		lock = -1;
+		break;
+	default:
 		break;
 	}
 
@@ -411,6 +413,8 @@ static int run_event(event_data_t *event, int dry_run,
 			pthread_yield();
 		}
 		break;
+	default:
+		break;
 	}
 
 	return lock;
@@ -514,7 +518,7 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 				exit(EXIT_FAILURE);
 			}
 			n = snprintf(&cpu_data->cpuset_str[idx],
-						size_needed - idx - 1, "%d", i);
+						size_needed - idx - 1, "%u", i);
 			if (n > 0) {
 				idx += n;
 			} else {
@@ -544,7 +548,6 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 		/* Get default affinity */
 		cpu_set_t cpuset;
 		unsigned int cpu_count;
-		unsigned int cpu = 0;
 
 		ret = pthread_getaffinity_np(pthread_self(),
 						    sizeof(cpu_set_t), &cpuset);

@@ -172,7 +172,7 @@ get_string_value_from(struct json_object *where,
 	return s_value;
 }
 
-static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s mutex", data->name);
 
@@ -186,14 +186,14 @@ static int init_mutex_resource(rtapp_resource_t *data, const rtapp_options_t *op
 			&data->res.mtx.attr);
 }
 
-static int init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_timer_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s timer", data->name);
 	data->res.timer.init = 0;
 	data->res.timer.relative = 1;
 }
 
-static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s wait", data->name);
 
@@ -202,7 +202,7 @@ static int init_cond_resource(rtapp_resource_t *data, const rtapp_options_t *opt
 			&data->res.cond.attr);
 }
 
-static int init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s membuf", data->name);
 
@@ -210,14 +210,14 @@ static int init_membuf_resource(rtapp_resource_t *data, const rtapp_options_t *o
 	data->res.buf.size = opts->mem_buffer_size;
 }
 
-static int init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_iodev_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s io device", data->name);
 
 	data->res.dev.fd = open(opts->io_device, O_CREAT | O_WRONLY, 0644);
 }
 
-static int init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+static void init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
 {
 	log_info(PIN3 "Init: %s barrier", data->name);
 
@@ -266,6 +266,8 @@ init_resource_data(const char *name, int type, int idx, const rtapp_options_t *o
 			break;
 		case rtapp_barrier:
 			init_barrier_resource(data, opts);
+			break;
+		default:
 			break;
 	}
 }
@@ -316,7 +318,6 @@ add_resource_data(const char *name, int type, rtapp_options_t *opts)
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
-	int i;
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
 	log_info(PFX "Parsing resource section");
@@ -603,7 +604,6 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
-unknown_resource:
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
 
@@ -668,7 +668,7 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
 			if (cpu_idx > max_cpu) {
-				log_critical(PIN2 "Invalid cpu %d in cpuset %s", cpu_idx, data->cpuset_str);
+				log_critical(PIN2 "Invalid cpu %u in cpuset %s", cpu_idx, data->cpuset_str);
 				free(data->cpuset);
 				free(data->cpuset_str);
 				exit(EXIT_INV_CONFIG);
@@ -725,7 +725,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 {
 	char *policy;
 	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
-	struct json_object *phases_obj, *resources;
+	struct json_object *phases_obj;
 	int prior_def;
 
 	log_info(PFX "Parsing thread %s [%d]", name, index);
@@ -777,8 +777,6 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
-	if (data->delay < 0)
-		data->delay = 0;
 
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
@@ -1029,7 +1027,6 @@ parse_config_stdin(rtapp_options_t *opts)
 void
 parse_config(const char *filename, rtapp_options_t *opts)
 {
-	int done;
 	char *fn = strdup(filename);
 	struct json_object *js;
 	log_info(PFX "Reading JSON config from %s", fn);
