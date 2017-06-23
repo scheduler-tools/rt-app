@@ -50,9 +50,11 @@ do {									\
     }									\
 } while (0)
 
-#define log_ftrace(mark_fd, msg, args...)				\
+#define log_ftrace(msg, args...)					\
 do {									\
-    ftrace_write(mark_fd, msg, ##args);					\
+    if(ft_data.marker_fd != -1) {                                   	\
+        ftrace_write(ft_data.marker_fd, msg, ##args);               	\
+    }                                                               	\
 } while (0)
 
 #define log_notice(msg, args...)					\
