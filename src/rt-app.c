@@ -590,6 +590,111 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 	}
 }
 
+static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
+{
+	struct sched_param param;
+	policy_t policy;
+#ifdef DLSCHED
+	struct sched_attr dl_params;
+	pid_t tid;
+	unsigned int flags = 0;
+#endif
+	int ret;
+
+	if (sched_data == NULL)
+		return;
+
+	if (data->curr_sched_data == sched_data)
+		return;
+
+	if ((sched_data->policy == same) &&  (data->curr_sched_data)){
+		/* if policy not specificed, reuse previous policy */
+		sched_data->policy = data->curr_sched_data->policy;
+	}
+
+
+	switch (sched_data->policy)
+	{
+		case rr:
+		case fifo:
+			log_debug("[%d] setting scheduler %s priority %d", data->ind,
+					policy_to_string(sched_data->policy), sched_data->prio);
+			param.sched_priority = sched_data->prio;
+			ret = pthread_setschedparam(pthread_self(),
+					sched_data->policy,
+					&param);
+			if (ret != 0) {
+				log_critical("[%d] pthread_setschedparam"
+				     "returned %d", data->ind, ret);
+				errno = ret;
+				perror("pthread_setschedparam");
+				exit(EXIT_FAILURE);
+			}
+			break;
+
+		case other:
+			log_debug("[%d] setting scheduler %s priority %d", data->ind,
+					policy_to_string(sched_data->policy), sched_data->prio);
+
+
+			if (sched_data->prio > 19 || sched_data->prio < -20) {
+				log_critical("[%d] setpriority "
+					"%d nice invalid. "
+					"Valid between -20 and 19",
+					data->ind, sched_data->prio);
+				exit(EXIT_FAILURE);
+			}
+
+			ret = setpriority(PRIO_PROCESS, 0,
+					sched_data->prio);
+			if (ret != 0) {
+				log_critical("[%d] setpriority"
+				     "returned %d", data->ind, ret);
+				errno = ret;
+				perror("setpriority");
+				exit(EXIT_FAILURE);
+			}
+
+			data->lock_pages = 0; /* forced off for SCHED_OTHER */
+			break;
+
+#ifdef DLSCHED
+		case deadline:
+			log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
+					" period %lu", data->ind,
+					policy_to_string(sched_data->policy), sched_data->period,
+					sched_data->runtime, sched_data->deadline);
+
+			tid = gettid();
+			dl_params.size = sizeof(struct sched_attr);
+			dl_params.sched_flags = 0;
+			dl_params.sched_policy = SCHED_DEADLINE;
+			dl_params.sched_priority = 0;
+			dl_params.sched_runtime = sched_data->runtime;
+			dl_params.sched_deadline = sched_data->deadline;
+			dl_params.sched_period = sched_data->period;
+
+			ret = sched_setattr(tid, &dl_params, flags);
+			if (ret != 0) {
+				log_critical("[%d] sched_setattr "
+						"returned %d", data->ind, ret);
+				errno = ret;
+				perror("sched_setattr");
+				exit(EXIT_FAILURE);
+			}
+		break;
+#endif
+
+		default:
+			log_error("Unknown scheduling policy %d",
+					sched_data->policy);
+
+			exit(EXIT_FAILURE);
+	}
+
+	data->curr_sched_data = sched_data;
+}
+
 void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
@@ -603,9 +708,7 @@ void *thread_body(void *arg)
 	timing_point_t *timings;
 	timing_point_t tmp_timing;
 	unsigned int timings_size, timing_loop;
-	pid_t tid;
 	struct sched_attr attr;
-	unsigned int flags = 0;
 	int ret, phase, phase_loop, thread_loop, log_idx;
 
 	/* Set thread name */
@@ -617,75 +720,7 @@ void *thread_body(void *arg)
 	/* Get the 1st phase's data */
 	pdata = &data->phases[0];
 
-	/* Set scheduling policy and print pretty info on stdout */
-	log_notice("[%d] Using %s policy with priority %d", data->ind, data->sched_policy_descr, data->sched_prio);
-	switch (data->sched_policy)
-	{
-		case rr:
-		case fifo:
-			fprintf(data->log_handler, "# Policy : %s priority : %d\n",
-					(data->sched_policy == rr ? "SCHED_RR" : "SCHED_FIFO"), data->sched_prio);
-			param.sched_priority = data->sched_prio;
-			ret = pthread_setschedparam(pthread_self(),
-					data->sched_policy,
-					&param);
-			if (ret != 0) {
-				errno = ret;
-				perror("pthread_setschedparam");
-				exit(EXIT_FAILURE);
-			}
-			break;
-
-		case other:
-			fprintf(data->log_handler, "# Policy : SCHED_OTHER priority : %d\n", data->sched_prio);
-
-			if (data->sched_prio > 19 || data->sched_prio < -20) {
-				log_critical("[%d] setpriority "
-					"%d nice invalid. "
-					"Valid between -20 and 19",
-					data->ind, data->sched_prio);
-				exit(EXIT_FAILURE);
-			}
-
-			if (data->sched_prio) {
-				ret = setpriority(PRIO_PROCESS, 0,
-						data->sched_prio);
-				if (ret != 0) {
-					log_critical("[%d] setpriority"
-					     "returned %d", data->ind, ret);
-					errno = ret;
-					perror("setpriority");
-					exit(EXIT_FAILURE);
-				}
-			}
-
-			data->lock_pages = 0; /* forced off for SCHED_OTHER */
-			break;
-
-#ifdef DLSCHED
-		case deadline:
-			fprintf(data->log_handler, "# Policy : SCHED_DEADLINE\n");
-			tid = gettid();
-			attr.size = sizeof(attr);
-			attr.sched_flags = 0;
-			attr.sched_policy = SCHED_DEADLINE;
-			attr.sched_priority = 0;
-			attr.sched_runtime = data->runtime;
-			attr.sched_deadline = data->deadline; 
-			attr.sched_period = data->period;
-
-			log_notice("[%d] period: %lu, exec: %lu, deadline: %lu",
-				data->ind, data->period, data->runtime, data->deadline);
-			break;
-#endif
-
-		default:
-			log_error("Unknown scheduling policy %d",
-					data->sched_policy);
-
-			exit(EXIT_FAILURE);
-	}
-
+	/* Init timing buffer */
 	if (opts.logsize > 0) {
 		timings = malloc(opts.logsize);
 		timings_size = opts.logsize / sizeof(timing_point_t);
@@ -732,24 +767,6 @@ void *thread_body(void *arg)
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
 
-#ifdef DLSCHED
-	/* TODO find a better way to handle that constraint */
-	/*
-	 * Set the task to SCHED_DEADLINE as far as possible touching its
-	 * budget as little as possible for the first iteration.
-	 */
-	if (data->sched_policy == SCHED_DEADLINE) {
-		ret = sched_setattr(tid, &attr, flags);
-		if (ret != 0) {
-			log_critical("[%d] sched_setattr "
-				     "returned %d", data->ind, ret);
-			errno = ret;
-			perror("sched_setattr");
-			exit(EXIT_FAILURE);
-		}
-	}
-#endif
-
 	if (data->delay > 0) {
 		struct timespec delay = usec_to_timespec(data->delay);
 
@@ -758,6 +775,17 @@ void *thread_body(void *arg)
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_first,
 				NULL);
 	}
+
+	/* TODO find a better way to handle that constraint:
+	 * Set the task to SCHED_DEADLINE as far as possible touching its
+	 * budget as little as possible for the first iteration.
+	 */
+
+	/* Set scheduling policy and print pretty info on stdout */
+	log_notice("[%d] Starting with %s policy with priority %d",
+			data->ind, policy_to_string(data->sched_data->policy),
+			data->sched_data->prio);
+	set_thread_priority(data, data->sched_data);
 
 	/*
 	 * phase        - index of current phase in data->phases array
@@ -774,6 +802,7 @@ void *thread_body(void *arg)
 		struct timespec t_diff, t_rel_start;
 
 		set_thread_affinity(data, &pdata->cpu_data);
+		set_thread_priority(data, pdata->sched_data);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
@@ -987,7 +1016,7 @@ int main(int argc, char* argv[])
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].ind,
 				opts.threads_data[i].name,
-				opts.threads_data[i].sched_policy_descr);
+				policy_to_string(opts.threads_data[i].sched_data->policy));
 
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -1021,7 +1050,7 @@ int main(int argc, char* argv[])
 				opts.logbasename, opts.threads_data[i].name,
 				opts.threads_data[i].ind,
 				opts.threads_data[i].name,
-				opts.threads_data[i].sched_policy_descr);
+				policy_to_string(opts.threads_data[i].sched_data->policy));
 
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");

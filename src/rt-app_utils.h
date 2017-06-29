@@ -122,8 +122,8 @@ unsigned long long
 timespec_to_nsec(struct timespec *ts);
 #endif
 
-int
-policy_to_string(policy_t policy, char *policy_name);
+char *
+policy_to_string(policy_t policy);
 
 int
 string_to_policy(const char *policy_name, policy_t *policy);

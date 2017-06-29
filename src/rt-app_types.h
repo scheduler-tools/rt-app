@@ -50,6 +50,7 @@ typedef enum policy_t
 #ifdef DLSCHED
 	, deadline = SCHED_DEADLINE
 #endif
+	, same = -1
 } policy_t;
 
 typedef enum resource_t
@@ -147,11 +148,21 @@ typedef struct _cpuset_data_t {
 	size_t cpusetsize;
 } cpuset_data_t;
 
+typedef struct _sched_data_t {
+	policy_t policy;
+	int prio;
+	unsigned long runtime;
+	unsigned long deadline;
+	unsigned long period;
+} sched_data_t;
+
 typedef struct _phase_data_t {
 	int loop;
 	event_data_t *events;
 	int nbevents;
+	int sched_prio;
 	cpuset_data_t cpu_data;
+	sched_data_t *sched_data;
 } phase_data_t;
 
 typedef struct _thread_data_t {
@@ -160,11 +171,13 @@ typedef struct _thread_data_t {
 	int lock_pages;
 	int duration;
 	rtapp_resource_t **resources;
+
 	cpuset_data_t cpu_data; /* cpu set information */
 	cpuset_data_t *curr_cpu_data; /* Current cpu set being used */
 	cpuset_data_t def_cpu_data; /* Default cpu set for task */
 
-	unsigned long runtime, deadline, period;
+	sched_data_t *sched_data; /* scheduler policy information */
+	sched_data_t *curr_sched_data; /* current scheduler policy */
 
 	int loop;
 	int nphases;
@@ -173,15 +186,8 @@ typedef struct _thread_data_t {
 	struct timespec main_app_start;
 
 	FILE *log_handler;
-	policy_t sched_policy;
-	char sched_policy_descr[RTAPP_POLICY_DESCR_LENGTH];
-	int sched_prio;
 
 	unsigned long delay;
-
-#ifdef DLSCHED
-	struct sched_attr dl_params;
-#endif
 } thread_data_t;
 
 typedef struct _ftrace_data_t {
