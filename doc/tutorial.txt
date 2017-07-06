@@ -186,29 +186,14 @@ below).
 * instance : Integer. Define the number of threads that will be created with
 the properties of this thread object. Default value is 1.
 
-*** policy : String: Define the scheduling policy of the thread. default_policy
-is used if not defined
-
-* priority : Integer. Define the scheduling priority of the thread. The value
-must be aligned with the range allowed by the policy. The default priority is
-0 for sched_other class and 10 for other classes
-
-* dl-runtime : Integer: Define the runtime budget for deadline scheduling class.
-Default value is 0. The unit is usec.
-
-* dl-period : Integer. Define the period duration for deadline scheduling class.
-Default value is runtime. The unit is usec.
-
-* dl-deadline : Integer. Define the deadline parameter for deadline scheduling
-class. Default value is period. The unit is usec.
-
-* cpus: Array of Integer. Define the CPU affinity of the thread. Default
-value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]
-
 * delay: Integer. Initial delay before a thread starts execution. The unit
 is usec.
 
-* phases: Object. The phases object described TBF
+* phases: Object. The phases object describes the behavior of the thread. This
+  behavior can be split in several distinct phases with their own events and
+  properties. See phase object parameter below.
+
+*** phase object ***
 
 If there is only 1 phase, the sequence of events can be directly put in the
 thread object instead of creating a phases object. As an example, the 2 objects
@@ -231,6 +216,56 @@ below are equals:
 		"sleep" : 10
 	}
 }
+
+*** thread and phase object properties ***
+
+Several properties can be set at thread and/or phase levels. All these
+properties are optional and default value will be used if nothing is defined.
+
+* loop: Integer. Define the number of times the parent object must be run.  The
+  parent object can be a phase or a thread. For phase object, the loop defines
+the number of time the phase will be executed before starting the next phase.
+For thread object, the loop defines the number of times that the complete
+"phases" object will be executed. The default value is -1 for thread object and
+1 for phases.
+
+*** scheduling policy
+
+The scheduling policy can be set at thread and phase levels. A default policy
+is set after the thread creation if nothing has been defined. Then, the
+scheduling properties can be changed at the beginning of each phase if it has
+been defined in the phase object. The behavior is quite similar to an event as
+a update happens only if one of the scheduling parameters has been set
+otherwise the scheduling paraleters will stay unchanged
+
+* policy : String. Define the scheduling policy of the thread. default_policy
+is used if not defined. Accepted value are:
+  - "SCHED_OTHER"
+  - "SCHED_RR"
+  - "SCHED_FIFO"
+  - "SCHED_DEADLINE"
+
+* priority : Integer. Define the scheduling priority of the thread. The value
+must be aligned with the range allowed by the policy. The default priority is
+0 for sched_other and sched_deadline class and 10 for rt classes
+
+* dl-runtime : Integer: Define the runtime budget for deadline scheduling class.
+Default value is 0. The unit is usec.  For backward compatibility, the
+key "runtime" will also be checked in thread object but special must be taken
+as this can conflict with runtime event.
+
+* dl-period : Integer. Define the period duration for deadline scheduling class.
+Default value is runtime. The unit is usec. For backward compatibility, the
+key "period" will also be checked in thread object.
+
+* dl-deadline : Integer. Define the deadline parameter for deadline scheduling
+class. Default value is period. The unit is usec.  For backward compatibility,
+the key "deadline" will also be checked in thread object.
+
+*** CPUs affinity
+
+* cpus: Array of Integer. Define the CPU affinity of the thread. Default
+value is all CPUs of the system. An example :  "cpus" : [0, 2, 3]
 
 "cpus" can be specified at task level or phase level. As an example, below
 creates two threads. One thread will run with affinity of CPU 2 and 3. The
@@ -268,13 +303,6 @@ inherit the affinity from the task level):
 		}
 	}
 }
-
-* loop: Integer. Define the number of times the parent object must be run.  The
-  parent object can be a phase or a thread. For phase object, the loop defines
-the number of time the phase will be executed before starting the next phase.
-For thread object, the loop defines the number of times that the complete
-"phases" object will be executed. The default value is -1 for thread object and
-1 for phases.
 
 *** events ***
 

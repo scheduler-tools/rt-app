@@ -683,6 +683,74 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 	log_info(PIN "key: cpus %s", data->cpuset_str);
 }
 
+static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
+{
+	sched_data_t tmp_data;
+	char *def_str_policy;
+	char *policy;
+	int prior_def = -1;
+
+	/* Get default policy */
+	def_str_policy = policy_to_string(def_policy);
+
+	/* Get Policy */
+	policy = get_string_value_from(obj, "policy", TRUE, def_str_policy);
+	if (policy ){
+		if (string_to_policy(policy, &tmp_data.policy) != 0) {
+			log_critical(PIN2 "Invalid policy %s", policy);
+			exit(EXIT_INV_CONFIG);
+		}
+	} else {
+		tmp_data.policy = -1;
+	}
+
+	/* Get priority */
+	if (tmp_data.policy == -1)
+		prior_def = -1;
+	else if (tmp_data.policy == other)
+		prior_def = DEFAULT_THREAD_NICE;
+	else
+		prior_def = DEFAULT_THREAD_PRIORITY;
+
+	tmp_data.prio = get_int_value_from(obj, "priority", TRUE, prior_def);
+
+	/* deadline params */
+	tmp_data.runtime = get_int_value_from(obj, "dl-runtime", TRUE, 0);
+	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
+	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
+
+
+	if (def_policy != -1) {
+		/* Support legacy grammar for thread object */
+		if (!tmp_data.runtime)
+			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
+		if (!tmp_data.period)
+			tmp_data.period = get_int_value_from(obj, "period", TRUE, tmp_data.runtime);
+		if (!tmp_data.deadline)
+			tmp_data.deadline = get_int_value_from(obj, "deadline", TRUE, tmp_data.period);
+	}
+
+	/* Move from usec to nanosec */
+	tmp_data.runtime *= 1000;
+	tmp_data.period *= 1000;
+	tmp_data.deadline *= 1000;
+
+	/* Check if we found at least one meaningful scheduler parameter */
+	if (tmp_data.prio != -1 || tmp_data.runtime || tmp_data.period || tmp_data.period) {
+		sched_data_t *new_data;
+
+		/* At least 1 parameters has been set in the object */
+		new_data = malloc(sizeof(sched_data_t));
+		memcpy( new_data, &tmp_data,sizeof(sched_data_t));
+
+		log_debug(PIN "key: set scheduler %d with priority %d", new_data->policy, new_data->prio);
+
+		return new_data;
+	}
+
+	return NULL;
+}
+
 static void
 parse_thread_phase_data(struct json_object *obj,
 		  phase_data_t *data, rtapp_options_t *opts, long tag)
@@ -717,16 +785,15 @@ parse_thread_phase_data(struct json_object *obj,
 		}
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
+	data->sched_data = parse_sched_data(obj, -1);
+
 }
 
 static void
 parse_thread_data(char *name, struct json_object *obj, int index,
 		  thread_data_t *data, rtapp_options_t *opts)
 {
-	char *policy;
-	char def_policy[RTAPP_POLICY_DESCR_LENGTH];
-	struct json_object *phases_obj;
-	int prior_def;
+	struct json_object *phases_obj, *resources;
 
 	log_info(PFX "Parsing thread %s [%d]", name, index);
 
@@ -735,45 +802,19 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	data->ind = index;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
+
 	data->cpu_data.cpuset = NULL;
 	data->cpu_data.cpuset_str = NULL;
 	data->curr_cpu_data = NULL;
 	data->def_cpu_data.cpuset = NULL;
 	data->def_cpu_data.cpuset_str = NULL;
 
-	/* policy */
-	policy_to_string(opts->policy, def_policy);
-	policy = get_string_value_from(obj, "policy", TRUE, def_policy);
-	if (policy) {
-		if (string_to_policy(policy, &data->sched_policy) != 0) {
-			log_critical(PIN2 "Invalid policy %s", policy);
-			exit(EXIT_INV_CONFIG);
-		}
-	}
-	policy_to_string(data->sched_policy, data->sched_policy_descr);
-
-	/* priority */
-	if (data->sched_policy == other)
-		prior_def = DEFAULT_THREAD_NICE;
-	else
-		prior_def = DEFAULT_THREAD_PRIORITY;
-
-	data->sched_prio = get_int_value_from(obj, "priority", TRUE,
-				 prior_def);
-
-	/* deadline params */
-	data->runtime = get_int_value_from(obj, "dl-runtime", TRUE, 0) * 1000;
-	if (!data->runtime)
-		data->runtime = get_int_value_from(obj, "runtime", TRUE, 0);
-	data->period = get_int_value_from(obj, "dl-period", TRUE, 0) * 1000;
-	if (!data->period)
-		data->period = get_int_value_from(obj, "period", TRUE, data->runtime);
-	data->deadline = get_int_value_from(obj, "dl-deadline", TRUE, 0) * 1000;
-	if (!data->period)
-		data->deadline = get_int_value_from(obj, "deadline", TRUE, data->period);
+	data->curr_sched_data = NULL;
 
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
+	/* Scheduling policy */
+	data->sched_data = parse_sched_data(obj, opts->policy);
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
@@ -808,6 +849,14 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
 		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
+
+		/* There is no "phases" object which means that thread and phase will
+		 * use same scheduling parameters. But thread object looks for default
+		 * value when parameters are not defined whereas phase doesn't.
+		 * We remove phase's scheduling policy which is a subset of thread's one
+		 */
+		free(data->phases[0].sched_data);
+		data->phases[0].sched_data = NULL;
 
 		/*
 		 * Get loop number:

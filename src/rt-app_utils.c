@@ -185,28 +185,24 @@ string_to_policy(const char *policy_name, policy_t *policy)
 	return 0;
 }
 
-int
-policy_to_string(policy_t policy, char *policy_name)
+char *
+policy_to_string(policy_t policy)
 {
 	switch (policy) {
 		case other:
-			strcpy(policy_name, "SCHED_OTHER");
-			break;
+			return "SCHED_OTHER";
 		case rr:
-			strcpy(policy_name, "SCHED_RR");
-			break;
+			return "SCHED_RR";
 		case fifo:
-			strcpy(policy_name, "SCHED_FIFO");
-			break;
+			return "SCHED_FIFO";
 #ifdef DLSCHED
 		case deadline:
-			strcpy(policy_name, "SCHED_DEADLINE");
-			break;
+			return "SCHED_DEADLINE";
 #endif
 		default:
-			return 1;
+			return NULL;
 	}
-	return 0;
+	return NULL;
 }
 
 int
