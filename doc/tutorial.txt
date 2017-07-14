@@ -521,6 +521,12 @@ generates the following sequence:
     "unlock" : "SyncPointA" (internal mutex)
 }
 
+* bref : String. Time reference for a pipeline of tasks. It has to match a
+barrier (see above). The task at the beginning of the pipeline calls this
+event to get such a reference; the last task at the other end of the pipeline
+(the one that broadcasts and wakes everybody else up) will compute the delta.
+See doc/examples/tutorial/example9.json for more information.
+
 * suspend : String. Block the calling thread until another thread wakes it up
 with resume. The String can be let empty as it will be filled by workgen with
 the right thread's name before starting the use case.
@@ -626,19 +632,20 @@ metrics are:
 - c_duration: sum of the configured duration of run/runtime events
 - c_period: sum of the timer(s) period(s)
 - wu_lat: sum of wakeup latencies after timer events
+- pipe_lat: end-to-end latency of a pipeline of tasks (0 if no pipeline exists)
 
 Below is an extract of a log:
 
 # Policy : SCHED_OTHER priority : 0
-#idx     perf      run   period           start             end          rel_st      slack c_duration   c_period     wu_lat
-   0    92164    19935    98965    504549567051    504549666016            2443      78701      20000     100000        266
-   0    92164    19408    99952    504549666063    504549766015          101455      80217      20000     100000        265
-   0    92164    19428    99952    504549766062    504549866014          201454      80199      20000     100000        264
-   0    92164    19438    99955    504549866060    504549966015          301452      80190      20000     100000        265
-   0    92164    19446    99952    504549966061    504550066013          401453      80093      20000     100000        264
-   0    92164    19415    99953    504550066060    504550166013          501452      80215      20000     100000        263
-   0    92164    19388    99954    504550166059    504550266013          601451      80242      20000     100000        264
-   0    92164    19444    99956    504550266060    504550366015          701452      80185      20000     100000        265
+#idx     perf      run   period           start             end          rel_st      slack c_duration   c_period     wu_lat   pipe_lat
+   0    92164    19935    98965    504549567051    504549666016            2443      78701      20000     100000        266          0
+   0    92164    19408    99952    504549666063    504549766015          101455      80217      20000     100000        265          0
+   0    92164    19428    99952    504549766062    504549866014          201454      80199      20000     100000        264          0
+   0    92164    19438    99955    504549866060    504549966015          301452      80190      20000     100000        265          0
+   0    92164    19446    99952    504549966061    504550066013          401453      80093      20000     100000        264          0
+   0    92164    19415    99953    504550066060    504550166013          501452      80215      20000     100000        263          0
+   0    92164    19388    99954    504550166059    504550266013          601451      80242      20000     100000        264          0
+   0    92164    19444    99956    504550266060    504550366015          701452      80185      20000     100000        265          0
 
 Some gnuplot files are also created to generate charts based on the log files 
 for each thread and for each kind of metrics. The format of the chart that
