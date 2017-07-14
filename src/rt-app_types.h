@@ -72,7 +72,8 @@ typedef enum resource_t
 	rtapp_iorun,
 	rtapp_runtime,
 	rtapp_yield,
-	rtapp_barrier
+	rtapp_barrier,
+	rtapp_bref
 } resource_t;
 
 struct _rtapp_mutex {
@@ -97,6 +98,8 @@ struct _rtapp_barrier_like {
 	int waiting;
 	/* condvar to wait/signal on */
 	pthread_cond_t c_obj;
+	/* time reference for tasks pipeline */
+	struct timespec t_ref;
 };
 
 struct _rtapp_signal {
@@ -200,6 +203,7 @@ typedef struct _log_data_t {
 	unsigned long perf;
 	unsigned long duration;
 	unsigned long wu_latency;
+	unsigned long pipe_latency;
 	unsigned long c_duration;
 	unsigned long c_period;
 	long slack;
@@ -241,6 +245,7 @@ typedef struct _timing_point_t {
 	unsigned long c_duration;
 	unsigned long c_period;
 	unsigned long wu_latency;
+	unsigned long pipe_latency;
 	long slack;
 	__u64 start_time;
 	__u64 end_time;
