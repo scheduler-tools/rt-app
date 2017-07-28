@@ -299,6 +299,10 @@ static int run_event(event_data_t *event, int dry_run,
 		}
 		pthread_mutex_unlock(&(rdata->res.barrier.m_obj));
 		break;
+        case rtapp_pthread_barrier:
+                log_debug("pthread_barrier %s", rdata->name);
+                pthread_barrier_wait(&rdata->res.pthread_barrier.obj);
+                break;
 	case rtapp_sig_and_wait:
 		log_debug("signal and wait %s", rdata->name);
 		pthread_cond_signal(&(rdata->res.cond.obj));
