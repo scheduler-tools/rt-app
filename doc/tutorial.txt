@@ -273,7 +273,7 @@ second task will run first phase with affinity to CPU 0 and 1, second phase with
 affinity to CPU 2, and the third phase with affinity to CPU 4, 5, and 6 (it will
 inherit the affinity from the task level):
 
-"task" : {
+"tasks" : {
 	"thread1" : {
 		"cpus" : [2,3],
 		"phases" : {
