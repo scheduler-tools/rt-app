@@ -464,7 +464,7 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
-	if (!strncmp(name, "wait", strlen("wait")) || 
+	if (!strncmp(name, "wait", strlen("wait")) ||
 			!strncmp(name, "sync", strlen("sync"))) {
 
 		if (!strncmp(name, "wait", strlen("wait")))

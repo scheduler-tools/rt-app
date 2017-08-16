@@ -8,6 +8,9 @@ aclocal.m4
 *.patch
 cscope.out
 ID
+GPATH
+GRTAGS
+GTAGS
 TAGS.LST
 autom4te.cache/
 build-aux/
