@@ -160,7 +160,6 @@ typedef struct _phase_data_t {
 	int loop;
 	event_data_t *events;
 	int nbevents;
-	int sched_prio;
 	cpuset_data_t cpu_data;
 	sched_data_t *sched_data;
 } phase_data_t;
