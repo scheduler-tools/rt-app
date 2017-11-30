@@ -987,13 +987,12 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 			tmp_str = get_string_value_from(global, "log_size",
 					 TRUE, "disable");
 
-			if (strcmp(tmp_str, "disable"))
+			if (!strcmp(tmp_str, "disable"))
 				opts->logsize = 0;
-			else if (strcmp(tmp_str, "file"))
+			else if (!strcmp(tmp_str, "file"))
 				opts->logsize = -2;
-			else if (strcmp(tmp_str, "auto"))
+			else if (!strcmp(tmp_str, "auto"))
 				opts->logsize = -2; /* Automatic buffer size computation is not supported yet so we fall back on file system mode */
-
 			log_debug("Log buffer set to %s mode", tmp_str);
 
 			/*
