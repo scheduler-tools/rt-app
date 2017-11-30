@@ -762,7 +762,8 @@ void *thread_body(void *arg)
 
 	log_notice("[%d] starting thread ...\n", data->ind);
 
-	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
+	if (opts.logsize)
+		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
 				   "#idx", "perf", "run", "period",
 				   "start", "end", "rel_st", "slack",
 				   "c_duration", "c_period", "wu_lat");
@@ -902,7 +903,8 @@ void *thread_body(void *arg)
 		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
 
 	log_notice("[%d] Exiting.", data->ind);
-	fclose(data->log_handler);
+	if (opts.logsize)
+		fclose(data->log_handler);
 
 	pthread_exit(NULL);
 }
@@ -970,27 +972,29 @@ int main(int argc, char* argv[])
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
+	if (opts.logsize) {
 	/* Prepare log file of each thread before starting the use case */
-	for (i = 0; i < nthreads; i++) {
-		tdata = &opts.threads_data[i];
+		for (i = 0; i < nthreads; i++) {
+			tdata = &opts.threads_data[i];
 
-		tdata->duration = opts.duration;
-		tdata->main_app_start = t_start;
-		tdata->lock_pages = opts.lock_pages;
+			tdata->duration = opts.duration;
+			tdata->main_app_start = t_start;
+			tdata->lock_pages = opts.lock_pages;
 
-		if (opts.logdir) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.log",
-				 opts.logdir,
-				 opts.logbasename,
-				 tdata->name,
-				 tdata->ind);
-			tdata->log_handler = fopen(tmp, "w");
-			if (!tdata->log_handler) {
-				log_error("Cannot open logfile %s", tmp);
-				exit(EXIT_FAILURE);
+			if (opts.logdir) {
+				snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.log",
+					 opts.logdir,
+					 opts.logbasename,
+					 tdata->name,
+					 tdata->ind);
+				tdata->log_handler = fopen(tmp, "w");
+				if (!tdata->log_handler) {
+					log_error("Cannot open logfile %s", tmp);
+					exit(EXIT_FAILURE);
+				}
+			} else {
+				tdata->log_handler = stdout;
 			}
-		} else {
-			tdata->log_handler = stdout;
 		}
 	}
 
