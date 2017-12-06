@@ -1,4 +1,4 @@
-AC_INIT([rt-app], [1.0], [juri.lelli@arm.com, vincent.guittot@linaro.org])
+AC_INIT([rt-app], [m4_esyscmd_s([git describe --tags HEAD])], [juri.lelli@arm.com, vincent.guittot@linaro.org])
 AC_COPYRIGHT([Copyright (C) 2009 Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2016 Juri Lelli      <juri.lelli@arm.com>
 Copyright (C) 2016 Vincent Guittot <vincent.guittot@linaro.org>])
@@ -33,6 +33,8 @@ if test -z "${LOGLVL}";then
 else
 	AC_DEFINE_UNQUOTED([LOG_LEVEL], [${LOGLVL}])
 fi
+
+AC_DEFINE([BUILD_DATE], ["m4_esyscmd_s([date +"%Y-%m-%d %H:%M:%S %Z"])"], [Build date.])
 
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_FILES([Makefile src/Makefile libdl/Makefile README COPYING])
