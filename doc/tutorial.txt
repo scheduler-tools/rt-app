@@ -40,7 +40,7 @@ For rt-app:
 
 export ac_cv_lib_json_c_json_object_from_file=yes
 ./autogen.sh
-./configure --host=aarch64-linux-gnu LDFLAGS=" --static	-L<path to parent of json repo>/json-c/." CFLAGS="-I<path to parent of json repo>" --with-deadline
+./configure --host=aarch64-linux-gnu LDFLAGS=" --static -L<path to parent of json repo>/json-c/." CFLAGS="-I<path to parent of json repo>" --with-deadline
 make
 
 e.g, with a directory structure like the following:
