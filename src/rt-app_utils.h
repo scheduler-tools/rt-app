@@ -49,37 +49,37 @@ do {									\
     if (level <= LOG_LEVEL) {						\
         fprintf(where, LOG_PREFIX level_pfx msg "\n", ##args);		\
     }									\
-} while (0);
+} while (0)
 
 #define log_ftrace(mark_fd, msg, args...)				\
 do {									\
     ftrace_write(mark_fd, msg, ##args);					\
-} while (0);
+} while (0)
 
 #define log_notice(msg, args...)					\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_NOTICE, "<notice> ", msg, ##args);	\
-} while (0);
+} while (0)
 
 #define log_info(msg, args...)						\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_INFO, "<info> ", msg, ##args);	\
-} while (0);
+} while (0)
 
 #define log_error(msg, args...)						\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_ERROR, "<error> ", msg, ##args);	\
-} while (0);
+} while (0)
 
 #define log_debug(msg, args...)						\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_DEBUG, "<debug> ", msg, ##args);	\
-} while (0);
+} while (0)
 
 #define log_critical(msg, args...)					\
 do {									\
     rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, "<crit> ", msg, ##args);	\
-} while (0);
+} while (0)
 
 unsigned long
 timespec_to_usec(struct timespec *ts);
