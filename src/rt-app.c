@@ -785,9 +785,20 @@ void *thread_body(void *arg)
 	 */
 
 	/* Set scheduling policy and print pretty info on stdout */
-	log_notice("[%d] Starting with %s policy with priority %d",
-			data->ind, policy_to_string(data->sched_data->policy),
-			data->sched_data->prio);
+	if (data->sched_data->policy == deadline) {
+		log_notice("[%d] Starting with %s policy with runtime %ld, deadline %ld, period %ld",
+			   data->ind,
+			   policy_to_string(data->sched_data->policy),
+			   data->sched_data->runtime,
+			   data->sched_data->deadline,
+			   data->sched_data->period);
+	} else {
+		log_notice("[%d] Starting with %s policy with priority %d",
+			   data->ind,
+			   policy_to_string(data->sched_data->policy),
+			   data->sched_data->prio);
+	}
+
 	set_thread_priority(data, data->sched_data);
 
 	/*

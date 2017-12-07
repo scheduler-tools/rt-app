@@ -683,19 +683,63 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 	log_info(PIN "key: cpus %s", data->cpuset_str);
 }
 
+static int parse_sched_deadline_data(struct json_object *obj, sched_data_t *d)
+{
+	long int value;
+	/*
+	 * Fetching SCHED_DEADLINE parameters.
+	 * The default deadline value is equal to the period (implicit deadline
+	 * task).
+	 * Each parameter must be positive.
+	 */
+
+	value = get_int_value_from(obj, "dl-runtime", TRUE, -1);
+	if (value < 0) {
+		value = get_int_value_from(obj, "runtime", TRUE, -1);
+		if (value < 0)
+			return 0;
+	}
+	d->runtime = value;
+
+	value = get_int_value_from(obj, "dl-period", TRUE, -1);
+	if (value < 0) {
+		value = get_int_value_from(obj, "period", TRUE, -1);
+		if (value < 0)
+			return 0;
+	}
+	d->period = value;
+
+	value = get_int_value_from(obj, "dl-deadline", TRUE, d->period);
+	if (value < 0) {
+		value = get_int_value_from(obj, "deadline", TRUE, d->period);
+		if (value < 0)
+			return 0;
+	}
+	d->deadline = value;
+
+	/* Move from usec to nanosec */
+	d->runtime *= 1000;
+	d->period *= 1000;
+	d->deadline *= 1000;
+
+	return 1;
+}
+
 static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 {
 	sched_data_t tmp_data;
+	sched_data_t *new_data = NULL;
 	char *def_str_policy;
 	char *policy;
 	int prior_def = -1;
+	int dl_valid = 1;
 
 	/* Get default policy */
 	def_str_policy = policy_to_string(def_policy);
 
 	/* Get Policy */
 	policy = get_string_value_from(obj, "policy", TRUE, def_str_policy);
-	if (policy ){
+	if (policy){
 		if (string_to_policy(policy, &tmp_data.policy) != 0) {
 			log_critical(PIN2 "Invalid policy %s", policy);
 			exit(EXIT_INV_CONFIG);
@@ -704,51 +748,46 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		tmp_data.policy = -1;
 	}
 
-	/* Get priority */
-	if (tmp_data.policy == -1)
-		prior_def = -1;
-	else if (tmp_data.policy == other)
+	/* Get scheduling parameters */
+	switch (tmp_data.policy) {
+	case other:
 		prior_def = DEFAULT_THREAD_NICE;
-	else
+		break;
+	case deadline:
+		dl_valid = parse_sched_deadline_data(obj, &tmp_data);
+		break;
+	case -1:
+		break;
+	default:
 		prior_def = DEFAULT_THREAD_PRIORITY;
+		break;
+	}
 
 	tmp_data.prio = get_int_value_from(obj, "priority", TRUE, prior_def);
 
-	/* deadline params */
-	tmp_data.runtime = get_int_value_from(obj, "dl-runtime", TRUE, 0);
-	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
-	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
-
-
-	if (def_policy != -1) {
-		/* Support legacy grammar for thread object */
-		if (!tmp_data.runtime)
-			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
-		if (!tmp_data.period)
-			tmp_data.period = get_int_value_from(obj, "period", TRUE, tmp_data.runtime);
-		if (!tmp_data.deadline)
-			tmp_data.deadline = get_int_value_from(obj, "deadline", TRUE, tmp_data.period);
+	/* Error if there is no meaningful scheduler parameters */
+	if (tmp_data.prio == -1 && !dl_valid) {
+		log_critical(PIN2 "Invalid scheduling attributes for %s", policy);
+		exit(EXIT_INV_CONFIG);
 	}
 
-	/* Move from usec to nanosec */
-	tmp_data.runtime *= 1000;
-	tmp_data.period *= 1000;
-	tmp_data.deadline *= 1000;
+	new_data = malloc(sizeof(sched_data_t));
+	memcpy(new_data, &tmp_data,sizeof(sched_data_t));
 
-	/* Check if we found at least one meaningful scheduler parameter */
-	if (tmp_data.prio != -1 || tmp_data.runtime || tmp_data.period || tmp_data.period) {
-		sched_data_t *new_data;
-
-		/* At least 1 parameters has been set in the object */
-		new_data = malloc(sizeof(sched_data_t));
-		memcpy( new_data, &tmp_data,sizeof(sched_data_t));
-
-		log_debug(PIN "key: set scheduler %d with priority %d", new_data->policy, new_data->prio);
-
-		return new_data;
+	if (new_data->policy == deadline) {
+		log_debug(PIN "key: set scheduler %d with "
+			  "runtime %ld, deadline %ld, period %ld",
+			  new_data->policy,
+			  new_data->runtime,
+			  new_data->deadline,
+			  new_data->period);
+	} else {
+		log_debug(PIN "key: set scheduler %d with priority %d",
+			  new_data->policy,
+			  new_data->prio);
 	}
 
-	return NULL;
+	return new_data;
 }
 
 static void
@@ -813,6 +852,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
+
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
 
