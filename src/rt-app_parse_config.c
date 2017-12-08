@@ -768,10 +768,14 @@ parse_thread_phase_data(struct json_object *obj,
 		if (obj_is_event(key))
 				data->nbevents++;
 	}
-	log_info(PIN "Found %d events", data->nbevents);
 
-	if (data->nbevents == 0)
-		return;
+	if (data->nbevents == 0) {
+		log_critical(PIN "No events found. Task must have events or it's useless");
+		exit(EXIT_INV_CONFIG);
+
+	}
+
+	log_info(PIN "Found %d events", data->nbevents);
 
 	data->events = malloc(data->nbevents * sizeof(event_data_t));
 
