@@ -236,6 +236,7 @@ static void init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t 
 			&data->res.barrier.m_attr);
 
 	pthread_cond_init(&data->res.barrier.c_obj, NULL);
+	data->res.barrier.t_ref = usec_to_timespec(0UL);
 }
 
 static void
@@ -517,6 +518,23 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+    if (!strncmp(name, "bref", strlen("bref"))) {
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		data->type = rtapp_bref;
+
+		ref = json_object_get_string(obj);
+		i = get_resource_index(ref, rtapp_barrier, opts);
+
+		data->res = i;
+		rdata = &(opts->resources[data->res]);
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		return;
+	}
+
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
@@ -631,6 +649,7 @@ static char *events[] = {
 	"iorun",
 	"yield",
 	"barrier",
+	"bref",
 	NULL
 };
 

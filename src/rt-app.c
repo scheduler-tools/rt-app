@@ -286,18 +286,29 @@ static int run_event(event_data_t *event, int dry_run,
 		pthread_cond_signal(&(rdata->res.cond.obj));
 		break;
 	case rtapp_barrier:
-		log_debug("barrier %s ", rdata->name);
-		pthread_mutex_lock(&(rdata->res.barrier.m_obj));
-		if (rdata->res.barrier.waiting == 0) {
-			/* everyone is already waiting, signal */
-			pthread_cond_broadcast(&(rdata->res.barrier.c_obj));
-		} else {
-			/* not everyone is waiting, mark then wait */
-			rdata->res.barrier.waiting -= 1;
-			pthread_cond_wait(&(rdata->res.barrier.c_obj), &(rdata->res.barrier.m_obj));
-			rdata->res.barrier.waiting += 1;
+		{
+			struct timespec t_delta;
+			log_debug("barrier %s ", rdata->name);
+			pthread_mutex_lock(&(rdata->res.barrier.m_obj));
+			if (rdata->res.barrier.waiting == 0) {
+				/* everyone is already waiting, signal */
+				pthread_cond_broadcast(&(rdata->res.barrier.c_obj));
+				clock_gettime(CLOCK_MONOTONIC, &t_delta);
+				t_delta = timespec_sub(&t_delta, &rdata->res.barrier.t_ref);
+				ldata->pipe_latency = timespec_to_usec(&t_delta);
+				log_debug("pipeline duration %lu ", ldata->pipe_latency);
+			} else {
+				/* not everyone is waiting, mark then wait */
+				rdata->res.barrier.waiting -= 1;
+				pthread_cond_wait(&(rdata->res.barrier.c_obj), &(rdata->res.barrier.m_obj));
+				rdata->res.barrier.waiting += 1;
+			}
+			pthread_mutex_unlock(&(rdata->res.barrier.m_obj));
 		}
-		pthread_mutex_unlock(&(rdata->res.barrier.m_obj));
+		break;
+	case rtapp_bref:
+		log_debug("bref %s ", rdata->name);
+		clock_gettime(CLOCK_MONOTONIC, &rdata->res.barrier.t_ref);
 		break;
 	case rtapp_sig_and_wait:
 		log_debug("signal and wait %s", rdata->name);
@@ -762,10 +773,11 @@ void *thread_body(void *arg)
 
 	log_notice("[%d] starting thread ...\n", data->ind);
 
-	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
+	fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s %10s\n",
 				   "#idx", "perf", "run", "period",
 				   "start", "end", "rel_st", "slack",
-				   "c_duration", "c_period", "wu_lat");
+				   "c_duration", "c_period", "wu_lat",
+				   "pipe_lat");
 
 	if (opts.ftrace)
 		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
@@ -836,6 +848,7 @@ void *thread_body(void *arg)
 		curr_timing->duration = ldata.duration;
 		curr_timing->perf = ldata.perf;
 		curr_timing->wu_latency = ldata.wu_latency;
+		curr_timing->pipe_latency = ldata.pipe_latency;
 		curr_timing->slack = ldata.slack;
 		curr_timing->c_period = ldata.c_period;
 		curr_timing->c_duration = ldata.c_duration;
