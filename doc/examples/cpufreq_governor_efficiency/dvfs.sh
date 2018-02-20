@@ -33,15 +33,15 @@ if [ $1 ] ; then
 	loop=0
 	overrun=0
 	for i in $(cat rt-app_$1_run$3us_sleep$4us.log | sed '1d;n;d' | sed '1d' | awk '{print $3}'); do
-		loop=$(expr $loop + 1)
-		sum=$(expr $sum + $i)
+		loop=$(($loop + 1))
+		sum=$(($sum + $i))
 		if [ $4 -le $i ] ; then
 			#echo $i"vs"$4
-			overrun=$(expr $overrun + 1)
+			overrun=$(($overrun + 1))
 		fi
 	done
 
-	sum=$(expr $sum / $loop)
+	sum=$(($sum / $loop))
 	echo $sum" "$overrun
 	#rm -f rt-app_$1_run$3us_sleep$4us.log
 fi
