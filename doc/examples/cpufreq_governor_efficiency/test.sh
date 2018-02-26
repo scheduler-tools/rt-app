@@ -60,14 +60,14 @@ test_efficiency() {
 	echo "\"powersave\" efficiency: 0% overrun: "$over_save
 	echo "\"performance\" efficiency: 100% overrun: "$over_perf
 
-	denominator=$(expr $powersave - $performance)
+	denominator=$(($powersave - $performance))
 
 	if [ $powersave -le $target ]; then
 		target=0
 	else
-		numerator=$(expr $powersave - $target)
-		numerator=$(expr $numerator \* 100)
-		target=$(expr $numerator / $denominator)
+		numerator=$(($powersave - $target))
+		numerator=$(($numerator * 100))
+		target=$(($numerator / $denominator))
 		if [ $target -gt 100 ]; then
 			target=100
 		fi
@@ -100,5 +100,5 @@ echo "Test \"$1\" on CPU$2 with workload pattern \"run $3ms + sleep $4ms\"($loop
 sleep 1
 PATH=$PATH:.
 
-test_efficiency $1 $2 $(expr $3 \* 1000) $(expr $4 \* 1000) $loops
+test_efficiency $1 $2 $(($3 * 1000)) $(($4 * 1000)) $loops
 
