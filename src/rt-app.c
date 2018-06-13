@@ -648,15 +648,29 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				exit(EXIT_FAILURE);
 			}
 
-			param.sched_priority = sched_data->prio;
-			ret = pthread_setschedparam(pthread_self(),
-					sched_data->policy,
-					&param);
+			if (!data->curr_sched_data || sched_data->policy != data->curr_sched_data->policy) {
+				/* Set new scheduling class */
+				param.sched_priority = 0;
+				ret = pthread_setschedparam(pthread_self(),
+						sched_data->policy,
+						&param);
+				if (ret != 0) {
+					log_critical("[%d] pthread_setschedparam "
+					     "returned %d", data->ind, ret);
+					errno = ret;
+					perror("pthread_setschedparam");
+					exit(EXIT_FAILURE);
+				}
+			}
+
+			/* Set nice priority */
+			ret = setpriority(PRIO_PROCESS, 0,
+					sched_data->prio);
 			if (ret != 0) {
-				log_critical("[%d] pthread_setschedparam"
+				log_critical("[%d] setpriority "
 				     "returned %d", data->ind, ret);
 				errno = ret;
-				perror("pthread_setschedparam");
+				perror("setpriority");
 				exit(EXIT_FAILURE);
 			}
 
