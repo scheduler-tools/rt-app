@@ -610,6 +610,34 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "fork", strlen("fork"))) {
+
+		data->type = rtapp_fork;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+
+		i = get_resource_index(ref, rtapp_fork, opts);
+
+		data->res = i;
+
+		rdata = &(opts->resources[data->res]);
+
+		rdata->res.fork.ref = strdup(ref);
+		rdata->res.fork.tdata = NULL;
+		rdata->res.fork.nforks = 0;
+
+		if (!rdata->res.fork.ref) {
+			log_error("Failed to duplicate ref");
+			exit(EXIT_FAILURE);
+		}
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		return;
+	}
+
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
 
@@ -637,6 +665,7 @@ static char *events[] = {
 	"iorun",
 	"yield",
 	"barrier",
+	"fork",
 	NULL
 };
 
@@ -828,6 +857,9 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
+
+	/* It's the responsibility of the caller to set this if we were forked */
+	data->forked = 0;
 
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
