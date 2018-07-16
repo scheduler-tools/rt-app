@@ -177,6 +177,8 @@ typedef struct _sched_data_t {
 	unsigned long runtime;
 	unsigned long deadline;
 	unsigned long period;
+	int util_min;
+	int util_max;
 } sched_data_t;
 
 typedef struct _taskgroup_data_t {

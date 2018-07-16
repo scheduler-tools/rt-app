@@ -968,6 +968,34 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			exit(EXIT_FAILURE);
 	}
 
+	if (sched_data->policy != deadline &&
+	    (sched_data->util_min != -1 || sched_data->util_max != -1)) {
+		sa_params.size = sizeof(struct sched_attr);
+		sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
+		tid = gettid();
+
+		if (sched_data->util_min != -1) {
+			sa_params.sched_util_min = sched_data->util_min;
+			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
+			log_notice("[%d] setting util_min=%d",
+				   data->ind, sched_data->util_min);
+		}
+		if (sched_data->util_max != -1) {
+			sa_params.sched_util_max = sched_data->util_max;
+			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
+			log_notice("[%d] setting util_max=%d",
+				   data->ind, sched_data->util_max);
+		}
+
+		ret = sched_setattr(tid, &sa_params, flags);
+		if (ret != 0) {
+			log_critical("[%d] sched_setattr returned %d",
+				     data->ind, ret);
+			perror("sched_setattr: failed to set uclamp value(s)");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	data->curr_sched_data = sched_data;
 }
 
