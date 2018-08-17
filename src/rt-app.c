@@ -413,6 +413,17 @@ static int run_event(event_data_t *event, int dry_run,
 			pthread_yield();
 		}
 		break;
+	case rtapp_external_workload:
+		{
+            struct timespec t_start, t_end;
+			log_debug("external workload execution %s:%s ", rdata->res.external_workload.library_name, rdata->res.external_workload.symbol_name);
+			clock_gettime(CLOCK_MONOTONIC, &t_start);
+			rdata->res.external_workload.workload(ldata);
+			clock_gettime(CLOCK_MONOTONIC, &t_end);
+			t_end = timespec_sub(&t_end, &t_start);
+			ldata->duration += timespec_to_usec(&t_end);
+		}
+		break;
 	default:
 		break;
 	}
