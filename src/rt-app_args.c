@@ -24,7 +24,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 #include <sys/stat.h>
 #include <getopt.h>
+#include <limits.h>
+#include <errno.h>
 
+#include "rt-app_utils.h"
 #include "rt-app_parse_config.h"
 
 char help_usage[] = \
@@ -60,11 +63,55 @@ struct option long_args[] = {
 	{0,		0,		0,	0}
 };
 
+static char* main_install_path = NULL;
+
+char const* get_shared_library_base_path()
+{
+	return main_install_path;
+}
+
 void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 {
 	struct stat config_file_stat;
 	int c;
+	int full_path_len;
+	int main_install_path_len;
+
+	const char shared_lib_dir_name[] = "/../rtapp_function/";
+
+	/* get the rt-app base directory full name */
+	char* full_path = malloc(PATH_MAX);
+	int index;
+	int return_snprintf = 0;
+
+	/* get the program invocation string and extract the base directory content */
+	if (!realpath(argv[0], full_path)) {
+		log_error("failed to get rt-app base path: %s", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	for(index=strlen(full_path)-1; index>0; index--) {
+		if(full_path[index]=='/') {
+			full_path[index]='\0';
+			break;
+		}
+	}
+
+	full_path_len = strlen(full_path);
+
+	main_install_path_len = full_path_len + sizeof(shared_lib_dir_name) + 1;
+	main_install_path = malloc(main_install_path_len);
+	if (!main_install_path) {
+		log_error("failed to allocate %d bytes: %s", main_install_path_len, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	return_snprintf = snprintf(main_install_path, main_install_path_len,"%s%s", full_path, shared_lib_dir_name);
+	if(return_snprintf >= main_install_path_len || return_snprintf < 0) {
+		log_error("failed to compose install path\n");
+		exit(EXIT_FAILURE);
+	}
 
 	while (1) {
 		c = getopt_long(argc, argv, "hv", long_args, 0);

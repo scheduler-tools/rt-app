@@ -26,8 +26,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <string.h>
 #include <fcntl.h>
 #include <json-c/json.h>
+#include <dlfcn.h>
 
 #include "rt-app_utils.h"
+#include "rt-app_args.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "
@@ -363,6 +365,57 @@ static char* create_unique_name(char *tmp, int size, const char* ref, long tag)
 	return tmp;
 }
 
+void initialise_external_library(rtapp_resource_t *rdata)
+{
+	void *library_handle;
+	void *symbol;
+	char const* shared_library_dir_name = NULL;
+	char *full_library_name = NULL;
+
+	char *library_name = rdata->res.external_workload.library_name;
+	int base_path_len = 0;
+	int lib_name_len = 0;
+	int full_library_name_length = 0;
+	int return_snprintf;
+
+	shared_library_dir_name = get_shared_library_base_path();
+	if (!shared_library_dir_name) {
+		log_error("failed to obtain shared library directory\n");
+		exit(EXIT_FAILURE);
+	}
+
+	base_path_len = strlen(shared_library_dir_name);
+	lib_name_len = strlen(library_name);
+	full_library_name_length = base_path_len + lib_name_len +1;
+
+	full_library_name = malloc(full_library_name_length);
+	if (!full_library_name) {
+		log_error("failed to allocate memory for library name\n");
+		exit(EXIT_FAILURE);
+	}
+
+	return_snprintf = snprintf(full_library_name, full_library_name_length, "%s%s", shared_library_dir_name, library_name);
+	if(return_snprintf >= full_library_name_length || return_snprintf < 0) {
+		log_error("failed to compose the full library name\n");
+		exit(EXIT_FAILURE);
+	}
+
+	library_handle = dlopen(full_library_name, RTLD_NOW | RTLD_LOCAL);
+	if(library_handle == NULL) {
+		log_info(PIN2 "failed to open shared library: %s\n", dlerror());
+		exit(EXIT_FAILURE);
+	}
+	free(full_library_name);
+
+	symbol = dlsym(library_handle, rdata->res.external_workload.symbol_name);
+	if(!symbol) {
+		log_info(PIN2 "failed to open obtain symbol: %s\n", dlerror());
+		exit(EXIT_FAILURE);
+	}
+
+	rdata->res.external_workload.workload = symbol;
+}
+
 static void
 parse_thread_event_data(char *name, struct json_object *obj,
 		  event_data_t *data, rtapp_options_t *opts, long tag)
@@ -517,6 +570,36 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "external_workload", strlen("external_workload"))) {
+
+		data->type = rtapp_external_workload;
+
+		ref = json_object_get_string(obj);
+
+		i = add_resource_data(name, rtapp_external_workload, opts);
+
+		data->res = i;
+		rdata = &(opts->resources[data->res]);
+
+		/*
+		* Get the name of the shared library as well as
+		* the optional method name
+		*/
+		rdata->res.external_workload.library_name = get_string_value_from(obj, "library_name", FALSE, "");
+
+		tmp = get_string_value_from(obj, "main_method", TRUE, "workload");
+		rdata->res.external_workload.symbol_name = tmp;
+
+		log_info(PIN2 "type %d target %s [%d] lib name %s, workload %s\n",
+		data->type, rdata->name, rdata->index, rdata->res.external_workload.library_name,
+		rdata->res.external_workload.symbol_name);
+
+		/* Load the symbol in the dynamic library */
+		initialise_external_library(rdata);
+
+		return;
+	}
+
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
@@ -631,6 +714,7 @@ static char *events[] = {
 	"iorun",
 	"yield",
 	"barrier",
+	"external_workload",
 	NULL
 };
 
