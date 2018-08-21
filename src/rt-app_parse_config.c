@@ -928,18 +928,40 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 
 	log_info(PFX "Parsing tasks section");
 	opts->nthreads = 0;
+	opts->nzthreads = 0;
 	foreach(tasks, entry, key, val, idx) {
 		instance = get_int_value_from(val, "instance", TRUE, 1);
 		opts->nthreads += instance;
+		if (!instance)
+			opts->nzthreads++;
 	}
 
 	log_info(PFX "Found %d tasks", opts->nthreads);
-	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
+	log_info(PFX "Found %d \'\"instance\": 0\' tasks", opts->nzthreads);
+	opts->threads_data = malloc(sizeof(thread_data_t) * (opts->nthreads + opts->nzthreads));
 	i = instance = 0;
 	foreach (tasks, entry, key, val, idx) {
 		instance += get_int_value_from(val, "instance", TRUE, 1);
 		for (; i < instance; i++)
 			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
+	}
+
+	/*
+	 * Parse thread data of 0 instance tasks so that we can use
+	 * them with fork.
+	 *
+	 * NOTE: the 0 instance tasks MUST be indexed after the non 0 one as
+	 * the rest of the code will automatically create the first N threads
+	 * - which are assumed to be non 0.
+	 * IOW, the first 0 instance task must have an index of opts->nthreads.
+	 */
+	foreach (tasks, entry, key, val, idx) {
+		instance = get_int_value_from(val, "instance", TRUE, 1);
+
+		if (!instance) {
+			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
+			i++;
+		}
 	}
 }
 

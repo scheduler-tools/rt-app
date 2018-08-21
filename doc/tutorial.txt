@@ -136,7 +136,8 @@ several threads can be created with the same object (see instance parameter
 below).
 
 * instance : Integer. Define the number of threads that will be created with
-the properties of this thread object. Default value is 1.
+the properties of this thread object. Default value is 1. A value of 0 will
+create the structures of the task but will not create a pthread.
 
 * delay: Integer. Initial delay before a thread starts execution. The unit
 is usec.

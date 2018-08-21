@@ -221,6 +221,7 @@ typedef struct _rtapp_options_t {
 
 	thread_data_t *threads_data;
 	int nthreads;
+	int nzthreads;
 
 	policy_t policy;
 	int duration;
