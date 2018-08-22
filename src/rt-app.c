@@ -38,6 +38,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
 
+/*
+ * To prevent infinite loops in fork bombs, we will limit the number of
+ * permissible forks before we exit on error.
+ *
+ * This limit is per forking task/thread NOT the aggregated number of forks.
+ */
+#define FORKS_LIMIT		1024
+
 static int errno;
 static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
@@ -464,6 +472,16 @@ static int run_event(event_data_t *event, int dry_run,
 	case rtapp_fork:
 		{
 			log_debug("fork %s", rdata->res.fork.ref);
+
+			/*
+			 * Check if the current thread reached its limit of
+			 * number of allowable forks.
+			 * We enforce a limit to prevent infinite loops.
+			 */
+			if (rdata->res.fork.nforks >= FORKS_LIMIT) {
+				log_error("%s reached its fork limit (%d)", rdata->res.fork.tdata->name, FORKS_LIMIT);
+				exit(EXIT_FAILURE);
+			}
 
 			/*
 			 * If multiple threads race to fork, we must ensure
