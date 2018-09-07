@@ -40,33 +40,31 @@ For rt-app:
 
 export ac_cv_lib_json_c_json_object_from_file=yes
 ./autogen.sh
-./configure --host=aarch64-linux-gnu LDFLAGS=" --static -L<path to parent of json repo>/json-c/." CFLAGS="-I<path to parent of json repo>" --with-deadline
-make
+./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo>" CFLAGS="-I<path to parent of json-c repo>" --with-deadline
+AM_LDFLAGS="-all-static" make
 
 e.g, with a directory structure like the following:
 
-$ tree -d
-.
-├── autom4te.cache
-├── build
-├── build-aux
-├── doc
-│   └── examples
-│       ├── cpufreq_governor_efficiency
-│       ├── merge
-│       └── tutorial
-├── json-c
-│   ├── autom4te.cache
-│   ├── doc
-│   │   └── html
-│   └── tests
-├── libdl
-├── m4
-└── src
+$ tree -d -L 2
+|-- json-c
+|   |-- autoconf-archive
+|   |-- autom4te.cache
+|   |-- cmake
+|   |-- fuzz
+|   `-- tests
+`-- rt-app
+    |-- autom4te.cache
+    |-- build-aux
+    |-- doc
+    |-- libdl
+    |-- m4
+    `-- src
+
 
 the configure step becomes
 
-./configure --host=aarch64-linux-gnu LDFLAGS="--static -L./../json-c/." CFLAGS="-I./.." --with-deadline
+cd rt-app
+./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c" CFLAGS="-I$PWD/../" --with-deadline
 
 **** json file skeleton ****
 
