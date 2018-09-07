@@ -1030,6 +1030,7 @@ int main(int argc, char* argv[])
 			"set title \"Measured time per loop\"\n"
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Period Time [usec]\"\n"
+			"set xtics rotate by -45\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
@@ -1064,6 +1065,7 @@ int main(int argc, char* argv[])
 			"set title \"Measured run time per loop\"\n"
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Run Time [usec]\"\n"
+			"set xtics rotate by -45\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
