@@ -222,12 +222,12 @@ below are equals:
 Several properties can be set at thread and/or phase levels. All these
 properties are optional and default value will be used if nothing is defined.
 
-* loop: Integer. Define the number of times the parent object must be run.  The
-  parent object can be a phase or a thread. For phase object, the loop defines
-the number of time the phase will be executed before starting the next phase.
-For thread object, the loop defines the number of times that the complete
-"phases" object will be executed. The default value is -1 for thread object and
-1 for phases.
+* loop : Integer. Define the number of times the object (thread or phase) must
+be run. For a phase, the loop defines the number of time the phase will be
+executed before starting the next phase. For a thread, the loop defines the
+number of times that the sequence of phases (defined by the "phases" object)
+will be executed. The default value is -1 for threads (loop indefinitely) and 1
+for phases (run once).
 
 *** scheduling policy
 

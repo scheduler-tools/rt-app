@@ -873,7 +873,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		 *
 		 */
 		if (get_in_object(obj, "loop", TRUE))
-			data->loop = 1;
+			data->loop = get_int_value_from(obj, "loop", TRUE, 1);
 		else
 			data->loop = -1;
 	}

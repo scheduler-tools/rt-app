@@ -811,13 +811,13 @@ void *thread_body(void *arg)
 	 * phase        - index of current phase in data->phases array
 	 * phase_loop   - current iteration of current phase
 	 *                (corresponds to "loop" at phase level)
-	 * thread_loop  - current iteration of thread/phases
+	 * thread_loop  - current iteration of thread
 	 *                (corresponds to "loop" at task level
 	 * log_idx      - index of current row in the log buffer
 	 */
 	phase = phase_loop = thread_loop = log_idx = 0;
 
-	/* The following is executed for each phase. */
+	/* The following is executed for each thread_loop. */
 	while (continue_running && thread_loop != data->loop) {
 		struct timespec t_diff, t_rel_start;
 
