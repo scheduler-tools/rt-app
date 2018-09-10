@@ -23,6 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define _RT_APP_H_
 
 void *thread_body(void *arg);
+#ifdef HAVE_LIBCGROUP
+void split_taskgroup_data(rtapp_options_t *opts, char *name);
+taskgroup_t* find_taskgroup(rtapp_options_t *opts, char *name);
+#endif
 
 #endif /* _RT_APP_H_ */
 

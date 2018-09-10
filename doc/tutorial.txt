@@ -36,11 +36,29 @@ export ac_cv_func_realloc_0_nonnull=yes
 ./configure --host=aarch64-linux-gnu --disable-shared --enable-static
 make
 
+For libcgroup: (tested with v0.41)
+
+./git clone https://github.com/matsumoto-r/libcgroup.git
+
+export ac_cv_func_malloc_0_nonnull=yes
+export ac_cv_func_realloc_0_nonnull=yes
+autoreconf -v --install
+./configure --host=aarch64-linux-gnu --disable-shared --enable-static --disable-pam --disable-daemon --disable-tools
+make
+
 For rt-app:
 
 export ac_cv_lib_json_c_json_object_from_file=yes
 ./autogen.sh
+
+w/o taskgroup (cgroup) support:
+
 ./configure --host=aarch64-linux-gnu LDFLAGS=" --static -L<path to parent of json repo>/json-c/." CFLAGS="-I<path to parent of json repo>" --with-deadline
+
+w/ taskgroup (cgroup) support:
+
+./configure --host=aarch64-linux-gnu LDFLAGS="--static -L<path to parent of json repo>/json-c/. -L<path to parent of libcgroup repo>/src/.libs" CFLAGS="-I<path to parent of libcgroup repo>/include --I<path to parent of json repo>" --with-deadline --with-cgroup
+
 make
 
 e.g, with a directory structure like the following:
@@ -297,6 +315,43 @@ inherit the affinity from the task level):
 				"sleep" : 10
 			}
 			"phase3" : {
+				"run" : 10,
+				"sleep" : 10
+			}
+		}
+	}
+}
+
+*** taskgroup ***
+
+* taskgroup: String. Can be specified at task level or phase level. The
+example below sets up a task 'thread1' with three phases. The task will
+run in taskgroup '/tg1/tg11' in the  phase1, in '/tg1' in phase2 and in
+'/' (root taskgroup) in phase3. Phase 2 does not specify a cgroup so the
+phase will inherit from the task. Currently only SCHED_OTHER tasks are
+supported.
+An empty taskgroup value ("") is allowed and is interpreted as if there
+is no taskgroup name/value pair given, so the thread or phase runs in
+the root taskgroup.
+An rt-app binary w/o taskgroup support ignores any taskgroup related
+name/value pairs.
+
+"task" : {
+	"thread1" : {
+		"policy": "SCHED_OTHER",
+		"taskgroup": "/tg1",
+		"phases" : {
+			"phase1" : {
+				"taskgroup": "/tg1/tg11",
+				"run" : 10,
+				"sleep" : 10
+			},
+			"phase2" : {
+				"run" : 10,
+				"sleep" : 10
+			},
+			"phase3" : {
+				"taskgroup": "/",
 				"run" : 10,
 				"sleep" : 10
 			}
