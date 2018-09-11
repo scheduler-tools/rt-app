@@ -1031,6 +1031,7 @@ int main(int argc, char* argv[])
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Period Time [usec]\"\n"
 			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
@@ -1066,6 +1067,7 @@ int main(int argc, char* argv[])
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Run Time [usec]\"\n"
 			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
