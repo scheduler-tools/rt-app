@@ -7,17 +7,23 @@
 	 * to set the timer's period to 0
 	 */
 	"tasks" : {
+		/* no 'loop' value at task level means loop indefinitely (-1) */
 		"thread0" : {
-			"instance" : 1,
-			"loop" : -1,
-			"run" :   10000,
-			"sleep" : 0,
+			"instance" : 1,  /* number of threads to be created */
+			"loop" : -1,  /* loop forever (see 'duration' below) */
+
+			"run" :   10000,  /* create load [us]: when awaken,
+				execute `floor (10000*1000 / pLoad[ns])` loops */
+
+			"sleep" : 0, /* sleep 0s - which is somewhat useless */
+
 			"timer" : { "ref" : "unique", "period" : 100000 }
+			/* wake up thread every 100000 us */
 		}
 	},
 	"global" : {
-		"duration" : 6,
-		"calibration" : "CPU0",
+		"duration" : 6,  /* run for a maximum of 6s total */
+		"calibration" : "CPU0",   /* calibrate on CPU0 */
 		"default_policy" : "SCHED_OTHER",
 		"pi_enabled" : false,
 		"lock_pages" : false,
