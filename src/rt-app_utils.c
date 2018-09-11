@@ -28,6 +28,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include "rt-app_utils.h"
 
+
+int log_level = 50;   // default
+
 unsigned long
 timespec_to_usec(struct timespec *ts)
 {

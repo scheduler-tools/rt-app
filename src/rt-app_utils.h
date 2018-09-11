@@ -31,9 +31,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef LOG_PREFIX
 #define LOG_PREFIX "[rt-app] "
 #endif
-#ifndef LOG_LEVEL
-#define LOG_LEVEL 50
-#endif
 
 #define LOG_LEVEL_DEBUG 100
 #define LOG_LEVEL_INFO 75
@@ -43,10 +40,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define BUF_SIZE 100
 
-/* This prepend a string to a message */
+extern int log_level;
+
+/* This prepends a string to a message */
 #define rtapp_log_to(where, level, level_pfx, msg, args...)		\
 do {									\
-    if (level <= LOG_LEVEL) {						\
+    if (level <= log_level) {						\
         fprintf(where, LOG_PREFIX level_pfx msg "\n", ##args);		\
     }									\
 } while (0)
