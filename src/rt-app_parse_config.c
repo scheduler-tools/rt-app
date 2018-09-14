@@ -38,8 +38,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define PIN3 PIN2"    "
 #define JSON_FILE_BUF_SIZE 4096
 #define DEFAULT_MEM_BUF_SIZE (4 * 1024 * 1024)
+
+#ifndef TRUE
 #define TRUE true
 #define FALSE false
+#endif
 
 /* redefine foreach as in <json/json_object.h> but to be ANSI
  * compatible */
