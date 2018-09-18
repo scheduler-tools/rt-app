@@ -26,14 +26,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <getopt.h>
 
 #include "rt-app_parse_config.h"
+#include "rt-app_utils.h"
 
 char help_usage[] = \
-"Usage: rt-app <taskset.json>\n"
+"Usage: rt-app [-l <debug_level>] <taskset.json>\n"
 "Try 'rt-app --help' for more information.\n";
 
 char help_full[] = \
 "Usage:\n"
-"      rt-app <taskset.json>\n"
+"      rt-app [-l <debug_level>] <taskset.json>\n"
 "      cat taskset.json | rt-app -\n\n"
 "taskset.json is a json file describing the workload that will be generated"
 "by rt-app.\n\n"
@@ -41,8 +42,10 @@ char help_full[] = \
 "In the second example, rt-app reads the workload description in json format\n"
 "through the standard input.\n\n"
 "Miscellaneous:\n"
-"  -v, --version             display version information and exit\n"
-"  -h, --help                display this help text and exit\n";
+"  -v, --version      display version information and exit\n"
+"  -l, --log          set verbosity level (10: ERROR/CRITICAL, 50: NOTICE (default)\n"
+"                                    75: INFO, 100: DEBUG)\n"
+"  -h, --help         display this help text and exit\n";
 
 void
 usage(const char* msg, int ex_code)
@@ -55,9 +58,10 @@ usage(const char* msg, int ex_code)
 }
 
 struct option long_args[] = {
-	{"help",	no_argument,	0,	'h'},
-	{"version",	no_argument,	0,	'v'},
-	{0,		0,		0,	0}
+	{"help",	no_argument,		0,	'h'},
+	{"version",	no_argument,		0,	'v'},
+	{"log",		required_argument,	0,	'l'},
+	{0,		0,			0,	0}
 };
 
 void
@@ -67,7 +71,7 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 	int c;
 
 	while (1) {
-		c = getopt_long(argc, argv, "hv", long_args, 0);
+		c = getopt_long(argc, argv, "hvl:", long_args, 0);
 		if (c == -1)
 			break;
 
@@ -82,6 +86,19 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 			       VERSION,
 			       BUILD_DATE);
 			exit(0);
+			break;
+		case 'l':
+			if (!optarg) {
+				usage(NULL, EXIT_INV_COMMANDLINE);
+			} else {
+				char *endptr;
+				long int ll = strtol(optarg, &endptr, 10);
+				if (*endptr) {
+					usage(NULL, EXIT_INV_COMMANDLINE);
+					break;
+				}
+				log_level = ll;
+			}
 			break;
 		default:
 			usage(NULL, EXIT_INV_COMMANDLINE);
