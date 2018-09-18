@@ -523,6 +523,54 @@ generates the following sequence:
     "unlock" : "SyncPointA" (internal mutex)
 }
 
+* pthread_barrier: String. Used exactly like barrier, however this actually uses
+pthread_barrier_wait. As discussed above, this is likely to cause problems with
+killing rt-app.
+
+Why would you want this instead of 'barrier'? 'barrier' uses pthread_cond_wait
+and pthread_cond_broadcast. Note that pthread_cond_wait is passed a mutex, and
+that this mutex must be held by the caller. pthread_cond_wait releases this
+mutex, and must re-acquire it before returning. That means that when multiple
+waiters are woken by a pthread_cond_broadcast, all but one of them would have to
+immediately go back to sleep, waiting on the mutex, before returning from
+pthread_cond_wait. Therefore pthread implementations use a different futex
+mechanism for pthread_cond_wait than for pthread_barrier_wait: instead of using
+FUTEX_WAKE to wake all the waiters, FUTEX_CMP_REQUEUE is used to wake _one_of
+the waiters, and _move_ the remaining waiters so that instead of waiting on the
+condition variable itself, they are now waiting on the mutex. When the first
+waiter is woken it will release the mutex before returning from
+pthread_cond_wait, which will wake the second waiter. When the second waiter
+releases the mutex, it will release the third waiter, and so on. This can impact
+scheduler behaviour - instead of waking up multiple threads from a single
+context we now wake one thread from each context:
+
+Using 'pthread_barrier' event:
+
+
+ Thread A                       | Thread B                      | Thread C
+=========================================================================================
+                                |                               | pthread_barrier_wait(&b)
+                                | pthread_barrier_wait(&b)      |
+ pthread_barrier_wait(&b)       |                               |
+                     \--WAKES-->|      # unblocked by A #       |
+                      \--WAKES--------------------------------->|      # unblocked by A #
+
+
+Using 'barrier' event:
+
+
+ Thread A                       | Thread B                      | Thread C
+=========================================================================================
+                                |                               | pthread_cond_wait(&c, &m)
+                                | pthread_cond_wait(&c, &m)     |
+ pthread_cond_broadcast(&c)     |                               |
+                     \--WAKES-->|      # unblocked by A #       |
+                                |                    \--WAKES-->|     # unblocked by B #
+
+
+Therefore, you might want to use the pthread_barrier event even though it can
+cause problems with killing rt-app.
+
 * suspend : String. Block the calling thread until another thread wakes it up
 with resume. The String can be let empty as it will be filled by workgen with
 the right thread's name before starting the use case.
