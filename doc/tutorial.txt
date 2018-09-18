@@ -309,10 +309,14 @@ thread. They have to be listed by execution order.
 
 * run : Integer. Emulate the execution of a load. The duration is defined in
 usec but the run event will effectively run a number of time a loop that waste
-cpu cycles. When the run event is executed, the duration is transformed in a
-number of loop thanks to the ns per loop value (see calibration). This way of
-working enables to emulate a load with a duration that will vary with the
-frequency or the compute capacity of the CPU.
+cpu cycles. When the run event is executed with parameter t, the workload
+executed will be n loops of the calibration workload (pLoad in ns):
+	n := floor (t * 1000 / pLoad)
+so, it might be running for a shorter amount of time.
+
+This way of working enables to emulate a fixed workload with a duration that
+will vary with the frequency or the compute capacity of the CPU.
+
 
 * runtime : Integer.  The duration is define in usec.  Similar to the
 run event, it emulates the execution of a load.  Unlike run, runtime
@@ -598,8 +602,9 @@ finished to execute its events.
 You can log some metrics for each phase that is executed by a thread. These
 metrics are:
 - perf: fixed amount of work perfomed during a phase (c_duration/calibration)
-- run: time spent by the thread to execute the run events
-- period: duration to execute the complte phase
+  (see events/run above) [number of 1000 loops, each pLoad]
+- run: time spent by the thread to execute the run events [us]
+- period: duration to execute the complete phase [us]
 - start/end : absolute start and end time of a phase. Same time base is used in
   ftrace
 - rel_st: start time of a phase relatively to the beg of the use case
@@ -621,9 +626,9 @@ metrics are:
   phase with multiple timers are accumulated and reported when the phase
   completes
 
-- c_duration: sum of the configured duration of run/runtime events
-- c_period: sum of the timer(s) period(s)
-- wu_lat: sum of wakeup latencies after timer events
+- c_duration: sum of the configured duration of run/runtime events [us]
+- c_period: sum of the timer(s) period(s) [us]
+- wu_lat: sum of wakeup latencies after timer events [us]
 
 Below is an extract of a log:
 

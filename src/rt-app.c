@@ -1031,6 +1031,7 @@ int main(int argc, char* argv[])
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Period Time [usec]\"\n"
 			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
@@ -1066,6 +1067,7 @@ int main(int argc, char* argv[])
 			"set xlabel \"Loop start time [usec]\"\n"
 			"set ylabel \"Run Time [usec]\"\n"
 			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
 			"plot ", tmp);
 
 		for (i=0; i<nthreads; i++) {
@@ -1100,9 +1102,10 @@ int main(int argc, char* argv[])
 				"set key outside right\n"
 				"set title \"Measured %s Loop stats\"\n"
 				"set xlabel \"Loop start time [msec]\"\n"
-				"set ylabel \"Run Time [msec]\"\n"
-				"set y2label \"Load [nb loop]\"\n"
+				"set ylabel \"Period/Run Time [usec]\"\n"
+				"set y2label \"Load [number of 1000 loops executed]\"\n"
 				"set y2tics  \n"
+				"set xtics rotate by -45\n"
 				"plot ", tmp, opts.threads_data[i].name);
 
 			fprintf(gnuplot_script,
