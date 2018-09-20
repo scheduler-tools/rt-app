@@ -16,39 +16,96 @@ Code is currently maintained on GitHub:
  REQUIREMENTS
 ==============
 
-rt-app runs on GNU/Linux. It needs autoconf, automake, libtool , libjson-c and
-a recent compiler (mainly: gcc) for basic features.
+rt-app runs on GNU/Linux. It needs bash, autoconf, automake, libtool,
+libjson-c, GNU make and a recent compiler (tested on: gcc) for basic features.
 
-=============
- COMPILATION
-=============
 
-$ autoreconf --install
-$ ./configure
-$ make
-$ make install
+=================
+ BUILDING json-c
+=================
 
-Last step is optional, rt-app is built in the src/ directory.
+If you are not happy using the version installed by your packaging system,
+if it does not provide static libraries and you need them, need to
+cross-compile, build it from source like this:
 
-Typical usage:
+retrieve source code available here:
 
-$ ./configure --prefix=<directory>
-	installs the compiled program in the given directory
+    https://github.com/json-c/json-c
 
-$ ./configure --with-deadline
-	builds rt-app with support for SCHED_DEADLINE
+cross-compile json-c and build both static and shared libraries for aarch64:
 
-See ./configure --help for additional options.
+    export ac_cv_func_malloc_0_nonnull=yes
+    export ac_cv_func_realloc_0_nonnull=yes
+    ./autogen.sh
+    ./configure --host=aarch64-linux-gnu --enable-shared --enable-static
+    make
 
-For cross-compilation, you may have to set the CC environment variable to your
-cross-compiler, and provide the --host option (e.g., --host=arm).
+
+================================
+ BUILDING AND INSTALLING rt-app
+================================
+
+VARIANT A)
+cross-compile a static rt-app for aarch64, using your own json-c build
+----------------------------------------------------------------------
+(...that wasn't installed (or not into the standard locations))
+
+    export ac_cv_lib_json_c_json_object_from_file=yes
+    ./autogen.sh
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo>" CFLAGS="-I<path to parent of json-c repo>" --with-deadline
+    AM_LDFLAGS="-all-static" make
+
+configure supports the usual flags, like `--help` and `--prefix`, there is an
+install target in the Makefile as well. `--with-deadline` enables support for
+SCHED_DEADLINE.
+
+
+EXAMPLE: with a directory structure like the following:
+
+    $ tree -d -L 2
+    |-- json-c
+    |   |-- autoconf-archive
+    |   |-- autom4te.cache
+    |   |-- cmake
+    |   |-- fuzz
+    |   `-- tests
+    `-- rt-app
+        |-- autom4te.cache
+        |-- build-aux
+        |-- doc
+        |-- libdl
+        |-- m4
+        `-- src
+
+
+you would run:
+
+    cd rt-app
+    export ac_cv_lib_json_c_json_object_from_file=yes
+    ./autogen.sh
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c" CFLAGS="-I$PWD/../" --with-deadline
+    AM_LDFLAGS="-all-static" make
+
+and you should get a static rt-app executable in the src directory.
+
+
+VARIANT B)
+regular build of rt-app for your host against json-c in canonical locations
+---------------------------------------------------------------------------
+(and installation with PREFIX=/usr/local)
+
+    ./autogen.sh
+    ./configure --with-deadline
+    make
+    make install
+
 
 =======
  USAGE
 =======
 
-$ rt-app <config_file>
+    $ rt-app [-l <log level>] <config_file>
 
-where config file is a full/relative path to a json file (look under doc/ for
-examples config file) or "-" (without quotes) to read JSON data from stdin.
-
+where config file is a full/relative path to a json file (look under
+doc/examples for examples) or "-" (without quotes) to read JSON data from
+stdin.
