@@ -53,7 +53,7 @@ is False.
 * lock_pages : Boolean. Lock the mem page in RAM. Locking the page in RAM
 ensures that your RT thread will not be stalled until a page is moved from swap
 to RAM.  The lock of the page is only possible for non CFS tasks. Default value
-is False.
+is True.
 
 * logdir : String. Path to store the various log files. The default path is
 the current directory (./).

@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 #include <math.h>
@@ -46,6 +47,7 @@ static int p_load;
 rtapp_options_t opts;
 static struct timespec t_zero;
 static pthread_barrier_t threads_barrier;
+static pthread_mutex_t joining_mutex;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
@@ -448,16 +450,9 @@ int run(int ind,
 	return perf;
 }
 
-static void
-shutdown(int sig)
+static void wakeup_all_threads(void)
 {
 	int i;
-
-	if(!continue_running)
-		return;
-
-	/* notify threads, join them, then exit */
-	continue_running = 0;
 
 	/* Force wake up of all waiting threads */
 	for (i = 0; i <  opts.nresources; i++) {
@@ -468,11 +463,36 @@ shutdown(int sig)
 			pthread_cond_broadcast(&opts.resources[i].res.barrier.c_obj);
 		}
 	}
+}
+
+static void __shutdown(bool force_terminate)
+{
+	int i;
+
+	if(!continue_running)
+		return;
+
+	if (force_terminate) {
+		continue_running = 0;
+		wakeup_all_threads();
+	}
+
+	/*
+	 * Make sure pthread_join() is done once or we hit undefined behaviour
+	 * of multiple simulataneous calls to pthread_join().
+	 *
+	 * This is a problem because __shutdown() could be called
+	 * asynchronously from some signals and from main().
+	 */
+	if (pthread_mutex_trylock(&joining_mutex))
+		return;
 
 	/* wait up all waiting threads */
 	for (i = 0; i < running_threads; i++)
 	{
-		pthread_join(threads[i], NULL);
+		int ret = pthread_join(threads[i], NULL);
+		if (ret)
+			perror("pthread_join() failed");
 	}
 
 	if (opts.ftrace) {
@@ -481,7 +501,19 @@ shutdown(int sig)
 		close(ft_data.marker_fd);
 	}
 
+	/*
+	 * If we unlock the joining_mutex here we could risk a late SIGINT
+	 * causing us to re-enter this loop. Since we are calling exit() to
+	 * terminate the application and release all resources - we don't
+	 * really need to unlock the mutex anyway.
+	 */
 	exit(EXIT_SUCCESS);
+}
+
+static void
+shutdown(int sig)
+{
+	__shutdown(true);
 }
 
 static void create_cpuset_str(cpuset_data_t *cpu_data)
@@ -942,6 +974,7 @@ int main(int argc, char* argv[])
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
 	pthread_barrier_init(&threads_barrier, NULL, nthreads);
+	pthread_mutex_init(&joining_mutex, NULL);
 
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
@@ -1150,19 +1183,10 @@ int main(int argc, char* argv[])
 		sleep(opts.duration);
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd, "main shutdown\n");
-		shutdown(SIGTERM);
+		__shutdown(true);
 	}
 
-	for (i = 0; i < nthreads; i++) {
-		pthread_join(threads[i], NULL);
-	}
-
-	if (opts.ftrace) {
-		log_ftrace(ft_data.marker_fd, "main ends\n");
-		close(ft_data.marker_fd);
-	}
-	exit(EXIT_SUCCESS);
-
+	__shutdown(false);
 
 exit_err:
 	exit(EXIT_FAILURE);
