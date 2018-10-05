@@ -42,10 +42,10 @@ char help_full[] = \
 "In the second example, rt-app reads the workload description in json format\n"
 "through the standard input.\n\n"
 "Miscellaneous:\n"
-"  -v, --version      display version information and exit\n"
-"  -l, --log          set verbosity level (10: ERROR/CRITICAL, 50: NOTICE (default)\n"
-"                                    75: INFO, 100: DEBUG)\n"
-"  -h, --help         display this help text and exit\n";
+"  -v, --version     display version information and exit\n"
+"  -l, --log         set verbosity level (critical, error, notice (default),\n"
+"                                   info, debug, or number in [0...100])\n"
+"  -h, --help        display this help text and exit\n";
 
 void
 usage(const char* msg, int ex_code)
@@ -92,12 +92,23 @@ parse_command_line(int argc, char **argv, rtapp_options_t *opts)
 				usage(NULL, EXIT_INV_COMMANDLINE);
 			} else {
 				char *endptr;
+				// parameter can be either numerical or string
 				long int ll = strtol(optarg, &endptr, 10);
-				if (*endptr) {
-					usage(NULL, EXIT_INV_COMMANDLINE);
+				if (! *endptr) {
+					log_level = ll;
 					break;
 				}
-				log_level = ll;
+
+				if (-1 != (ll = str2loglevel(optarg))) {
+					log_level = ll;
+					break;
+				} else {
+					printf("%s is not a valid debug level\n",
+						optarg);
+				}
+
+				// neither
+				usage(NULL, EXIT_INV_COMMANDLINE);
 			}
 			break;
 		default:

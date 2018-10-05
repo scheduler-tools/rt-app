@@ -32,11 +32,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define LOG_PREFIX "[rt-app] "
 #endif
 
-#define LOG_LEVEL_DEBUG 100
-#define LOG_LEVEL_INFO 75
-#define LOG_LEVEL_NOTICE 50
-#define LOG_LEVEL_ERROR 10
-#define LOG_LEVEL_CRITICAL 10
+#define LLS \
+	C(debug, 100) \
+	C(info, 75) \
+	C(notice, 50) \
+	C(error, 20) \
+	C(critical, 10) \
+	C(END, 0)
+
+#define C(x, v) LOG_LEVEL_ ## x = v,
+enum { LLS };
+#undef C
+
+/* returns the log level associated with the string as defined above.
+ * -1 means unknown log level */
+int str2loglevel(char *s);
 
 #define BUF_SIZE 100
 
@@ -57,27 +67,27 @@ do {									\
 
 #define log_notice(msg, args...)					\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_NOTICE, "<notice> ", msg, ##args);	\
+    rtapp_log_to(stderr, LOG_LEVEL_notice, "<notice> ", msg, ##args);	\
 } while (0)
 
 #define log_info(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_INFO, "<info> ", msg, ##args);	\
+    rtapp_log_to(stderr, LOG_LEVEL_info, "<info> ", msg, ##args);	\
 } while (0)
 
 #define log_error(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_ERROR, "<error> ", msg, ##args);	\
+    rtapp_log_to(stderr, LOG_LEVEL_error, "<error> ", msg, ##args);	\
 } while (0)
 
 #define log_debug(msg, args...)						\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_DEBUG, "<debug> ", msg, ##args);	\
+    rtapp_log_to(stderr, LOG_LEVEL_debug, "<debug> ", msg, ##args);	\
 } while (0)
 
 #define log_critical(msg, args...)					\
 do {									\
-    rtapp_log_to(stderr, LOG_LEVEL_CRITICAL, "<crit> ", msg, ##args);	\
+    rtapp_log_to(stderr, LOG_LEVEL_critical, "<crit> ", msg, ##args);	\
 } while (0)
 
 unsigned long
