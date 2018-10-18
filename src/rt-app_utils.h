@@ -113,10 +113,10 @@ timespec_sub_to_ns(struct timespec *t1, struct timespec *t2);
 void
 log_timing(FILE *handler, timing_point_t *t);
 
-#ifdef DLSCHED
 pid_t
 gettid(void);
 
+#ifdef DLSCHED
 unsigned long long
 timespec_to_nsec(struct timespec *ts);
 #endif
