@@ -71,7 +71,7 @@ static thread_data_t *find_thread_data(const char *name, rtapp_options_t *opts)
 {
 	int i;
 
-	for (i = 0; i < opts->nthreads; i++) {
+	for (i = 0; i < opts->num_tasks; i++) {
 		thread_data_t *tdata = &opts->threads_data[i];
 		if (!strcmp(tdata->name, name))
 			return tdata;
@@ -106,6 +106,64 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 		 * and we'll know */
 		tdata->name = strdup(tdata->name);
 	}
+}
+
+/*
+ * Create a new pthread using the info provided in the passed @td thread_data_t.
+ *
+ * @td:		The thread data of the task to create - we copy it and leave
+ *		it unmodified for other fork events to use to create additional
+ *		threads based on the same tdata.
+ *
+ * @index:	Index of the task to create.
+ *
+ * @forked:	Whether this task is a craeted from fork event or at
+ *		application startup.
+ *
+ * @nforks:	If this is a forked task, we use nforks to give it a unique name.
+ *
+ * Returns 0 on success or -1 on failure.
+ */
+static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
+{
+	thread_data_t *tdata;
+
+	if (!td) {
+		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
+		return -1;
+	}
+
+	tdata = malloc(sizeof(thread_data_t));
+	if (!tdata) {
+		log_error("Failed to duplicate thread data: %s", td->name);
+		return -1;
+	}
+
+	/*
+	 * We have one tdata created at config parse, but we
+	 * might spawn multiple threads if we were running in
+	 * a loop, so ensure we duplicate the tdata before
+	 * creating each thread, and we should free it at the
+	 * end of the thread_body()
+	 */
+	memcpy(tdata, td, sizeof(*tdata));
+
+	/* Mark this thread as forked */
+	tdata->forked = forked;
+	/* update the index value */
+	tdata->ind = index;
+
+	/* Make sure each (forked) thread has a unique name */
+	thread_data_set_unique_name(tdata, nforks);
+
+	setup_thread_logging(tdata);
+
+	if (pthread_create(&threads[index], NULL, thread_body, (void*) tdata)) {
+		perror("Failed to create a thread");
+		return -1;
+	}
+
+	return 0;
 }
 
 /*
@@ -490,9 +548,8 @@ static int run_event(event_data_t *event, int dry_run,
 			pthread_mutex_lock(&fork_mutex);
 			int new_thread_index = nthreads++;
 			threads = realloc(threads, nthreads * sizeof(*threads));
-			thread_data_t *tdata = malloc(sizeof(thread_data_t));
 
-			if (!threads || !tdata) {
+			if (!threads) {
 				log_error("Failed to allocate memory for a new fork: %s", rdata->res.fork.tdata->name);
 				pthread_mutex_unlock(&fork_mutex);
 				exit(EXIT_FAILURE);
@@ -513,27 +570,8 @@ static int run_event(event_data_t *event, int dry_run,
 				rdata->res.fork.tdata = find_thread_data(rdata->res.fork.ref, &opts);
 			}
 
-			/*
-			 * We have one tdata created at config parse, but we
-			 * might spawn multiple threads if we were running in
-			 * a loop, so ensure we duplicate the tdata before
-			 * creating each thread, and we should free it at the
-			 * end of the thread_body()
-			 */
-			memcpy(tdata, rdata->res.fork.tdata, sizeof(*tdata));
-
-			/* Mark this thread as forked */
-			tdata->forked = 1;
-			/* update the index value */
-			tdata->ind = new_thread_index;
-
-			/* Make sure each forked thread has a unique name */
-			thread_data_set_unique_name(tdata, rdata->res.fork.nforks++);
-
-			setup_thread_logging(tdata);
-
-			if (pthread_create(&threads[new_thread_index], NULL, thread_body, (void*) tdata)) {
-				perror("Failed to create a forked thread");
+			int ret = create_thread(rdata->res.fork.tdata, new_thread_index, 1, rdata->res.fork.nforks++);
+			if (ret) {
 				pthread_mutex_unlock(&fork_mutex);
 				exit(EXIT_FAILURE);
 			}
@@ -1127,7 +1165,6 @@ int main(int argc, char* argv[])
 {
 	FILE *gnuplot_script = NULL;
 	int i, res, nresources;
-	thread_data_t *tdata;
 	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
@@ -1307,7 +1344,8 @@ int main(int argc, char* argv[])
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	/* Start the use case */
-	for (i = 0; i < nthreads; i++) {
+	int ind = 0;
+	for (i = 0; i < opts.num_tasks; i++) {
 		/*
 		 * Duplicate thread data so that we can safely copy the
 		 * original thread data when forking.
@@ -1320,22 +1358,20 @@ int main(int argc, char* argv[])
 		 * are intact and duplicate them before forking or when we run
 		 * for the first time as in here.
 		 */
-		tdata = malloc(sizeof(thread_data_t));
-		if (!tdata) {
-			perror("Failed to duplicate thread data");
-			exit(EXIT_FAILURE);
-		}
-		memcpy(tdata, &opts.threads_data[i], sizeof(*tdata));
-		/* Make sure to update the name with something unique */
-		thread_data_set_unique_name(tdata, 0);
+		thread_data_t *tdata_orig = &opts.threads_data[i];
+		int j;
 
-		setup_thread_logging(tdata);
-
-		if (pthread_create(&threads[i],
-				  NULL,
-				  thread_body,
-				  (void*) tdata))
+		if (tdata_orig->num_instances < 0) {
+			log_error("Invalid num_instances value: %d", tdata_orig->num_instances);
 			goto exit_err;
+		}
+
+		for (j = 0; j < tdata_orig->num_instances; j++) {
+			int ret = create_thread(tdata_orig, ind++, 0, 0);
+			if (ret) {
+				goto exit_err;
+			}
+		}
 	}
 	running_threads = nthreads;
 

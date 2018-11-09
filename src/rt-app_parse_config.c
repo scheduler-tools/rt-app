@@ -860,6 +860,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 
 	/* It's the responsibility of the caller to set this if we were forked */
 	data->forked = 0;
+	data->num_instances = get_int_value_from(obj, "instance", TRUE, 1);
 
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
@@ -924,45 +925,28 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	int i, instance;
+	int i = 0;
+	int instance;
 
 	log_info(PFX "Parsing tasks section");
 	opts->nthreads = 0;
-	opts->nzthreads = 0;
+	opts->num_tasks = 0;
 	foreach(tasks, entry, key, val, idx) {
 		instance = get_int_value_from(val, "instance", TRUE, 1);
 		opts->nthreads += instance;
-		if (!instance)
-			opts->nzthreads++;
+
+		opts->num_tasks++;
 	}
 
 	log_info(PFX "Found %d tasks", opts->nthreads);
-	log_info(PFX "Found %d \'\"instance\": 0\' tasks", opts->nzthreads);
-	opts->threads_data = malloc(sizeof(thread_data_t) * (opts->nthreads + opts->nzthreads));
-	i = instance = 0;
-	foreach (tasks, entry, key, val, idx) {
-		instance += get_int_value_from(val, "instance", TRUE, 1);
-		for (; i < instance; i++)
-			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
-	}
 
 	/*
-	 * Parse thread data of 0 instance tasks so that we can use
-	 * them with fork.
-	 *
-	 * NOTE: the 0 instance tasks MUST be indexed after the non 0 one as
-	 * the rest of the code will automatically create the first N threads
-	 * - which are assumed to be non 0.
-	 * IOW, the first 0 instance task must have an index of opts->nthreads.
+	 * Parse thread data of defined tasks so that we can use them later
+	 * when creating the tasks at main() and fork event.
 	 */
-	foreach (tasks, entry, key, val, idx) {
-		instance = get_int_value_from(val, "instance", TRUE, 1);
-
-		if (!instance) {
-			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
-			i++;
-		}
-	}
+	opts->threads_data = malloc(sizeof(thread_data_t) * opts->num_tasks);
+	foreach (tasks, entry, key, val, idx)
+		parse_thread_data(key, val, -1, &opts->threads_data[i++], opts);
 }
 
 static void

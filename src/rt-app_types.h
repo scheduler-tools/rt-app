@@ -199,6 +199,7 @@ typedef struct _thread_data_t {
 	unsigned long delay;
 
 	int forked;
+	int num_instances;
 } thread_data_t;
 
 typedef struct _ftrace_data_t {
@@ -221,7 +222,7 @@ typedef struct _rtapp_options_t {
 
 	thread_data_t *threads_data;
 	int nthreads;
-	int nzthreads;
+	int num_tasks;
 
 	policy_t policy;
 	int duration;
