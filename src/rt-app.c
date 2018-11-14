@@ -843,11 +843,12 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			break;
 
 		case other:
+		case idle:
 			log_debug("[%d] setting scheduler %s priority %d", data->ind,
 					policy_to_string(sched_data->policy), sched_data->prio);
 
 
-			if (sched_data->prio > 19 || sched_data->prio < -20) {
+			if ((sched_data->policy == other) && (sched_data->prio > 19 || sched_data->prio < -20)) {
 				log_critical("[%d] setpriority "
 					"%d nice invalid. "
 					"Valid between -20 and 19",
@@ -870,15 +871,17 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				}
 			}
 
-			/* Set nice priority */
-			ret = setpriority(PRIO_PROCESS, 0,
-					sched_data->prio);
-			if (ret != 0) {
-				log_critical("[%d] setpriority "
-				     "returned %d", data->ind, ret);
-				errno = ret;
-				perror("setpriority");
-				exit(EXIT_FAILURE);
+			if (sched_data->policy == other) {
+				/* Set nice priority */
+				ret = setpriority(PRIO_PROCESS, 0,
+						sched_data->prio);
+				if (ret != 0) {
+					log_critical("[%d] setpriority "
+					     "returned %d", data->ind, ret);
+					errno = ret;
+					perror("setpriority");
+					exit(EXIT_FAILURE);
+				}
 			}
 
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
