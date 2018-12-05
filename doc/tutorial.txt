@@ -489,6 +489,15 @@ taskB ...-------------------|resume taskA|run 10    |--------------------
 * yield: String. Calls pthread_yield(), freeing the CPU for other tasks. This has a
 special meaning for SCHED_DEADLINE tasks. String can be empty.
 
+* external_workload: {"library_name" : "base_dir/lib.so", "main_method" : "method_name" }
+Executes a function declared in a shared library. The shared libraries are stored at
+rtapp_function/<workload base directory>/ .
+For each c file present in the workload base directory a shared library is compiled. The
+external_workload is defined, in the rt-app taskset definition, by two fields:
+    1) library_name - The shared library where the function is to be loaded from. This
+                      name is relative to the rtapp_function directory;
+    2) main_method - The name of the function to be called.
+
 **** Trace and Log ****
 
 Some traces and log hooks have been added to ease the debug and monitor various

@@ -72,7 +72,8 @@ typedef enum resource_t
 	rtapp_iorun,
 	rtapp_runtime,
 	rtapp_yield,
-	rtapp_barrier
+	rtapp_barrier,
+	rtapp_external_workload,
 } resource_t;
 
 struct _rtapp_mutex {
@@ -118,6 +119,12 @@ struct _rtapp_iodev {
 	int fd;
 };
 
+struct _rtapp_external_workload {
+	char *library_name;
+	char *symbol_name;
+	int (*workload)();
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	union {
@@ -128,6 +135,7 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_iomem_buf buf;
 		struct _rtapp_iodev dev;
 		struct _rtapp_barrier_like barrier;
+		struct _rtapp_external_workload external_workload;
 	} res;
 	int index;
 	resource_t type;

@@ -30,4 +30,5 @@ usage (const char* msg, int ex_code);
 void
 parse_command_line(int argc, char **argv, rtapp_options_t *opts);
 
+char const* get_shared_library_base_path();
 #endif // _RTAPP_ARGS_H_

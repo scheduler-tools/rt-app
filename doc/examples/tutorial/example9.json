@@ -1,0 +1,41 @@
+{
+    "tasks" : {
+        "thread0" : {
+            "loop" : 3,
+            "phases" : {
+                "phase0" : {
+                    "external_workload0" : {
+                        "library_name" : "test_workload/test.so",
+                        "main_method" : "test1"
+                    },
+                    "external_workload1" : {
+                        "library_name" : "test_workload/test.so",
+                        "main_method" : "test1"
+                    }
+                },
+                "phase1" : {
+                    "external_workload" : {
+                        "library_name" : "test_workload/test.so",
+                        "main_method" : "test2"
+                    }
+                }
+            }
+        }
+    },
+    "global" : {
+        "calibration" : "CPU0",
+        "default_policy" : "SCHED_OTHER",
+        "pi_enabled" : false,
+        "lock_pages" : false,
+        "logdir" : "./",
+        "log_basename" : "rt-app9",
+        "ftrace" : false,
+        "gnuplot" : false
+    }
+}
+
+
+
+
+
+
