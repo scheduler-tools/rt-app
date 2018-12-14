@@ -610,6 +610,34 @@ parse_thread_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "fork", strlen("fork"))) {
+
+		data->type = rtapp_fork;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+
+		i = get_resource_index(ref, rtapp_fork, opts);
+
+		data->res = i;
+
+		rdata = &(opts->resources[data->res]);
+
+		rdata->res.fork.ref = strdup(ref);
+		rdata->res.fork.tdata = NULL;
+		rdata->res.fork.nforks = 0;
+
+		if (!rdata->res.fork.ref) {
+			log_error("Failed to duplicate ref");
+			exit(EXIT_FAILURE);
+		}
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		return;
+	}
+
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
 
@@ -637,6 +665,7 @@ static char *events[] = {
 	"iorun",
 	"yield",
 	"barrier",
+	"fork",
 	NULL
 };
 
@@ -829,6 +858,10 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
 
+	/* It's the responsibility of the caller to set this if we were forked */
+	data->forked = 0;
+	data->num_instances = get_int_value_from(obj, "instance", TRUE, 1);
+
 	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
@@ -892,23 +925,28 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 
-	int i, instance;
+	int i = 0;
+	int instance;
 
 	log_info(PFX "Parsing tasks section");
 	opts->nthreads = 0;
+	opts->num_tasks = 0;
 	foreach(tasks, entry, key, val, idx) {
 		instance = get_int_value_from(val, "instance", TRUE, 1);
 		opts->nthreads += instance;
+
+		opts->num_tasks++;
 	}
 
 	log_info(PFX "Found %d tasks", opts->nthreads);
-	opts->threads_data = malloc(sizeof(thread_data_t) * opts->nthreads);
-	i = instance = 0;
-	foreach (tasks, entry, key, val, idx) {
-		instance += get_int_value_from(val, "instance", TRUE, 1);
-		for (; i < instance; i++)
-			parse_thread_data(key, val, i, &opts->threads_data[i], opts);
-	}
+
+	/*
+	 * Parse thread data of defined tasks so that we can use them later
+	 * when creating the tasks at main() and fork event.
+	 */
+	opts->threads_data = malloc(sizeof(thread_data_t) * opts->num_tasks);
+	foreach (tasks, entry, key, val, idx)
+		parse_thread_data(key, val, -1, &opts->threads_data[i++], opts);
 }
 
 static void

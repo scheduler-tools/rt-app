@@ -38,6 +38,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
 
+/*
+ * To prevent infinite loops in fork bombs, we will limit the number of
+ * permissible forks before we exit on error.
+ *
+ * This limit is per forking task/thread NOT the aggregated number of forks.
+ */
+#define FORKS_LIMIT		1024
+
 static int errno;
 static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
@@ -46,13 +54,117 @@ static volatile sig_atomic_t running_threads;
 static int p_load;
 rtapp_options_t opts;
 static struct timespec t_zero;
+static struct timespec t_start;
 static pthread_barrier_t threads_barrier;
 static pthread_mutex_t joining_mutex;
+static pthread_mutex_t fork_mutex;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
 	.marker_fd = -1,
 };
+
+void *thread_body(void *arg);
+void setup_thread_logging(thread_data_t *tdata);
+
+static thread_data_t *find_thread_data(const char *name, rtapp_options_t *opts)
+{
+	int i;
+
+	for (i = 0; i < opts->num_tasks; i++) {
+		thread_data_t *tdata = &opts->threads_data[i];
+		if (!strcmp(tdata->name, name))
+			return tdata;
+	}
+
+	log_error("Can't fork unknown task %s", name);
+	exit(EXIT_FAILURE);
+}
+
+/*
+ * Give each created thread a unique name based on tdata->ind. If the thread is
+ * forked we track each fork by a unique number that is incremented
+ * independently for each fork-event.
+ */
+static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
+{
+	int string_size = strlen(tdata->name) + 1 /* NULL */ + 10 /* postfix */;
+	char *unique_name = malloc(string_size);
+	if (unique_name) {
+		if (tdata->forked) {
+			snprintf(unique_name, string_size, "%s-%d-%04d", tdata->name, tdata->ind, nforks);
+		} else {
+			snprintf(unique_name, string_size, "%s-%d", tdata->name, tdata->ind);
+		}
+		/*
+		 * no need to free tdata->name since tdata is a copy itself
+		 */
+		tdata->name = unique_name;
+	} else {
+		log_error("Failed to create a unique name for forked thread %s", tdata->name);
+		/* if strdup() fails (again) at least we'll get a null asigned
+		 * and we'll know */
+		tdata->name = strdup(tdata->name);
+	}
+}
+
+/*
+ * Create a new pthread using the info provided in the passed @td thread_data_t.
+ *
+ * @td:		The thread data of the task to create - we copy it and leave
+ *		it unmodified for other fork events to use to create additional
+ *		threads based on the same tdata.
+ *
+ * @index:	Index of the task to create.
+ *
+ * @forked:	Whether this task is a craeted from fork event or at
+ *		application startup.
+ *
+ * @nforks:	If this is a forked task, we use nforks to give it a unique name.
+ *
+ * Returns 0 on success or -1 on failure.
+ */
+static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
+{
+	thread_data_t *tdata;
+
+	if (!td) {
+		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
+		return -1;
+	}
+
+	tdata = malloc(sizeof(thread_data_t));
+	if (!tdata) {
+		log_error("Failed to duplicate thread data: %s", td->name);
+		return -1;
+	}
+
+	/*
+	 * We have one tdata created at config parse, but we
+	 * might spawn multiple threads if we were running in
+	 * a loop, so ensure we duplicate the tdata before
+	 * creating each thread, and we should free it at the
+	 * end of the thread_body()
+	 */
+	memcpy(tdata, td, sizeof(*tdata));
+
+	/* Mark this thread as forked */
+	tdata->forked = forked;
+	/* update the index value */
+	tdata->ind = index;
+
+	/* Make sure each (forked) thread has a unique name */
+	thread_data_set_unique_name(tdata, nforks);
+
+	setup_thread_logging(tdata);
+
+	if (pthread_create(&threads[index], NULL, thread_body, (void*) tdata)) {
+		perror("Failed to create a thread");
+		return -1;
+	}
+
+	return 0;
+}
 
 /*
  * Function: to do some useless operation.
@@ -415,6 +527,60 @@ static int run_event(event_data_t *event, int dry_run,
 			pthread_yield();
 		}
 		break;
+	case rtapp_fork:
+		{
+			log_debug("fork %s", rdata->res.fork.ref);
+
+			/*
+			 * Check if the current thread reached its limit of
+			 * number of allowable forks.
+			 * We enforce a limit to prevent infinite loops.
+			 */
+			if (rdata->res.fork.nforks >= FORKS_LIMIT) {
+				log_error("%s reached its fork limit (%d)", rdata->res.fork.tdata->name, FORKS_LIMIT);
+				exit(EXIT_FAILURE);
+			}
+
+			/*
+			 * If multiple threads race to fork, we must ensure
+			 * each one sees a unique index. Hence the lock.
+			 */
+			pthread_mutex_lock(&fork_mutex);
+			int new_thread_index = nthreads++;
+			threads = realloc(threads, nthreads * sizeof(*threads));
+
+			if (!threads) {
+				log_error("Failed to allocate memory for a new fork: %s", rdata->res.fork.tdata->name);
+				pthread_mutex_unlock(&fork_mutex);
+				exit(EXIT_FAILURE);
+			}
+
+			/*
+			 * Find the thread data associated with this fork and
+			 * store it in tdata; this needs to be done once if the
+			 * fork is done within a loop.
+			 *
+			 * Note that we can't search for the reference at parse
+			 * time because we are not guaranteed that the task
+			 * that is referenced was already parsed; it'll depend
+			 * greatly on the ordering within the defined json
+			 * file.
+			 */
+			if (!rdata->res.fork.tdata) {
+				rdata->res.fork.tdata = find_thread_data(rdata->res.fork.ref, &opts);
+			}
+
+			int ret = create_thread(rdata->res.fork.tdata, new_thread_index, 1, rdata->res.fork.nforks++);
+			if (ret) {
+				pthread_mutex_unlock(&fork_mutex);
+				exit(EXIT_FAILURE);
+			}
+
+			running_threads = nthreads;
+
+			pthread_mutex_unlock(&fork_mutex);
+		}
+		break;
 	default:
 		break;
 	}
@@ -487,7 +653,16 @@ static void __shutdown(bool force_terminate)
 	if (pthread_mutex_trylock(&joining_mutex))
 		return;
 
-	/* wait up all waiting threads */
+	/*
+	 * Wait for all threads to terminate.
+	 *
+	 * pthread_join() will block until the process has terminated. If any
+	 * thread forks any processes then it'll update running_threads before
+	 * it returns and since running_threads is volatile the for() loop is
+	 * guaranteed to check against the updated value in each iteration.
+	 * Hence we are guaranteed to wait for all forked threads beside the
+	 * originally created ones at startup time.
+	 */
 	for (i = 0; i < running_threads; i++)
 	{
 		int ret = pthread_join(threads[i], NULL);
@@ -805,7 +980,9 @@ void *thread_body(void *arg)
 				data->ind);
 	}
 
-	pthread_barrier_wait(&threads_barrier);
+	if (!data->forked)
+		pthread_barrier_wait(&threads_barrier);
+
 	t_first = t_zero;
 
 	log_notice("[%d] starting thread ...\n", data->ind);
@@ -954,16 +1131,40 @@ void *thread_body(void *arg)
 	if (opts.logsize)
 		fclose(data->log_handler);
 
+	/* clean up tdata if this was a forked thread */
+	free(data->name);
+	free(data);
+
 	pthread_exit(NULL);
 }
 
+void setup_thread_logging(thread_data_t *tdata)
+{
+	char tmp[PATH_LENGTH];
+
+	tdata->duration = opts.duration;
+	tdata->main_app_start = t_start;
+	tdata->lock_pages = opts.lock_pages;
+
+	if (opts.logdir) {
+		snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
+			 opts.logdir,
+			 opts.logbasename,
+			 tdata->name);
+		tdata->log_handler = fopen(tmp, "w");
+		if (!tdata->log_handler) {
+			log_error("Cannot open logfile %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		tdata->log_handler = stdout;
+	}
+}
 
 int main(int argc, char* argv[])
 {
-	struct timespec t_start;
 	FILE *gnuplot_script = NULL;
 	int i, res, nresources;
-	thread_data_t *tdata;
 	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
@@ -975,6 +1176,7 @@ int main(int argc, char* argv[])
 	threads = malloc(nthreads * sizeof(pthread_t));
 	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 	pthread_mutex_init(&joining_mutex, NULL);
+	pthread_mutex_init(&fork_mutex, NULL);
 
 	/* install a signal handler for proper shutdown */
 	signal(SIGQUIT, shutdown);
@@ -1020,32 +1222,6 @@ int main(int argc, char* argv[])
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	if (opts.logsize) {
-	/* Prepare log file of each thread before starting the use case */
-		for (i = 0; i < nthreads; i++) {
-			tdata = &opts.threads_data[i];
-
-			tdata->duration = opts.duration;
-			tdata->main_app_start = t_start;
-			tdata->lock_pages = opts.lock_pages;
-
-			if (opts.logdir) {
-				snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.log",
-					 opts.logdir,
-					 opts.logbasename,
-					 tdata->name,
-					 tdata->ind);
-				tdata->log_handler = fopen(tmp, "w");
-				if (!tdata->log_handler) {
-					log_error("Cannot open logfile %s", tmp);
-					exit(EXIT_FAILURE);
-				}
-			} else {
-				tdata->log_handler = stdout;
-			}
-		}
-	}
 
 	/* Prepare gnuplot files before starting the use case */
 	if (opts.logdir && opts.gnuplot) {
@@ -1168,14 +1344,34 @@ int main(int argc, char* argv[])
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	/* Start the use case */
-	for (i = 0; i < nthreads; i++) {
-		tdata = &opts.threads_data[i];
+	int ind = 0;
+	for (i = 0; i < opts.num_tasks; i++) {
+		/*
+		 * Duplicate thread data so that we can safely copy the
+		 * original thread data when forking.
+		 *
+		 * If we don't do that and try to fork a running thread, we
+		 * might have partially modified content of thread data since
+		 * thread_body() calls functions like set_thread_affinity()
+		 * that modifies thread data at runtime. Rather than introduce
+		 * complex locking ensure that the original parsed thread_data
+		 * are intact and duplicate them before forking or when we run
+		 * for the first time as in here.
+		 */
+		thread_data_t *tdata_orig = &opts.threads_data[i];
+		int j;
 
-		if (pthread_create(&threads[i],
-				  NULL,
-				  thread_body,
-				  (void*) tdata))
+		if (tdata_orig->num_instances < 0) {
+			log_error("Invalid num_instances value: %d", tdata_orig->num_instances);
 			goto exit_err;
+		}
+
+		for (j = 0; j < tdata_orig->num_instances; j++) {
+			int ret = create_thread(tdata_orig, ind++, 0, 0);
+			if (ret) {
+				goto exit_err;
+			}
+		}
 	}
 	running_threads = nthreads;
 

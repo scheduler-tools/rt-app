@@ -42,6 +42,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define EXIT_INV_CONFIG 2
 #define EXIT_INV_COMMANDLINE 3
 
+struct _thread_data_t;
+
 typedef enum policy_t
 {
 	other = SCHED_OTHER,
@@ -72,7 +74,8 @@ typedef enum resource_t
 	rtapp_iorun,
 	rtapp_runtime,
 	rtapp_yield,
-	rtapp_barrier
+	rtapp_barrier,
+	rtapp_fork
 } resource_t;
 
 struct _rtapp_mutex {
@@ -118,6 +121,12 @@ struct _rtapp_iodev {
 	int fd;
 };
 
+struct _rtapp_fork {
+	struct _thread_data_t *tdata;
+	char *ref;
+	int nforks;
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	union {
@@ -128,6 +137,7 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_iomem_buf buf;
 		struct _rtapp_iodev dev;
 		struct _rtapp_barrier_like barrier;
+		struct _rtapp_fork fork;
 	} res;
 	int index;
 	resource_t type;
@@ -187,6 +197,9 @@ typedef struct _thread_data_t {
 	FILE *log_handler;
 
 	unsigned long delay;
+
+	int forked;
+	int num_instances;
 } thread_data_t;
 
 typedef struct _ftrace_data_t {
@@ -209,6 +222,7 @@ typedef struct _rtapp_options_t {
 
 	thread_data_t *threads_data;
 	int nthreads;
+	int num_tasks;
 
 	policy_t policy;
 	int duration;

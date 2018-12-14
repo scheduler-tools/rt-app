@@ -1,0 +1,56 @@
+{
+	/*
+	 * A simple example on using fork event.
+	 *
+	 * thread3 will fork thread1 and thread2 in each of its phases.
+	 * Note that thread2 will NOT be instantiated at start time and
+	 * will only run when thread3 forks it. Unlike thread1 which will
+	 * run at the start - since default value of instance property is
+	 * 1 - and will run again when thread3 forks ie: twice in total.
+	 */
+	"tasks" : {
+		"thread1" : {
+			"phases" : {
+				"phase1" : {
+					"run" : 10000,
+					"sleep" : 10000
+				}
+			}
+		},
+		"thread2" : {
+			"instance": 0,
+			"phases" : {
+				"phase1" : {
+					"run" : 20000,
+					"sleep" : 20000
+				}
+			}
+		},
+		"thread3" : {
+			"phases" : {
+				"phase1" : {
+					"fork": "thread1",
+					"run" : 10000,
+					"sleep" : 10000
+				},
+				"phase2" : {
+					"fork": "thread2",
+					"run" : 20000,
+					"sleep" : 20000
+				}
+			},
+			"loop": 1
+		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"default_policy" : "SCHED_OTHER",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : false,
+		"gnuplot" : false
+	}
+}
