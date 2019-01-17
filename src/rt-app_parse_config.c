@@ -742,7 +742,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	/* Get priority */
 	if (tmp_data.policy == -1)
 		prior_def = -1;
-	else if (tmp_data.policy == other)
+	else if (tmp_data.policy == other || tmp_data.policy == idle)
 		prior_def = DEFAULT_THREAD_NICE;
 	else
 		prior_def = DEFAULT_THREAD_PRIORITY;

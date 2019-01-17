@@ -194,6 +194,7 @@ otherwise the scheduling paraleters will stay unchanged
 * policy : String. Define the scheduling policy of the thread. default_policy
 is used if not defined. Accepted value are:
   - "SCHED_OTHER"
+  - "SCHED_IDLE"
   - "SCHED_RR"
   - "SCHED_FIFO"
   - "SCHED_DEADLINE"
