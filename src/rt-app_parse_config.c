@@ -245,9 +245,10 @@ static void init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t 
 }
 
 static void
-init_resource_data(const char *name, int type, int idx, const rtapp_options_t *opts)
+init_resource_data(const char *name, int type, rtapp_resources_t *resources_table,
+		int idx, const rtapp_options_t *opts)
 {
-	rtapp_resource_t *data = &(opts->resources[idx]);
+	rtapp_resource_t *data = &(resources_table->resources[idx]);
 
 	/* common and defaults */
 	data->index = idx;
@@ -259,6 +260,7 @@ init_resource_data(const char *name, int type, int idx, const rtapp_options_t *o
 			init_mutex_resource(data, opts);
 			break;
 		case rtapp_timer:
+		case rtapp_timer_unique:
 			init_timer_resource(data, opts);
 			break;
 		case rtapp_wait:
@@ -301,22 +303,35 @@ parse_resource_data(const char *name, struct json_object *obj, int idx,
 	 */
 	free(type);
 
-	init_resource_data(name, data->type, idx, opts);
+	init_resource_data(name, data->type, opts->resources, idx, opts);
 }
 
 static int
-add_resource_data(const char *name, int type, rtapp_options_t *opts)
+add_resource_data(const char *name, int type, rtapp_resources_t **resources_table, rtapp_options_t *opts)
 {
-	int idx;
+	int idx, size;
+	rtapp_resources_t *table = *resources_table;
 
-	idx = opts->nresources;
+	idx = table->nresources;
 
 	log_info(PIN2 "Add new resource %s [%d] type %d", name, idx, type);
 
-	opts->nresources++;
-	opts->resources = realloc(opts->resources, sizeof(rtapp_resource_t) * opts->nresources);
+	table->nresources++;
 
-	init_resource_data(name, type, idx, opts);
+	size = sizeof(rtapp_resources_t) + sizeof(rtapp_resource_t) * table->nresources;
+
+	*resources_table = realloc(*resources_table, size);
+
+	if (!*resources_table) {
+		log_error("Failed to allocate memory for resource %s", name);
+		return -1;
+	}
+
+	/*
+	 * We can't reuse table as *resources_table might have changed following
+	 * realloc
+	 */
+	init_resource_data(name, type, *resources_table, idx, opts);
 
 	return idx;
 }
@@ -325,8 +340,21 @@ static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	int size;
 
 	log_info(PFX "Parsing resource section");
+
+	/*
+	 * Create at least an "empty" struct that will then be filled either will
+	 * parsing resources table or when parsing task's event
+	 */
+	opts->resources = malloc(sizeof(rtapp_resources_t));
+	if (!opts->resources) {
+		log_error("Failed to allocate memory for resources");
+		exit(EXIT_FAILURE);
+	}
+
+	opts->resources->nresources = 0;
 
 	if (!resources) {
 		log_info(PFX "No resource section Found");
@@ -334,31 +362,38 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	}
 
 	if (json_object_is_type(resources, json_type_object)) {
-		opts->nresources = 0;
+		opts->resources->nresources = 0;
 		foreach(resources, entry, key, val, idx) {
-			opts->nresources++;
+			opts->resources->nresources++;
 		}
 
-		log_info(PFX "Found %d Resources", opts->nresources);
-		opts->resources = malloc(sizeof(rtapp_resource_t) * opts->nresources);
+		log_info(PFX "Found %d Resources", opts->resources->nresources);
+		size = sizeof(rtapp_resources_t) + sizeof(rtapp_resource_t) * opts->resources->nresources;
+
+		opts->resources = realloc(opts->resources, size);
+		if (!opts->resources) {
+				log_error("Failed to allocate memory for resources");
+				exit(EXIT_FAILURE);
+		}
 
 		foreach (resources, entry, key, val, idx) {
-			parse_resource_data(key, val, idx, &opts->resources[idx], opts);
+			parse_resource_data(key, val, idx, &opts->resources->resources[idx], opts);
 		}
 	}
 }
 
-static int get_resource_index(const char *name, int type, rtapp_options_t *opts)
+static int get_resource_index(const char *name, int type, rtapp_resources_t **resources_table, rtapp_options_t *opts)
 {
-	rtapp_resource_t *resources = opts->resources;
-	int nresources = opts->nresources;
+	int nresources = (*resources_table)->nresources;
+	rtapp_resource_t *resources = (*resources_table)->resources;
 	int i = 0;
+	log_info(PIN "get_resource_index %d events", nresources);
 
 	while ((i < nresources) && ((strcmp(resources[i].name, name) != 0) || (resources[i].type != type)))
 		i++;
 
 	if (i >= nresources)
-		i = add_resource_data(name, type, opts);
+		i = add_resource_data(name, type, resources_table, opts);
 
 	return i;
 }
@@ -371,12 +406,14 @@ static char* create_unique_name(char *tmp, int size, const char* ref, long tag)
 
 static void
 parse_task_event_data(char *name, struct json_object *obj,
-		  event_data_t *data, rtapp_options_t *opts, long tag)
+		  event_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
 {
+	rtapp_resources_t **resources_table = tdata->global_resources;
 	rtapp_resource_t *rdata, *ddata;
 	char unique_name[22];
 	const char *ref;
 	char *tmp;
+	long tag = (long)tdata;
 	int i;
 
 	if (!strncmp(name, "run", strlen("run")) ||
@@ -405,13 +442,13 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		/* create an unique name for per-thread buffer */
 		ref = create_unique_name(unique_name, sizeof(unique_name), "mem", tag);
-		i = get_resource_index(ref, rtapp_mem, opts);
+		i = get_resource_index(ref, rtapp_mem, resources_table, opts);
 		data->res = i;
 		data->count = json_object_get_int(obj);
 
 		/* A single IO devices for all threads */
 		if (strncmp(name, "iorun", strlen("iorun")) == 0) {
-			i = get_resource_index("io_device", rtapp_iorun, opts);
+			i = get_resource_index("io_device", rtapp_iorun, resources_table, opts);
 			data->dep = i;
 		};
 
@@ -431,7 +468,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			goto unknown_event;
 
 		ref = json_object_get_string(obj);
-		i = get_resource_index(ref, rtapp_mutex, opts);
+		i = get_resource_index(ref, rtapp_mutex, resources_table, opts);
 
 		data->res = i;
 
@@ -440,8 +477,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 		else
 			data->type = rtapp_unlock;
 
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
 		return;
@@ -459,12 +495,11 @@ parse_task_event_data(char *name, struct json_object *obj,
 			goto unknown_event;
 
 		ref = json_object_get_string(obj);
-		i = get_resource_index(ref, rtapp_wait, opts);
+		i = get_resource_index(ref, rtapp_wait, resources_table, opts);
 
 		data->res = i;
 
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
 		return;
@@ -479,7 +514,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_sig_and_wait;
 
 		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
-		i = get_resource_index(tmp, rtapp_wait, opts);
+		i = get_resource_index(tmp, rtapp_wait, resources_table, opts);
 		/*
 		 * get_string_value_from allocate the string so with have to free it
 		 * once useless
@@ -489,7 +524,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 		data->res = i;
 
 		tmp = get_string_value_from(obj, "mutex", TRUE, "unknown");
-		i = get_resource_index(tmp, rtapp_mutex, opts);
+		i = get_resource_index(tmp, rtapp_mutex, resources_table, opts);
 		/*
 		 * get_string_value_from allocate the string so with have to free it
 		 * once useless
@@ -498,8 +533,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		data->dep = i;
 
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
+		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
 		return;
@@ -513,10 +548,10 @@ parse_task_event_data(char *name, struct json_object *obj,
 		data->type = rtapp_barrier;
 
 		ref = json_object_get_string(obj);
-		i = get_resource_index(ref, rtapp_barrier, opts);
+		i = get_resource_index(ref, rtapp_barrier, resources_table, opts);
 
 		data->res = i;
-		rdata = &(opts->resources[data->res]);
+		rdata = &((*resources_table)->resources[data->res]);
 		rdata->res.barrier.waiting += 1;
 
 		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
@@ -526,12 +561,17 @@ parse_task_event_data(char *name, struct json_object *obj,
 	if (!strncmp(name, "timer", strlen("timer"))) {
 
 		tmp = get_string_value_from(obj, "ref", TRUE, "unknown");
-		if (!strncmp(tmp, "unique", strlen("unique")))
-				ref = create_unique_name(unique_name, sizeof(unique_name), tmp, tag);
-		else
-				ref = tmp;
 
-		i = get_resource_index(ref, rtapp_timer, opts);
+		if (!strncmp(tmp, "unique", strlen("unique"))) {
+			ref = create_unique_name(unique_name, sizeof(unique_name), tmp, tag);
+			resources_table = &tdata->local_resources;
+			data->type = rtapp_timer_unique;
+		} else {
+			ref = tmp;
+			data->type = rtapp_timer;
+		}
+
+		data->res = get_resource_index(ref, data->type, resources_table, opts);
 
 		/*
 		 * get_string_value_from allocate the string so with have to free it
@@ -539,14 +579,9 @@ parse_task_event_data(char *name, struct json_object *obj,
 		 */
 		free(tmp);
 
-		data->res = i;
-
 		data->duration = get_int_value_from(obj, "period", TRUE, 0);
 
-		data->type = rtapp_timer;
-
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
 
 		tmp = get_string_value_from(obj, "mode", TRUE, "relative");
 		if (!strncmp(tmp, "absolute", strlen("absolute")))
@@ -566,16 +601,16 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		ref = json_object_get_string(obj);
 
-		i = get_resource_index(ref, rtapp_wait, opts);
+		i = get_resource_index(ref, rtapp_wait, resources_table, opts);
 
 		data->res = i;
 
-		i = get_resource_index(ref, rtapp_mutex, opts);
+		i = get_resource_index(ref, rtapp_mutex, resources_table, opts);
 
 		data->dep = i;
 
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
+		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
 		return;
@@ -590,20 +625,21 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		ref = json_object_get_string(obj);
 
-		i = get_resource_index(ref, rtapp_wait, opts);
+		i = get_resource_index(ref, rtapp_wait, resources_table, opts);
 
 		data->res = i;
 
-		i = get_resource_index(ref, rtapp_mutex, opts);
+		i = get_resource_index(ref, rtapp_mutex, resources_table, opts);
 
 		data->dep = i;
 
-		rdata = &(opts->resources[data->res]);
-		ddata = &(opts->resources[data->dep]);
+		rdata = &((*resources_table)->resources[data->res]);
+		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
 		return;
 	}
+
 	if (!strncmp(name, "yield", strlen("yield"))) {
 		data->type = rtapp_yield;
 		log_info(PIN2 "type %d", data->type);
@@ -619,11 +655,11 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		ref = json_object_get_string(obj);
 
-		i = get_resource_index(ref, rtapp_fork, opts);
+		i = get_resource_index(ref, rtapp_fork, resources_table, opts);
 
 		data->res = i;
 
-		rdata = &(opts->resources[data->res]);
+		rdata = &((*resources_table)->resources[data->res]);
 
 		rdata->res.fork.ref = strdup(ref);
 		rdata->res.fork.tdata = NULL;
@@ -788,7 +824,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 
 static void
 parse_task_phase_data(struct json_object *obj,
-		  phase_data_t *data, rtapp_options_t *opts, long tag)
+		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
@@ -821,7 +857,7 @@ parse_task_phase_data(struct json_object *obj,
 	foreach(obj, entry, key, val, idx) {
 		if (obj_is_event(key)) {
 			log_info(PIN "Parsing event %s", key);
-			parse_task_event_data(key, val, &data->events[i], tdata);
+			parse_task_event_data(key, val, &data->events[i], tdata, opts);
 			i++;
 		}
 	}
@@ -839,7 +875,23 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	log_info(PFX "Parsing task %s [%d]", name, index);
 
 	/* common and defaults */
-	data->resources = &opts->resources;
+	/*
+	 * Set a pointer to opt entry as we might end up to modify the localtion of
+	 * global resources during realloc
+	 */
+	data->global_resources = &(opts->resources);
+
+	/*
+	 * Create at least an "empty" struct that will then be filled either will
+	 * parsing resources table or when parsing task's event
+	 */
+	data->local_resources = malloc(sizeof(rtapp_resources_t));
+	if (!data->local_resources) {
+		log_error("Failed to allocate memory for local resources");
+		exit(EXIT_FAILURE);
+	}
+
+	data->local_resources->nresources = 0;
 	data->ind = index;
 	data->name = strdup(name);
 	data->lock_pages = opts->lock_pages;
@@ -884,7 +936,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
-			parse_task_phase_data(val, &data->phases[idx], data);
+			parse_task_phase_data(val, &data->phases[idx], data, opts);
 		}
 
 		/* Get loop number */
@@ -893,7 +945,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	} else {
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
-		parse_task_phase_data(obj,  &data->phases[0], data);
+		parse_task_phase_data(obj,  &data->phases[0], data, opts);
 
 		/* There is no "phases" object which means that thread and phase will
 		 * use same scheduling parameters. But thread object looks for default

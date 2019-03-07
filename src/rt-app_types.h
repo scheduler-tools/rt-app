@@ -74,6 +74,7 @@ typedef enum resource_t
 	rtapp_lock,
 	rtapp_unlock,
 	rtapp_timer,
+	rtapp_timer_unique,
 	rtapp_suspend,
 	rtapp_resume,
 	rtapp_mem,
@@ -150,6 +151,11 @@ typedef struct _rtapp_resource_t {
 	char *name;
 } rtapp_resource_t;
 
+typedef struct _rtapp_resources_t {
+	int nresources;
+	rtapp_resource_t resources[0];
+} rtapp_resources_t;
+
 typedef struct _event_data_t {
 	resource_t type;
 	int res;
@@ -185,7 +191,6 @@ typedef struct _thread_data_t {
 	char *name;
 	int lock_pages;
 	int duration;
-	rtapp_resource_t **resources;
 
 	cpuset_data_t cpu_data; /* cpu set information */
 	cpuset_data_t *curr_cpu_data; /* Current cpu set being used */
@@ -206,6 +211,9 @@ typedef struct _thread_data_t {
 
 	int forked;
 	int num_instances;
+
+	rtapp_resources_t *local_resources;
+	rtapp_resources_t **global_resources;
 } thread_data_t;
 
 typedef struct _ftrace_data_t {
@@ -240,8 +248,7 @@ typedef struct _rtapp_options_t {
 	int calib_cpu;
 	int calib_ns_per_loop;
 
-	rtapp_resource_t *resources;
-	int nresources;
+	rtapp_resources_t *resources;
 	int pi_enabled;
 
 	int ftrace;
