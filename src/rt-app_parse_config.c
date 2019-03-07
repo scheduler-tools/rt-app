@@ -370,7 +370,7 @@ static char* create_unique_name(char *tmp, int size, const char* ref, long tag)
 }
 
 static void
-parse_thread_event_data(char *name, struct json_object *obj,
+parse_task_event_data(char *name, struct json_object *obj,
 		  event_data_t *data, rtapp_options_t *opts, long tag)
 {
 	rtapp_resource_t *rdata, *ddata;
@@ -787,12 +787,14 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 }
 
 static void
-parse_thread_phase_data(struct json_object *obj,
+parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, rtapp_options_t *opts, long tag)
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
 	int i;
+
+	log_info(PFX "Parsing phase");
 
 	/* loop */
 	data->loop = get_int_value_from(obj, "loop", TRUE, 1);
@@ -819,7 +821,7 @@ parse_thread_phase_data(struct json_object *obj,
 	foreach(obj, entry, key, val, idx) {
 		if (obj_is_event(key)) {
 			log_info(PIN "Parsing event %s", key);
-			parse_thread_event_data(key, val, &data->events[i], opts, tag);
+			parse_task_event_data(key, val, &data->events[i], tdata);
 			i++;
 		}
 	}
@@ -829,12 +831,12 @@ parse_thread_phase_data(struct json_object *obj,
 }
 
 static void
-parse_thread_data(char *name, struct json_object *obj, int index,
+parse_task_data(char *name, struct json_object *obj, int index,
 		  thread_data_t *data, rtapp_options_t *opts)
 {
 	struct json_object *phases_obj, *resources;
 
-	log_info(PFX "Parsing thread %s [%d]", name, index);
+	log_info(PFX "Parsing task %s [%d]", name, index);
 
 	/* common and defaults */
 	data->resources = &opts->resources;
@@ -882,7 +884,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		foreach(phases_obj, entry, key, val, idx) {
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
-			parse_thread_phase_data(val, &data->phases[idx], opts, (long)data);
+			parse_task_phase_data(val, &data->phases[idx], data);
 		}
 
 		/* Get loop number */
@@ -891,7 +893,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 	} else {
 		data->nphases = 1;
 		data->phases = malloc(sizeof(phase_data_t) * data->nphases);
-		parse_thread_phase_data(obj,  &data->phases[0], opts, (long)data);
+		parse_task_phase_data(obj,  &data->phases[0], data);
 
 		/* There is no "phases" object which means that thread and phase will
 		 * use same scheduling parameters. But thread object looks for default
@@ -905,7 +907,7 @@ parse_thread_data(char *name, struct json_object *obj, int index,
 		 * Get loop number:
 		 *
 		 * If loop is specified, we already parsed it in
-		 * parse_thread_phase_data() above, so we just need to remember
+		 * parse_task_phase_data() above, so we just need to remember
 		 * that we don't want to loop forever.
 		 *
 		 * If not specified we want to loop forever.
@@ -938,7 +940,7 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 		opts->num_tasks++;
 	}
 
-	log_info(PFX "Found %d tasks", opts->nthreads);
+	log_info(PFX "Found %d threads of %d tasks", opts->nthreads, opts->num_tasks);
 
 	/*
 	 * Parse thread data of defined tasks so that we can use them later
@@ -946,7 +948,7 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 	 */
 	opts->threads_data = malloc(sizeof(thread_data_t) * opts->num_tasks);
 	foreach (tasks, entry, key, val, idx)
-		parse_thread_data(key, val, -1, &opts->threads_data[i++], opts);
+		parse_task_data(key, val, -1, &opts->threads_data[i++], opts);
 }
 
 static void

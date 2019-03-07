@@ -495,18 +495,18 @@ static int run_event(event_data_t *event, int dry_run,
 		break;
 	case rtapp_suspend:
 		{
-		log_debug("suspend %s ", rdata->name);
-		pthread_mutex_lock(&(ddata->res.mtx.obj));
-		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
-		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+			log_debug("suspend %s ", rdata->name);
+			pthread_mutex_lock(&(ddata->res.mtx.obj));
+			pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+			pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
 	case rtapp_resume:
 		{
-		log_debug("resume %s ", rdata->name);
-		pthread_mutex_lock(&(ddata->res.mtx.obj));
-		pthread_cond_broadcast(&(rdata->res.cond.obj));
-		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+			log_debug("resume %s ", rdata->name);
+			pthread_mutex_lock(&(ddata->res.mtx.obj));
+			pthread_cond_broadcast(&(rdata->res.cond.obj));
+			pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
 	case rtapp_mem:
@@ -691,7 +691,7 @@ shutdown(int sig)
 	__shutdown(true);
 }
 
-static void create_cpuset_str(cpuset_data_t *cpu_data)
+static int create_cpuset_str(cpuset_data_t *cpu_data)
 {
 	unsigned int cpu_count = CPU_COUNT_S(cpu_data->cpusetsize,
 							cpu_data->cpuset);
@@ -712,6 +712,11 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 	}
 
 	cpu_data->cpuset_str = malloc(size_needed);
+	if (!cpu_data->cpuset_str) {
+		log_error("Failed to set cpuset string");
+		return -1;
+	}
+
 	strcpy(cpu_data->cpuset_str, "[ ");
 	idx += 2;
 
@@ -744,6 +749,8 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 		}
 	}
 	strncat(cpu_data->cpuset_str, " ]", size_needed - idx - 1);
+
+	return 0;
 }
 
 static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
@@ -952,6 +959,10 @@ void *thread_body(void *arg)
 	/* Init timing buffer */
 	if (opts.logsize > 0) {
 		timings = malloc(opts.logsize);
+		/*
+		 * If malloc return null ptr because it fails to alloc mem, we are
+		 * safe. timing buffer will not be used
+		 */
 		timings_size = opts.logsize / sizeof(timing_point_t);
 	} else {
 		timings = NULL;
@@ -1177,6 +1188,10 @@ int main(int argc, char* argv[])
 	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
+	if (!threads) {
+		log_error("Cannot allocate threads");
+		exit(EXIT_FAILURE);
+	}
 	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 	pthread_mutex_init(&joining_mutex, NULL);
 	pthread_mutex_init(&fork_mutex, NULL);
