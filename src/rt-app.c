@@ -109,6 +109,25 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 }
 
 /*
+ * Give each created thread a list of unique resources.
+ */
+static int thread_data_create_unique_resources(thread_data_t *tdata, const thread_data_t *td)
+{
+	rtapp_resources_t *table = td->local_resources;
+	int local_size = sizeof(rtapp_resources_t) + sizeof(rtapp_resource_t) * table->nresources;
+
+	tdata->local_resources = malloc(local_size);
+	if (!tdata->local_resources) {
+		log_error("Failed to duplicate thread local resources: %s", td->name);
+		return -1;
+	}
+
+	memcpy(tdata->local_resources, td->local_resources, local_size);
+
+	return 0;
+}
+
+/*
  * Create a new pthread using the info provided in the passed @td thread_data_t.
  *
  * @td:		The thread data of the task to create - we copy it and leave
@@ -155,6 +174,10 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 
 	/* Make sure each (forked) thread has a unique name */
 	thread_data_set_unique_name(tdata, nforks);
+
+	/* Make sure each (forked) thread has its own unique resources */
+	if(thread_data_create_unique_resources(tdata, td))
+		return -1;
 
 	setup_thread_logging(tdata);
 
@@ -365,11 +388,13 @@ static void memload(unsigned long count, struct _rtapp_iomem_buf *iomem)
 }
 
 static int run_event(event_data_t *event, int dry_run,
-		unsigned long *perf, rtapp_resource_t *resources,
+		unsigned long *perf, thread_data_t *tdata,
 		struct timespec *t_first, log_data_t *ldata)
 {
-	rtapp_resource_t *rdata = &(resources[event->res]);
-	rtapp_resource_t *ddata = &(resources[event->dep]);
+	/* By default we use global resources */
+	rtapp_resources_t *table_resources = *(tdata->global_resources);
+	rtapp_resource_t *rdata = &(table_resources->resources[event->res]);
+	rtapp_resource_t *ddata = &(table_resources->resources[event->dep]);
 	unsigned long lock = 0;
 
 	switch(event->type) {
@@ -461,6 +486,11 @@ static int run_event(event_data_t *event, int dry_run,
 			ldata->duration += timespec_to_usec(&t_end);
 		}
 		break;
+	case rtapp_timer_unique:
+		{
+			/* Unique timer uses local resources */
+			rdata = &(tdata->local_resources->resources[event->res]);
+		}
 	case rtapp_timer:
 		{
 			struct timespec t_period, t_now, t_wu, t_slack;
@@ -495,18 +525,18 @@ static int run_event(event_data_t *event, int dry_run,
 		break;
 	case rtapp_suspend:
 		{
-		log_debug("suspend %s ", rdata->name);
-		pthread_mutex_lock(&(ddata->res.mtx.obj));
-		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
-		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+			log_debug("suspend %s ", rdata->name);
+			pthread_mutex_lock(&(ddata->res.mtx.obj));
+			pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
+			pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
 	case rtapp_resume:
 		{
-		log_debug("resume %s ", rdata->name);
-		pthread_mutex_lock(&(ddata->res.mtx.obj));
-		pthread_cond_broadcast(&(rdata->res.cond.obj));
-		pthread_mutex_unlock(&(ddata->res.mtx.obj));
+			log_debug("resume %s ", rdata->name);
+			pthread_mutex_lock(&(ddata->res.mtx.obj));
+			pthread_cond_broadcast(&(rdata->res.cond.obj));
+			pthread_mutex_unlock(&(ddata->res.mtx.obj));
 		break;
 		}
 	case rtapp_mem:
@@ -588,13 +618,13 @@ static int run_event(event_data_t *event, int dry_run,
 	return lock;
 }
 
-int run(int ind,
+int run(thread_data_t *tdata,
 	phase_data_t *pdata,
-	rtapp_resource_t *resources,
 	struct timespec *t_first,
 	log_data_t *ldata)
 {
 	event_data_t *events = pdata->events;
+	int ind = tdata->ind;
 	int nbevents = pdata->nbevents;
 	int i, lock = 0;
 	unsigned long perf = 0;
@@ -610,7 +640,7 @@ int run(int ind,
 						"[%d] executing %d",
 						ind, i);
 		lock += run_event(&events[i], !continue_running, &perf,
-				  resources, t_first, ldata);
+				  tdata, t_first, ldata);
 	}
 
 	return perf;
@@ -619,14 +649,20 @@ int run(int ind,
 static void wakeup_all_threads(void)
 {
 	int i;
+	int nresources = opts.resources->nresources;
+	rtapp_resource_t *resources = opts.resources->resources;
 
-	/* Force wake up of all waiting threads */
-	for (i = 0; i <  opts.nresources; i++) {
-		if (opts.resources[i].type == rtapp_wait) {
-			pthread_cond_broadcast(&opts.resources[i].res.cond.obj);
+	/*
+	 * Force wake up of all waiting threads.
+	 * At now we don't need to look into local resources because rtapp_wait
+	 * and rtapp_barrier are always global
+	 */
+	for (i = 0; i <  nresources; i++) {
+		if (resources[i].type == rtapp_wait) {
+			pthread_cond_broadcast(&resources[i].res.cond.obj);
 		}
-		if (opts.resources[i].type == rtapp_barrier) {
-			pthread_cond_broadcast(&opts.resources[i].res.barrier.c_obj);
+		if (resources[i].type == rtapp_barrier) {
+			pthread_cond_broadcast(&resources[i].res.barrier.c_obj);
 		}
 	}
 }
@@ -691,7 +727,7 @@ shutdown(int sig)
 	__shutdown(true);
 }
 
-static void create_cpuset_str(cpuset_data_t *cpu_data)
+static int create_cpuset_str(cpuset_data_t *cpu_data)
 {
 	unsigned int cpu_count = CPU_COUNT_S(cpu_data->cpusetsize,
 							cpu_data->cpuset);
@@ -712,6 +748,11 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 	}
 
 	cpu_data->cpuset_str = malloc(size_needed);
+	if (!cpu_data->cpuset_str) {
+		log_error("Failed to set cpuset string");
+		return -1;
+	}
+
 	strcpy(cpu_data->cpuset_str, "[ ");
 	idx += 2;
 
@@ -744,6 +785,8 @@ static void create_cpuset_str(cpuset_data_t *cpu_data)
 		}
 	}
 	strncat(cpu_data->cpuset_str, " ]", size_needed - idx - 1);
+
+	return 0;
 }
 
 static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
@@ -952,6 +995,10 @@ void *thread_body(void *arg)
 	/* Init timing buffer */
 	if (opts.logsize > 0) {
 		timings = malloc(opts.logsize);
+		/*
+		 * If malloc return null ptr because it fails to alloc mem, we are
+		 * safe. timing buffer will not be used
+		 */
 		timings_size = opts.logsize / sizeof(timing_point_t);
 	} else {
 		timings = NULL;
@@ -1045,8 +1092,7 @@ void *thread_body(void *arg)
 
 		memset(&ldata, 0, sizeof(ldata));
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
-		ldata.perf = run(data->ind, pdata, *(data->resources),
-				&t_first, &ldata);
+		ldata.perf = run(data, pdata, &t_first, &ldata);
 		clock_gettime(CLOCK_MONOTONIC, &t_end);
 
 		if (timings)
@@ -1177,6 +1223,10 @@ int main(int argc, char* argv[])
 	/* allocated threads */
 	nthreads = opts.nthreads;
 	threads = malloc(nthreads * sizeof(pthread_t));
+	if (!threads) {
+		log_error("Cannot allocate threads");
+		exit(EXIT_FAILURE);
+	}
 	pthread_barrier_init(&threads_barrier, NULL, nthreads);
 	pthread_mutex_init(&joining_mutex, NULL);
 	pthread_mutex_init(&fork_mutex, NULL);
