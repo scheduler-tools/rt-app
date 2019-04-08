@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <json-c/json.h>
 
 #include "rt-app_utils.h"
+#include "rt-app_taskgroups.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "
@@ -822,6 +823,33 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	return NULL;
 }
 
+static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
+{
+	char *name = get_string_value_from(obj, "taskgroup", TRUE, "");
+	taskgroup_data_t *tg;
+
+	if (!strlen(name))
+		return NULL;
+
+	if (*name != '/') {
+		log_critical(PIN2 "Taskgroup [%s] has to start with [/]", name);
+		exit(EXIT_INV_CONFIG);
+	}
+
+	tg = find_taskgroup(name);
+	if (tg)
+		return tg;
+	tg = alloc_taskgroup(strlen(name) + 1);
+	if (!tg) {
+		log_critical(PIN2 "Cannot allocate taskgroup");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(tg->name, name);
+
+	return tg;
+}
+
 static void
 parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
@@ -863,7 +891,7 @@ parse_task_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	data->sched_data = parse_sched_data(obj, -1);
-
+	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
 static void
@@ -903,11 +931,14 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset_str = NULL;
 
 	data->curr_sched_data = NULL;
+	data->curr_taskgroup_data = NULL;
 
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
+	/* Taskgroup */
+	data->taskgroup_data = parse_taskgroup_data(obj);
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
