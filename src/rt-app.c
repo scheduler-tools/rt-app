@@ -1085,6 +1085,7 @@ void *thread_body(void *arg)
 
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
+		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
