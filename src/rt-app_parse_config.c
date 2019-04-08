@@ -989,6 +989,15 @@ parse_task_data(char *name, struct json_object *obj, int index,
 		assure_type_is(phases_obj, obj, "phases",
 					json_type_object);
 
+		/*
+		 * Taskgroup must not be specified at thread level if phases
+		 * are present.
+		 */
+		if (strlen(get_string_value_from(obj, "taskgroup", TRUE, ""))) {
+			log_critical("Specify taskgroup in phase rather than thread");
+			exit(EXIT_INV_CONFIG);
+		}
+
 		log_info(PIN "Parsing phases section");
 		data->nphases = 0;
 		foreach(phases_obj, entry, key, val, idx) {
