@@ -859,6 +859,28 @@ static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
 	return tg;
 }
 
+static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata)
+{
+	/* Save sched_data as thread's current sched_data. */
+	if (pdata->sched_data)
+		tdata->curr_sched_data = pdata->sched_data;
+
+	/* Save taskgroup_data as thread's current taskgroup_data. */
+	if (pdata->taskgroup_data)
+		tdata->curr_taskgroup_data = pdata->taskgroup_data;
+
+	/*
+	 * Detect policy/taskgroup misconfiguration: a task which specifies a
+	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 */
+	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
+	    tdata->curr_taskgroup_data) {
+		log_critical(PIN2 "No taskgroup support for policy %s",
+			     policy_to_string(tdata->curr_sched_data->policy));
+		exit(EXIT_INV_CONFIG);
+	}
+}
+
 static void
 parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
@@ -939,13 +961,17 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset = NULL;
 	data->def_cpu_data.cpuset_str = NULL;
 
-	data->curr_sched_data = NULL;
-	data->curr_taskgroup_data = NULL;
-
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
+
+	/*
+	 * Thread's current sched_data/taskgroup are used to detect
+	 * policy/taskgroup misconfiguration.
+	 */
+	data->curr_sched_data = data->sched_data;
+	data->curr_taskgroup_data = NULL;
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
@@ -975,6 +1001,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
 			parse_task_phase_data(val, &data->phases[idx], data, opts);
+			check_taskgroup_policy_dep(&data->phases[idx], data);
 		}
 
 		/* Get loop number */
@@ -993,6 +1020,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 		free(data->phases[0].sched_data);
 		data->phases[0].sched_data = NULL;
 
+		check_taskgroup_policy_dep(&data->phases[0], data);
 		/*
 		 * Get loop number:
 		 *
@@ -1009,6 +1037,9 @@ parse_task_data(char *name, struct json_object *obj, int index,
 			data->loop = -1;
 	}
 
+	/* Reset thread's current sched_data/taskgroup after parsing. */
+	data->curr_sched_data = NULL;
+	data->curr_taskgroup_data = NULL;
 }
 
 static void
