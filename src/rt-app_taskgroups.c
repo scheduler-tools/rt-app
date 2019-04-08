@@ -73,6 +73,26 @@ taskgroup_data_t *find_taskgroup(char *name)
 	return NULL;
 }
 
+static int cgroup_attach_task(char *name);
+
+void set_thread_taskgroup(thread_data_t *data, taskgroup_data_t *tg)
+{
+	if (!tg)
+		return;
+
+	if (data->curr_taskgroup_data == tg)
+		return;
+
+	log_debug("[%d] set task [%s] taskgroup [%s]", data->ind, data->name, tg->name);
+
+	if (cgroup_attach_task(tg->name)) {
+		log_critical(PIN "cannot attach task to taskgroup [%s]", tg->name);
+		exit(EXIT_FAILURE);
+	}
+
+	data->curr_taskgroup_data = tg;
+}
+
 static int cgroup_check_cpu_controller(void)
 {
 	int dummy[2], enabled, ret = 0;
@@ -336,4 +356,42 @@ void remove_cgroups(void)
 		}
 		log_debug(PIN "cgroup [%s] removed", tg->name);
 	}
+}
+
+static int cgroup_attach_task(char *name)
+{
+	char *file, *path;
+	int ret = -1;
+	FILE *tasks;
+	size_t size;
+
+	file = strcmp(name, "/") ? "/tasks" : "tasks";
+	size = strlen(ctrl.mount_point) + strlen(name) + strlen(file) + 1;
+	path = malloc(size);
+	if (!path) {
+		perror("malloc");
+		goto error;
+	}
+
+	sprintf(path, "%s%s%s", ctrl.mount_point, name, file);
+	tasks = fopen(path, "we");
+	if (!tasks) {
+		perror("fopen");
+		goto error;
+	}
+
+	if (fprintf(tasks, "%d", gettid()) < 0) {
+		perror("fprintf");
+		goto error;
+	}
+
+	if (fclose(tasks)) {
+		perror("fclose");
+		goto error;
+	}
+
+	ret = 0;
+error:
+	free(path);
+	return ret;
 }

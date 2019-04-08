@@ -1068,6 +1068,7 @@ void *thread_body(void *arg)
 			data->ind, policy_to_string(data->sched_data->policy),
 			data->sched_data->prio);
 	set_thread_priority(data, data->sched_data);
+	set_thread_taskgroup(data, data->taskgroup_data);
 
 	/*
 	 * phase        - index of current phase in data->phases array
@@ -1085,6 +1086,7 @@ void *thread_body(void *arg)
 
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
+		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,

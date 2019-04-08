@@ -5,6 +5,7 @@
 
 taskgroup_data_t *alloc_taskgroup(size_t size);
 taskgroup_data_t *find_taskgroup(char *name);
+void set_thread_taskgroup(thread_data_t *data, taskgroup_data_t *tg);
 
 void initialize_cgroups(void);
 void add_cgroups(void);
