@@ -178,12 +178,18 @@ typedef struct _sched_data_t {
 	unsigned long period;
 } sched_data_t;
 
+typedef struct _taskgroup_data_t {
+	char *name;
+	int offset;
+} taskgroup_data_t;
+
 typedef struct _phase_data_t {
 	int loop;
 	event_data_t *events;
 	int nbevents;
 	cpuset_data_t cpu_data;
 	sched_data_t *sched_data;
+	taskgroup_data_t *taskgroup_data;
 } phase_data_t;
 
 typedef struct _thread_data_t {
@@ -198,6 +204,8 @@ typedef struct _thread_data_t {
 
 	sched_data_t *sched_data; /* scheduler policy information */
 	sched_data_t *curr_sched_data; /* current scheduler policy */
+
+	taskgroup_data_t *curr_taskgroup_data;
 
 	int loop;
 	int nphases;
