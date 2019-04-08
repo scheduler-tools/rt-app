@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "config.h"
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
+#include "rt-app_taskgroups.h"
 
 /*
  * To prevent infinite loops in fork bombs, we will limit the number of
@@ -712,6 +713,8 @@ static void __shutdown(bool force_terminate)
 		close(ft_data.marker_fd);
 	}
 
+	remove_cgroups();
+
 	/*
 	 * If we unlock the joining_mutex here we could risk a late SIGINT
 	 * causing us to re-enter this loop. Since we are calling exit() to
@@ -1273,6 +1276,9 @@ int main(int argc, char* argv[])
 		log_notice("pLoad = %dns", p_load);
 	}
 
+	initialize_cgroups();
+	add_cgroups();
+
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
@@ -1438,5 +1444,6 @@ int main(int argc, char* argv[])
 	__shutdown(false);
 
 exit_err:
+	remove_cgroups();
 	exit(EXIT_FAILURE);
 }
