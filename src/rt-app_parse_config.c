@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <json-c/json.h>
 
 #include "rt-app_utils.h"
+#include "rt-app_taskgroups.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "
@@ -822,6 +823,42 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	return NULL;
 }
 
+static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
+{
+	char *name = get_string_value_from(obj, "taskgroup", TRUE, ""), *curr;
+	unsigned int len = strlen(name);
+	taskgroup_data_t *tg;
+
+	if (!len)
+		return NULL;
+
+	tg = find_taskgroup(name);
+	if (tg)
+		return tg;
+
+	tg = alloc_taskgroup(len + 1);
+	if (!tg) {
+		log_critical(PIN2 "Cannot allocate taskgroup");
+		exit(EXIT_FAILURE);
+	}
+
+	curr = tg->name;
+	/* Enforce leading slash. */
+	*curr = '/';
+
+	for (; *name != '\0'; name++)
+		/* Reduce sequence of slashes to one slash. */
+		if (*name != '/' || *name != *curr)
+			*(++curr) = *name;
+
+	/* Remove trailing slash except for root taskgroup. */
+	if (curr == tg->name || *curr != '/')
+		curr++;
+	*curr = '\0';
+
+	return tg;
+}
+
 static void
 parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
@@ -863,7 +900,7 @@ parse_task_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	data->sched_data = parse_sched_data(obj, -1);
-
+	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
 static void
@@ -903,6 +940,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset_str = NULL;
 
 	data->curr_sched_data = NULL;
+	data->curr_taskgroup_data = NULL;
 
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
