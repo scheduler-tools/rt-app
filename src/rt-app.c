@@ -1168,6 +1168,9 @@ void *thread_body(void *arg)
 		exit(EXIT_FAILURE);
 	}
 
+	/* Force thread into root taskgroup. */
+	reset_thread_taskgroup();
+
 	if (timings) {
 		int j;
 

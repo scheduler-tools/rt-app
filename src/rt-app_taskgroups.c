@@ -93,6 +93,14 @@ void set_thread_taskgroup(thread_data_t *data, taskgroup_data_t *tg)
 	data->curr_taskgroup_data = tg;
 }
 
+void reset_thread_taskgroup(void)
+{
+	if (!ctrl.nr_tgs)
+		return;
+
+	cgroup_attach_task("/");
+}
+
 static int cgroup_check_cpu_controller(void)
 {
 	int dummy[2], enabled, ret = 0;
