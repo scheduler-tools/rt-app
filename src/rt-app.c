@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "config.h"
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
+#include "rt-app_taskgroups.h"
 
 /*
  * To prevent infinite loops in fork bombs, we will limit the number of
@@ -712,6 +713,8 @@ static void __shutdown(bool force_terminate)
 		close(ft_data.marker_fd);
 	}
 
+	remove_cgroups();
+
 	/*
 	 * If we unlock the joining_mutex here we could risk a late SIGINT
 	 * causing us to re-enter this loop. Since we are calling exit() to
@@ -1065,6 +1068,7 @@ void *thread_body(void *arg)
 			data->ind, policy_to_string(data->sched_data->policy),
 			data->sched_data->prio);
 	set_thread_priority(data, data->sched_data);
+	set_thread_taskgroup(data, data->taskgroup_data);
 
 	/*
 	 * phase        - index of current phase in data->phases array
@@ -1082,6 +1086,7 @@ void *thread_body(void *arg)
 
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
+		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		if (opts.ftrace)
 			log_ftrace(ft_data.marker_fd,
@@ -1162,6 +1167,9 @@ void *thread_body(void *arg)
 		perror("pthread_setschedparam");
 		exit(EXIT_FAILURE);
 	}
+
+	/* Force thread into root taskgroup. */
+	reset_thread_taskgroup();
 
 	if (timings) {
 		int j;
@@ -1272,6 +1280,9 @@ int main(int argc, char* argv[])
 		p_load = opts.calib_ns_per_loop;
 		log_notice("pLoad = %dns", p_load);
 	}
+
+	initialize_cgroups();
+	add_cgroups();
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -1438,5 +1449,6 @@ int main(int argc, char* argv[])
 	__shutdown(false);
 
 exit_err:
+	remove_cgroups();
 	exit(EXIT_FAILURE);
 }

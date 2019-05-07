@@ -258,6 +258,20 @@ inherit the affinity from the task level):
 	}
 }
 
+*** taskgroups
+
+* taskgroup: String. Can be specified at task level or phase level. Currently
+only SCHED_OTHER tasks are supported to contain taskgroup data. Tasks with a
+policy other than SCHED_OTHER and without taskgroup data can coexist in the
+setup. An empty taskgroup ("") is allowed and is interpreted as if there is
+no taskgroup data given. Pre-existing parts of a taskgroup are preserved.
+They are not removed during rt-app teardown.
+The default build supports up to 32 different taskgroups. In case a
+configuration exceeds this limit the error message '[rt-app] <error> [tg] #
+taskgroups exceeds max # taskgroups [32]' is issued before rt-app exits. The
+number of supported taskgroups can be increased by changing 'const static
+unsigned int max_nbr_tgs = 32' at compile time.
+
 *** events ***
 
 events are simple action that will be performed by the thread or on the

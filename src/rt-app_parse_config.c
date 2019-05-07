@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <json-c/json.h>
 
 #include "rt-app_utils.h"
+#include "rt-app_taskgroups.h"
 #include "rt-app_parse_config.h"
 
 #define PFX "[json] "
@@ -822,6 +823,55 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	return NULL;
 }
 
+static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
+{
+	char *name = get_string_value_from(obj, "taskgroup", TRUE, "");
+	taskgroup_data_t *tg;
+
+	if (!strlen(name))
+		return NULL;
+
+	if (*name != '/') {
+		log_critical(PIN2 "Taskgroup [%s] has to start with [/]", name);
+		exit(EXIT_INV_CONFIG);
+	}
+
+	tg = find_taskgroup(name);
+	if (tg)
+		return tg;
+	tg = alloc_taskgroup(strlen(name) + 1);
+	if (!tg) {
+		log_critical(PIN2 "Cannot allocate taskgroup");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(tg->name, name);
+
+	return tg;
+}
+
+static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata)
+{
+	/* Save sched_data as thread's current sched_data. */
+	if (pdata->sched_data)
+		tdata->curr_sched_data = pdata->sched_data;
+
+	/* Save taskgroup_data as thread's current taskgroup_data. */
+	if (pdata->taskgroup_data)
+		tdata->curr_taskgroup_data = pdata->taskgroup_data;
+
+	/*
+	 * Detect policy/taskgroup misconfiguration: a task which specifies a
+	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 */
+	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
+	    tdata->curr_taskgroup_data) {
+		log_critical(PIN2 "No taskgroup support for policy %s",
+			     policy_to_string(tdata->curr_sched_data->policy));
+		exit(EXIT_INV_CONFIG);
+	}
+}
+
 static void
 parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
@@ -863,7 +913,7 @@ parse_task_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	data->sched_data = parse_sched_data(obj, -1);
-
+	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
 static void
@@ -902,12 +952,19 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset = NULL;
 	data->def_cpu_data.cpuset_str = NULL;
 
-	data->curr_sched_data = NULL;
-
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
+	/* Taskgroup */
+	data->taskgroup_data = parse_taskgroup_data(obj);
+
+	/*
+	 * Thread's current sched_data and taskgroup_data are used to detect
+	 * policy/taskgroup misconfiguration.
+	 */
+	data->curr_sched_data = data->sched_data;
+	data->curr_taskgroup_data = data->taskgroup_data;
 
 	/* initial delay */
 	data->delay = get_int_value_from(obj, "delay", TRUE, 0);
@@ -937,6 +994,11 @@ parse_task_data(char *name, struct json_object *obj, int index,
 			log_info(PIN "Parsing phase %s", key);
 			assure_type_is(val, phases_obj, key, json_type_object);
 			parse_task_phase_data(val, &data->phases[idx], data, opts);
+			/*
+			 * Uses thread's current sched_data and taskgroup_data
+			 * to detect policy/taskgroup misconfiguration.
+			 */
+			check_taskgroup_policy_dep(&data->phases[idx], data);
 		}
 
 		/* Get loop number */
@@ -956,6 +1018,11 @@ parse_task_data(char *name, struct json_object *obj, int index,
 		data->phases[0].sched_data = NULL;
 
 		/*
+		 * Uses thread's current sched_data and taskgroup_data
+		 * to detect policy/taskgroup misconfiguration.
+		 */
+		check_taskgroup_policy_dep(&data->phases[0], data);
+		/*
 		 * Get loop number:
 		 *
 		 * If loop is specified, we already parsed it in
@@ -971,6 +1038,9 @@ parse_task_data(char *name, struct json_object *obj, int index,
 			data->loop = -1;
 	}
 
+	/* Reset thread's current sched_data and taskgroup_data after parsing. */
+	data->curr_sched_data = NULL;
+	data->curr_taskgroup_data = NULL;
 }
 
 static void
