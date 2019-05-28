@@ -33,6 +33,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/mman.h>  /* for memlock */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "rt-app_utils.h"
@@ -1225,8 +1228,15 @@ int main(int argc, char* argv[])
 	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
+	struct stat sb;
 
 	parse_command_line(argc, argv, &opts);
+
+	/* If logdir provided, check if existing */
+	if (opts.logdir && (stat(opts.logdir, &sb) || !S_ISDIR(sb.st_mode))){
+		log_error("Log directory %s not existing!\n", opts.logdir);
+		exit(EXIT_FAILURE);
+	}
 
 	/* allocated threads */
 	nthreads = opts.nthreads;

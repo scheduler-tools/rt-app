@@ -56,7 +56,7 @@ to RAM.  The lock of the page is only possible for non CFS tasks. Default value
 is True.
 
 * logdir : String. Path to store the various log files. The default path is
-the current directory (./).
+the current directory (./). Directory must be already existing.
 
 * log_basename : String. Prefix used for all log files of the use case.
 "rt-app-" is used by default.
@@ -75,10 +75,10 @@ The use of a temporary buffer prevents the threads of unexpected wait during
 io access. The "Auto" mode is not implemented yet and fallback to "file" mode
 for the moment.
 
-* ftrace: Boolean. If enable, rt-app logs in ftrace the main events of the use
+* ftrace: Boolean. If enabled, rt-app logs in ftrace the main events of the use
 case. Default value is False.
 
-* gnuplot : Boolean. if True, it will create a gnu plot compatible file for
+* gnuplot : Boolean. If True, it will create a gnu plot compatible file for
 each threads (see gnuplot section for more details). Default value is False.
 
 "io_device" : Text. Path to the file which will be written to create IO-bounded
