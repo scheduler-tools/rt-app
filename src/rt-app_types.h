@@ -261,7 +261,6 @@ typedef struct _rtapp_options_t {
 	rtapp_resources_t *resources;
 	int pi_enabled;
 
-	int ftrace;
 	int die_on_dmiss;
 	int mem_buffer_size;
 	char *io_device;

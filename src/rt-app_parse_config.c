@@ -127,6 +127,15 @@ get_in_object(struct json_object *where,
 	return to;
 }
 
+static inline bool
+check_type_is(struct json_object *where,
+	      const char *key,
+	      enum json_type type)
+{
+	struct json_object *value = get_in_object(where, key, FALSE);
+	return json_object_is_type(value, type);
+}
+
 static inline int
 get_int_value_from(struct json_object *where,
 		   const char *key,
@@ -1111,7 +1120,6 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->logdir = strdup("./");
 		opts->logbasename = strdup("rt-app");
 		opts->logsize = 0;
-		opts->ftrace = 0;
 		opts->lock_pages = 1;
 		opts->pi_enabled = 0;
 		opts->io_device = strdup("/dev/null");
@@ -1197,7 +1205,24 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->logdir = get_string_value_from(global, "logdir", TRUE, "./");
 	opts->logbasename = get_string_value_from(global, "log_basename",
 						  TRUE, "rt-app");
-	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
+
+	/*
+	 * DEPRECATED: ftrace boolean values are deprecated, keep a default
+	 * mapping to the new string values.
+	 */
+	if (check_type_is(global, "ftrace", json_type_boolean)) {
+		log_notice("Usage of boolean [ftrace] attribute is DEPRECATED.");
+		log_notice("Check [ftrace] attribute documentation for supported values.");
+		/* Enable all categories by default */
+		if (get_bool_value_from(global, "ftrace", TRUE, 0)) {
+			log_notice("Enabling all [ftrace] categories by default");
+			ftrace_level = ~0x0;
+		}
+	} else if (ftrace_setup(get_string_value_from(global, "ftrace", TRUE, ""))) {
+	    log_critical(PFX "Invalid ftrace categories");
+	    exit(EXIT_INV_CONFIG);
+	}
+
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
 	opts->io_device = get_string_value_from(global, "io_device", TRUE,
