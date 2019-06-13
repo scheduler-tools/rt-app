@@ -157,6 +157,7 @@ typedef struct _rtapp_resources_t {
 } rtapp_resources_t;
 
 typedef struct _event_data_t {
+	char name[48];
 	resource_t type;
 	int res;
 	int dep;

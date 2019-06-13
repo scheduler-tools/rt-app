@@ -433,6 +433,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_run;
 
 		log_info(PIN2 "type %d duration %d", data->type, data->duration);
+		strncpy(data->name, name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -459,6 +460,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_iorun;
 
 		log_info(PIN2 "type %d count %d", data->type, data->count);
+		strncpy(data->name, unique_name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -481,6 +483,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -503,6 +507,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -538,6 +544,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
@@ -556,6 +564,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata->res.barrier.waiting += 1;
 
 		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -590,6 +600,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		free(tmp);
 
 		log_info(PIN2 "type %d target %s [%d] period %d", data->type, rdata->name, rdata->index, data->duration);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -614,6 +626,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
@@ -638,12 +652,15 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
 	if (!strncmp(name, "yield", strlen("yield"))) {
 		data->type = rtapp_yield;
 		log_info(PIN2 "type %d", data->type);
+		strncpy(data->name, name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -672,6 +689,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		}
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
