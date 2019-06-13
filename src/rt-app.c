@@ -1128,6 +1128,14 @@ void *thread_body(void *arg)
 		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
 			   "rtapp_loop: event=end thread_loop=%d phase=%d phase_loop=%d",
 			   thread_loop, phase, phase_loop);
+		log_ftrace(ft_data.marker_fd, FTRACE_STATS,
+			   "rtapp_stats: period=%d run=%d wu_lat=%d slack=%d c_period=%d c_run=%d",
+			   curr_timing->period,
+			   curr_timing->duration,
+			   curr_timing->wu_latency,
+			   curr_timing->slack,
+			   curr_timing->c_period,
+			   curr_timing->c_duration);
 
 		phase_loop++;
 		/* Reached the specified number of loops for this phase. */

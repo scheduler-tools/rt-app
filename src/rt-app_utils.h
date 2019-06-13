@@ -56,6 +56,7 @@ do {									\
 #define FTRACE_TASK	0x02
 #define FTRACE_LOOP	0x04
 #define FTRACE_EVENT	0x08
+#define FTRACE_STATS	0x10
 
 #define log_ftrace(mark_fd, level, msg, args...)			\
 do {									\

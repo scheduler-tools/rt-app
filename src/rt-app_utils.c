@@ -287,6 +287,8 @@ int ftrace_setup(char *categories)
 			ftrace_level |= FTRACE_LOOP;
 		else if (!strncasecmp("event", cat, 6))
 			ftrace_level |= FTRACE_EVENT;
+		else if (!strncasecmp("stats", cat, 6))
+			ftrace_level |= FTRACE_STATS;
 		else if (!strncasecmp("none", cat, 5))
 			ftrace_level = FTRACE_NONE;
 		else
