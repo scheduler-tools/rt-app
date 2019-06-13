@@ -21,7 +21,7 @@
 		"lock_pages" : false,
 		"logdir" : "./",
 		"log_basename" : "rt-app2",
-		"ftrace" : true,
+		"ftrace" : "main,task,loop,event",
 		"gnuplot" : true,
 		"io_device" : "/dev/null",
 		"mem_buffer_size" : 1048576

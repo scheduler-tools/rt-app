@@ -20,7 +20,7 @@
 		"lock_pages" : false,
 		"logdir" : "./",
 		"log_basename" : "rt-app1",
-		"ftrace" : true,
+		"ftrace" : "main,task,loop,event",
 		"gnuplot" : true
 	}
 }

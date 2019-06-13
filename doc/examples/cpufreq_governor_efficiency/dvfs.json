@@ -21,7 +21,7 @@
 		"default_policy" : "SCHED_OTHER",
 		"calibration" : 128,
 		"lock_pages" : true,
-		"ftrace" : false,
+		"ftrace" : "none",
 		"logdir" : "./",
 		"log_size" : 2,
 	}
