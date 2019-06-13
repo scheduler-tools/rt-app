@@ -55,7 +55,7 @@ static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
 static int nthreads;
 static volatile sig_atomic_t running_threads;
-static int p_load;
+static long p_load;
 rtapp_options_t opts;
 static struct timespec t_zero;
 static struct timespec t_start;
@@ -220,12 +220,12 @@ void waste_cpu_cycles(unsigned long long load_loops)
 * We alternate idle period and run period in order to not trig some hw
 * protection mechanism like thermal mitgation
 */
-int calibrate_cpu_cycles_1(int clock)
+long calibrate_cpu_cycles_1(int clock)
 {
 	struct timespec start, stop, sleep;
 	int max_load_loop = 10000;
-	unsigned int diff;
-	int psec_per_loop, avg_per_loop = 0;
+	ulong diff;
+	long psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -239,8 +239,8 @@ int calibrate_cpu_cycles_1(int clock)
 		waste_cpu_cycles(max_load_loop);
 		clock_gettime(clock, &stop);
 
-		diff = (int)timespec_sub_to_ns(&stop, &start);
-		psec_per_loop = diff / max_load_loop;
+		diff = (ulong)timespec_sub_to_ns(&stop, &start);
+		psec_per_loop = diff * 1000 / max_load_loop;
 		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
 		/* collect a critical mass of samples.*/
@@ -265,12 +265,12 @@ int calibrate_cpu_cycles_1(int clock)
 * We continously runs something to ensure that CPU is set to max freq by the
 * governor
 */
-int calibrate_cpu_cycles_2(int clock)
+long calibrate_cpu_cycles_2(int clock)
 {
 	struct timespec start, stop;
 	int max_load_loop = 10000;
-	unsigned int diff;
-	int psec_per_loop, avg_per_loop = 0;
+	ulong diff;
+	long psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -280,7 +280,7 @@ int calibrate_cpu_cycles_2(int clock)
 		waste_cpu_cycles(max_load_loop);
 		clock_gettime(clock, &stop);
 
-		diff = (int)timespec_sub_to_ns(&stop, &start);
+		diff = (ulong)timespec_sub_to_ns(&stop, &start);
 		psec_per_loop = diff * 1000 / max_load_loop;
 		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
@@ -305,9 +305,9 @@ int calibrate_cpu_cycles_2(int clock)
 * Use several methods to calibrate the ns per loop and get the min value which
 * correspond to the highest achievable compute capacity.
 */
-int calibrate_cpu_cycles(int clock)
+long calibrate_cpu_cycles(int clock)
 {
-	int calib1, calib2;
+	long calib1, calib2;
 
 	/* Run 1st method */
 	calib1 = calibrate_cpu_cycles_1(clock);
@@ -1285,10 +1285,10 @@ int main(int argc, char* argv[])
 		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
-		log_notice("pLoad = %d.%dns : calib_cpu %d", p_load/1000, pload%1000, opts.calib_cpu);
+		log_notice("pLoad = %ld.%03ldns : calib_cpu %d", p_load/1000, p_load%1000, opts.calib_cpu);
 	} else {
-		p_load = opts.calib_ns_per_loop;
-		log_notice("pLoad = %dns", p_load);
+		p_load = 1000 * opts.calib_ns_per_loop;
+		log_notice("pLoad = %ldns", p_load);
 	}
 
 	initialize_cgroups();
