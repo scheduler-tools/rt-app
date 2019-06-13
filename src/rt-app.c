@@ -225,7 +225,7 @@ int calibrate_cpu_cycles_1(int clock)
 	struct timespec start, stop, sleep;
 	int max_load_loop = 10000;
 	unsigned int diff;
-	int nsec_per_loop, avg_per_loop = 0;
+	int psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -240,11 +240,11 @@ int calibrate_cpu_cycles_1(int clock)
 		clock_gettime(clock, &stop);
 
 		diff = (int)timespec_sub_to_ns(&stop, &start);
-		nsec_per_loop = diff / max_load_loop;
-		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+		psec_per_loop = diff / max_load_loop;
+		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
 		/* collect a critical mass of samples.*/
-		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+		if ((abs(psec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
 			return avg_per_loop;
 
 		/*
@@ -270,7 +270,7 @@ int calibrate_cpu_cycles_2(int clock)
 	struct timespec start, stop;
 	int max_load_loop = 10000;
 	unsigned int diff;
-	int nsec_per_loop, avg_per_loop = 0;
+	int psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -281,11 +281,11 @@ int calibrate_cpu_cycles_2(int clock)
 		clock_gettime(clock, &stop);
 
 		diff = (int)timespec_sub_to_ns(&stop, &start);
-		nsec_per_loop = diff / max_load_loop;
-		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+		psec_per_loop = diff * 1000 / max_load_loop;
+		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
 		/* collect a critical mass of samples.*/
-		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+		if ((abs(psec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
 			return avg_per_loop;
 
 		/*
@@ -332,7 +332,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	 * phase. We need to compute it here because both load_count and exec
 	 * might be modified below.
 	 */
-	perf = exec / p_load;
+	perf = exec * 1000 / p_load;
 
 	/*
 	 * If exec is still too big, let's run it in bursts
@@ -341,7 +341,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	secs = exec / 1000000;
 
 	for (i = 0; i < secs; i++) {
-		load_count = 1000000000/p_load;
+		load_count = 1000000000000/p_load;
 		waste_cpu_cycles(load_count);
 		exec -= 1000000;
 	}
@@ -349,7 +349,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	/*
 	 * Run for the remainig exec (if any).
 	 */
-	load_count = (exec * 1000)/p_load;
+	load_count = (exec * 1000000)/p_load;
 	waste_cpu_cycles(load_count);
 
 	return perf;
@@ -1285,7 +1285,7 @@ int main(int argc, char* argv[])
 		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
-		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+		log_notice("pLoad = %d.%dns : calib_cpu %d", p_load/1000, pload%1000, opts.calib_cpu);
 	} else {
 		p_load = opts.calib_ns_per_loop;
 		log_notice("pLoad = %dns", p_load);
