@@ -1212,6 +1212,9 @@ void setup_thread_logging(thread_data_t *tdata)
 	tdata->main_app_start = t_start;
 	tdata->lock_pages = opts.lock_pages;
 
+	if (!opts.logsize)
+		return;
+
 	if (opts.logdir) {
 		snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
 			 opts.logdir,
