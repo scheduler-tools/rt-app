@@ -878,6 +878,11 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		case fifo:
 			log_debug("[%d] setting scheduler %s priority %d", data->ind,
 					policy_to_string(sched_data->policy), sched_data->prio);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=%s prio=%d",
+				   sched_data->policy == rr ? "rr" : "fifo",
+				   sched_data->prio);
+
 			param.sched_priority = sched_data->prio;
 			ret = pthread_setschedparam(pthread_self(),
 					sched_data->policy,
@@ -895,7 +900,10 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		case idle:
 			log_debug("[%d] setting scheduler %s priority %d", data->ind,
 					policy_to_string(sched_data->policy), sched_data->prio);
-
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=%s prio=%d",
+				   sched_data->policy == other ? "other" : "idle",
+				   sched_data->prio);
 
 			if ((sched_data->policy == other) && (sched_data->prio > 19 || sched_data->prio < -20)) {
 				log_critical("[%d] setpriority "
@@ -941,6 +949,10 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 					" period %lu", data->ind,
 					policy_to_string(sched_data->policy), sched_data->period,
 					sched_data->runtime, sched_data->deadline);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=dl runtime=%lu deadline=%lu period=%lu",
+				   sched_data->prio, sched_data->runtime,
+				   sched_data->deadline, sched_data->period);
 
 			tid = gettid();
 			sa_params.size = sizeof(struct sched_attr);
