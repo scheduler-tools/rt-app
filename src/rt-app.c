@@ -1008,12 +1008,18 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
 			log_notice("[%d] setting util_min=%d",
 				   data->ind, sched_data->util_min);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=uclamp util_min=%d",
+				   sched_data->util_min);
 		}
 		if (sched_data->util_max != -1) {
 			sa_params.sched_util_max = sched_data->util_max;
 			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
 			log_notice("[%d] setting util_max=%d",
 				   data->ind, sched_data->util_max);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=uclamp util_max=%d",
+				   sched_data->util_max);
 		}
 
 		ret = sched_setattr(tid, &sa_params, flags);
