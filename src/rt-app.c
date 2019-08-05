@@ -639,10 +639,9 @@ int run(thread_data_t *tdata,
 			return perf;
 
 		log_debug("[%d] runs events %d type %d ", ind, i, events[i].type);
-		if (opts.ftrace)
-				log_ftrace(ft_data.marker_fd,
-						"[%d] executing %d",
-						ind, i);
+		log_ftrace(ft_data.marker_fd, FTRACE_EVENT,
+			   "rtapp_event: id=%d type=%d desc=%s",
+			   i, events[i].type, events[i].name);
 		lock += run_event(&events[i], !continue_running, &perf,
 				  tdata, t_first, ldata);
 	}
@@ -710,8 +709,9 @@ static void __shutdown(bool force_terminate)
 			perror("pthread_join() failed");
 	}
 
-	if (opts.ftrace) {
-		log_ftrace(ft_data.marker_fd, "main ends\n");
+	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
+		   "rtapp_main: event=end");
+	if (ftrace_level) {
 		log_notice("deconfiguring ftrace");
 		close(ft_data.marker_fd);
 	}
@@ -1030,10 +1030,9 @@ void *thread_body(void *arg)
 		 * timestamp.
 		 */
 		clock_gettime(CLOCK_MONOTONIC, &t_zero);
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd,
-				"[%d] sets zero time",
-				data->ind);
+		log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+			   "rtapp_main: event=clock_ref data=%llu",
+			   timespec_to_usec_ull(&t_zero));
 	}
 
 	if (!data->forked)
@@ -1049,8 +1048,8 @@ void *thread_body(void *arg)
 				   "start", "end", "rel_st", "slack",
 				   "c_duration", "c_period", "wu_lat");
 
-	if (opts.ftrace)
-		log_ftrace(ft_data.marker_fd, "[%d] starts", data->ind);
+	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+		   "rtapp_task: event=start");
 
 	if (data->delay > 0) {
 		struct timespec delay = usec_to_timespec(data->delay);
@@ -1091,10 +1090,10 @@ void *thread_body(void *arg)
 		set_thread_priority(data, pdata->sched_data);
 		set_thread_taskgroup(data, pdata->taskgroup_data);
 
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd,
-				   "[%d] begins thread_loop %d phase %d phase_loop %d",
-				   data->ind, thread_loop, phase, phase_loop);
+		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
+			   "rtapp_loop: event=start thread_loop=%d phase=%d phase_loop=%d",
+			   thread_loop, phase, phase_loop);
+
 		log_debug("[%d] begins thread_loop %d phase %d phase_loop %d",
 			  data->ind, thread_loop, phase, phase_loop);
 
@@ -1126,10 +1125,17 @@ void *thread_body(void *arg)
 		if (opts.logsize && !timings && continue_running)
 			log_timing(data->log_handler, curr_timing);
 
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd,
-				   "[%d] end thread_loop %d phase %d phase_loop %d",
-				   data->ind, thread_loop, phase, phase_loop);
+		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
+			   "rtapp_loop: event=end thread_loop=%d phase=%d phase_loop=%d",
+			   thread_loop, phase, phase_loop);
+		log_ftrace(ft_data.marker_fd, FTRACE_STATS,
+			   "rtapp_stats: period=%d run=%d wu_lat=%d slack=%d c_period=%d c_run=%d",
+			   curr_timing->period,
+			   curr_timing->duration,
+			   curr_timing->wu_latency,
+			   curr_timing->slack,
+			   curr_timing->c_period,
+			   curr_timing->c_duration);
 
 		phase_loop++;
 		/* Reached the specified number of loops for this phase. */
@@ -1184,8 +1190,8 @@ void *thread_body(void *arg)
 	}
 
 
-	if (opts.ftrace)
-		log_ftrace(ft_data.marker_fd, "[%d] exiting", data->ind);
+	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+		   "rtapp_task: event=end");
 
 	log_notice("[%d] Exiting.", data->ind);
 	if (opts.logsize)
@@ -1205,6 +1211,9 @@ void setup_thread_logging(thread_data_t *tdata)
 	tdata->duration = opts.duration;
 	tdata->main_app_start = t_start;
 	tdata->lock_pages = opts.lock_pages;
+
+	if (!opts.logsize)
+		return;
 
 	if (opts.logdir) {
 		snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
@@ -1256,7 +1265,7 @@ int main(int argc, char* argv[])
 	signal(SIGINT, shutdown);
 
 	/* If using ftrace, open trace and marker fds */
-	if (opts.ftrace) {
+	if (ftrace_level != FTRACE_NONE) {
 		log_notice("configuring ftrace");
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/tracing_on");
@@ -1267,9 +1276,9 @@ int main(int argc, char* argv[])
 			log_error("Cannot open trace_marker file %s", tmp);
 			exit(EXIT_FAILURE);
 		}
-
-		log_ftrace(ft_data.marker_fd, "main creates threads\n");
 	}
+	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
+		   "rtapp_main: event=start");
 
 	/* Init global running_variable */
 	continue_running = 1;
@@ -1451,8 +1460,8 @@ int main(int argc, char* argv[])
 
 	if (opts.duration > 0) {
 		sleep(opts.duration);
-		if (opts.ftrace)
-			log_ftrace(ft_data.marker_fd, "main shutdown\n");
+		log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
+			   "rtapp_main: event=shutdown");
 		__shutdown(true);
 	}
 

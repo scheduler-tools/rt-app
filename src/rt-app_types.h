@@ -157,6 +157,7 @@ typedef struct _rtapp_resources_t {
 } rtapp_resources_t;
 
 typedef struct _event_data_t {
+	char name[48];
 	resource_t type;
 	int res;
 	int dep;
@@ -260,7 +261,6 @@ typedef struct _rtapp_options_t {
 	rtapp_resources_t *resources;
 	int pi_enabled;
 
-	int ftrace;
 	int die_on_dmiss;
 	int mem_buffer_size;
 	char *io_device;

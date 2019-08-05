@@ -50,7 +50,7 @@
 		"lock_pages" : false,
 		"logdir" : "./",
 		"log_basename" : "rt-app1",
-		"ftrace" : false,
+		"ftrace" : "none",
 		"gnuplot" : false
 	}
 }

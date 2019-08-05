@@ -127,6 +127,15 @@ get_in_object(struct json_object *where,
 	return to;
 }
 
+static inline bool
+check_type_is(struct json_object *where,
+	      const char *key,
+	      enum json_type type)
+{
+	struct json_object *value = get_in_object(where, key, FALSE);
+	return json_object_is_type(value, type);
+}
+
 static inline int
 get_int_value_from(struct json_object *where,
 		   const char *key,
@@ -433,6 +442,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_run;
 
 		log_info(PIN2 "type %d duration %d", data->type, data->duration);
+		strncpy(data->name, name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -459,6 +469,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 			data->type = rtapp_iorun;
 
 		log_info(PIN2 "type %d count %d", data->type, data->count);
+		strncpy(data->name, unique_name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -481,6 +492,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -503,6 +516,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata = &((*resources_table)->resources[data->res]);
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -538,6 +553,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
@@ -556,6 +573,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		rdata->res.barrier.waiting += 1;
 
 		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -590,6 +609,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		free(tmp);
 
 		log_info(PIN2 "type %d target %s [%d] period %d", data->type, rdata->name, rdata->index, data->duration);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -614,6 +635,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
@@ -638,12 +661,15 @@ parse_task_event_data(char *name, struct json_object *obj,
 		ddata = &((*resources_table)->resources[data->dep]);
 
 		log_info(PIN2 "type %d target %s [%d] mutex %s [%d]", data->type, rdata->name, rdata->index, ddata->name, ddata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s:%s",
+			 name, rdata->name, ddata->name);
 		return;
 	}
 
 	if (!strncmp(name, "yield", strlen("yield"))) {
 		data->type = rtapp_yield;
 		log_info(PIN2 "type %d", data->type);
+		strncpy(data->name, name, sizeof(data->name)-1);
 		return;
 	}
 
@@ -672,6 +698,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 		}
 
 		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
 		return;
 	}
 
@@ -1092,7 +1120,6 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->logdir = strdup("./");
 		opts->logbasename = strdup("rt-app");
 		opts->logsize = 0;
-		opts->ftrace = 0;
 		opts->lock_pages = 1;
 		opts->pi_enabled = 0;
 		opts->io_device = strdup("/dev/null");
@@ -1178,7 +1205,24 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	opts->logdir = get_string_value_from(global, "logdir", TRUE, "./");
 	opts->logbasename = get_string_value_from(global, "log_basename",
 						  TRUE, "rt-app");
-	opts->ftrace = get_bool_value_from(global, "ftrace", TRUE, 0);
+
+	/*
+	 * DEPRECATED: ftrace boolean values are deprecated, keep a default
+	 * mapping to the new string values.
+	 */
+	if (check_type_is(global, "ftrace", json_type_boolean)) {
+		log_notice("Usage of boolean [ftrace] attribute is DEPRECATED.");
+		log_notice("Check [ftrace] attribute documentation for supported values.");
+		/* Enable all categories by default */
+		if (get_bool_value_from(global, "ftrace", TRUE, 0)) {
+			log_notice("Enabling all [ftrace] categories by default");
+			ftrace_level = ~0x0;
+		}
+	} else if (ftrace_setup(get_string_value_from(global, "ftrace", TRUE, ""))) {
+	    log_critical(PFX "Invalid ftrace categories");
+	    exit(EXIT_INV_CONFIG);
+	}
+
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);
 	opts->io_device = get_string_value_from(global, "io_device", TRUE,
