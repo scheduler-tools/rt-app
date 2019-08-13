@@ -838,7 +838,8 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.deadline *= 1000;
 
 	/* Check if we found at least one meaningful scheduler parameter */
-	if (tmp_data.prio != -1 || tmp_data.runtime || tmp_data.period || tmp_data.period) {
+	if (tmp_data.prio != -1 ||
+	    tmp_data.runtime || tmp_data.period || tmp_data.deadline) {
 		sched_data_t *new_data;
 
 		/* At least 1 parameters has been set in the object */
