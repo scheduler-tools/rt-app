@@ -974,6 +974,23 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
 		tid = gettid();
 
+		/*
+		 * Currently we cannot use the syscall to set a clamp
+		 * value without specifing a valid policy and priotiry.
+		 * Read the current values and use them for the following
+		 * syscall.
+		 * TODO: fix __sched_setscheduler() to get rid of this!
+		 */
+		ret = sched_getattr(tid, &sa_params,
+				    sizeof(struct sched_attr), flags);
+		if (ret != 0) {
+			log_critical("[%d] sched_getattr returned %d",
+					data->ind, ret);
+			errno = ret;
+			perror("sched_getattr");
+			exit(EXIT_FAILURE);
+		}
+
 		if (sched_data->util_min != -1) {
 			sa_params.sched_util_min = sched_data->util_min;
 			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
