@@ -854,7 +854,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 	struct sched_param param;
 	policy_t policy;
 #ifdef DLSCHED
-	struct sched_attr dl_params;
+	struct sched_attr sa_params;
 	pid_t tid;
 	unsigned int flags = 0;
 #endif
@@ -943,15 +943,15 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 					sched_data->runtime, sched_data->deadline);
 
 			tid = gettid();
-			dl_params.size = sizeof(struct sched_attr);
-			dl_params.sched_flags = 0;
-			dl_params.sched_policy = SCHED_DEADLINE;
-			dl_params.sched_priority = 0;
-			dl_params.sched_runtime = sched_data->runtime;
-			dl_params.sched_deadline = sched_data->deadline;
-			dl_params.sched_period = sched_data->period;
+			sa_params.size = sizeof(struct sched_attr);
+			sa_params.sched_flags = 0;
+			sa_params.sched_policy = SCHED_DEADLINE;
+			sa_params.sched_priority = 0;
+			sa_params.sched_runtime = sched_data->runtime;
+			sa_params.sched_deadline = sched_data->deadline;
+			sa_params.sched_period = sched_data->period;
 
-			ret = sched_setattr(tid, &dl_params, flags);
+			ret = sched_setattr(tid, &sa_params, flags);
 			if (ret != 0) {
 				log_critical("[%d] sched_setattr "
 						"returned %d", data->ind, ret);
