@@ -36,6 +36,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "config.h"
 #include "rt-app_utils.h"
@@ -50,7 +51,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #define FORKS_LIMIT		1024
 
-static int errno;
 static volatile sig_atomic_t continue_running;
 static pthread_t *threads;
 static int nthreads;
@@ -927,7 +927,6 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				if (ret != 0) {
 					log_critical("[%d] setpriority "
 					     "returned %d", data->ind, ret);
-					errno = ret;
 					perror("setpriority");
 					exit(EXIT_FAILURE);
 				}
@@ -956,8 +955,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			if (ret != 0) {
 				log_critical("[%d] sched_setattr "
 						"returned %d", data->ind, ret);
-				errno = ret;
-				perror("sched_setattr");
+				perror("sched_setattr: failed to set deadline attributes");
 				exit(EXIT_FAILURE);
 			}
 		break;
@@ -1017,8 +1015,7 @@ void *thread_body(void *arg)
 	{
 		log_notice("[%d] Locking pages in memory", data->ind);
 		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret < 0) {
-			errno = ret;
+		if (ret != 0) {
 			perror("mlockall");
 			exit(EXIT_FAILURE);
 		}
