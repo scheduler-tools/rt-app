@@ -240,7 +240,6 @@
 	"global" : {
 		"default_policy" : "SCHED_OTHER",
 		"duration" : 600,
-		"ftrace" : "none",
 		"gnuplot" : false,
 		"logdir" : "./",
 		"log_basename" : "video",
