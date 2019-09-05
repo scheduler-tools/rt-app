@@ -132,7 +132,9 @@ check_type_is(struct json_object *where,
 	      const char *key,
 	      enum json_type type)
 {
-	struct json_object *value = get_in_object(where, key, FALSE);
+	struct json_object *value = get_in_object(where, key, TRUE);
+	if (!value)
+		return false;
 	return json_object_is_type(value, type);
 }
 
