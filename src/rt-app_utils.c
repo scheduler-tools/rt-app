@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "rt-app_utils.h"
 
 int log_level = 50;   // default
+int ftrace_level;     // no ftrace messages by default
 
 unsigned long
 timespec_to_usec(struct timespec *ts)
@@ -269,6 +270,32 @@ resource_to_string(resource_t resource, char *resource_name)
 		default:
 			return 1;
 	}
+	return 0;
+}
+
+int ftrace_setup(char *categories)
+{
+	char *cat = strtok(categories, ",");
+
+	ftrace_level = FTRACE_NONE;
+	while (cat) {
+		if (!strncasecmp("main", cat, 5))
+			ftrace_level |= FTRACE_MAIN;
+		else if (!strncasecmp("task", cat, 5))
+			ftrace_level |= FTRACE_TASK;
+		else if (!strncasecmp("loop", cat, 5))
+			ftrace_level |= FTRACE_LOOP;
+		else if (!strncasecmp("event", cat, 6))
+			ftrace_level |= FTRACE_EVENT;
+		else if (!strncasecmp("stats", cat, 6))
+			ftrace_level |= FTRACE_STATS;
+		else if (!strncasecmp("none", cat, 5))
+			ftrace_level = FTRACE_NONE;
+		else
+			return 1;
+		cat = strtok(NULL, ",");
+	}
+
 	return 0;
 }
 

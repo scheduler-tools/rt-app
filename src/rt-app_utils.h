@@ -41,6 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define BUF_SIZE 100
 
 extern int log_level;
+extern int ftrace_level;
 
 /* This prepends a string to a message */
 #define rtapp_log_to(where, level, level_pfx, msg, args...)		\
@@ -50,9 +51,17 @@ do {									\
     }									\
 } while (0)
 
-#define log_ftrace(mark_fd, msg, args...)				\
+#define FTRACE_NONE	0x00
+#define FTRACE_MAIN	0x01
+#define FTRACE_TASK	0x02
+#define FTRACE_LOOP	0x04
+#define FTRACE_EVENT	0x08
+#define FTRACE_STATS	0x10
+
+#define log_ftrace(mark_fd, level, msg, args...)			\
 do {									\
-    ftrace_write(mark_fd, msg, ##args);					\
+    if (level & ftrace_level)						\
+	ftrace_write(mark_fd, msg, ##args);				\
 } while (0)
 
 #define log_notice(msg, args...)					\
@@ -132,6 +141,9 @@ string_to_resource(const char *name, resource_t *resource);
 
 int
 resource_to_string(resource_t resource, char *name);
+
+int
+ftrace_setup(char *categories);
 
 void
 ftrace_write(int mark_fd, const char *fmt, ...);

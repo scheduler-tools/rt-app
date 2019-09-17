@@ -1,6 +1,6 @@
 #!/bin/bash
 
-autoreconf --install --symlink || exit 1
+autoreconf --force --install --symlink || exit 1
 
 echo
 echo "----------------------------------------------------------------"

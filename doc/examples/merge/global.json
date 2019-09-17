@@ -2,7 +2,7 @@
 	"global" : {
 		"default_policy" : "SCHED_OTHER",
 		"duration" : 5,
-		"ftrace" : true,
+		"ftrace" : "main,task,loop,event",
 		"gnuplot" : true,
 		"logdir" : "/tmp/",
 		"log_basename" : "rt-app",

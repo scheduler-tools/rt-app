@@ -19,7 +19,6 @@
 		"default_policy" : "SCHED_FIFO",
 		"calibration" : "CPU0",
 		"lock_pages" : true,
-		"ftrace" : false,
 		"logdir" : "./",
 	}
 }

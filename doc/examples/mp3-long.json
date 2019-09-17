@@ -57,7 +57,6 @@
 	"global" : {
 		"default_policy" : "SCHED_OTHER",
 		"duration" : 600,
-		"ftrace" : false,
 		"gnuplot" : false,
 		"logdir" : "./",
 		"log_basename" : "mp3",
