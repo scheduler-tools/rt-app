@@ -1284,7 +1284,7 @@ int main(int argc, char* argv[])
 	continue_running = 1;
 
 	/* Needs to calibrate 'calib_cpu' core */
-	if (opts.calib_ns_per_loop == 0) {
+	if (opts.calib_ps_per_loop == 0) {
 		log_notice("Calibrate ns per loop");
 		cpu_set_t calib_set;
 
@@ -1294,10 +1294,10 @@ int main(int argc, char* argv[])
 		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
-		log_notice("pLoad = %ld.%03ldns : calib_cpu %d", p_load/1000, p_load%1000, opts.calib_cpu);
+		log_notice("pLoad = %ld.%03ldns : calib_cpu %d", p_load / 1000, p_load % 1000, opts.calib_cpu);
 	} else {
-		p_load = 1000 * opts.calib_ns_per_loop;
-		log_notice("pLoad = %ldns", p_load);
+		p_load = opts.calib_ps_per_loop;
+		log_notice("pLoad = %ld.%03ldns", p_load / 1000, p_load % 1000 );
 	}
 
 	initialize_cgroups();
