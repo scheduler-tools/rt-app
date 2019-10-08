@@ -211,6 +211,12 @@ void __attribute__((noinline, optimize("O0"))) waste_cpu_cycles(unsigned long lo
 	double n;
 	unsigned long long i;
 
+	/*
+	 * Adjust the number of loops to get calibration values close to what
+	 * they used to be with the previous loop body.
+	 */
+	load_loops *= 10;
+
 	param = 0.95;
 	n = 4;
 	for (i = 0 ; i < load_loops ; i++) {
@@ -220,11 +226,7 @@ void __attribute__((noinline, optimize("O0"))) waste_cpu_cycles(unsigned long lo
 		 * documentation of "noinline" function attribute for details.
 		 */
 		asm("");
-
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+		result = n/i;
 	}
 	return;
 }
