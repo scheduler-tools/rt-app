@@ -54,11 +54,9 @@ typedef enum policy_t
 	other = SCHED_OTHER,
 	idle = SCHED_IDLE,
 	rr = SCHED_RR,
-	fifo = SCHED_FIFO
-#ifdef DLSCHED
-	, deadline = SCHED_DEADLINE
-#endif
-	, same = -1
+	fifo = SCHED_FIFO,
+	deadline = SCHED_DEADLINE,
+	same = -1
 } policy_t;
 
 typedef enum resource_t

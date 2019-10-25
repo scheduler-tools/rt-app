@@ -126,10 +126,8 @@ log_timing(FILE *handler, timing_point_t *t);
 pid_t
 gettid(void);
 
-#ifdef DLSCHED
 __u64
 timespec_to_nsec(struct timespec *ts);
-#endif
 
 char *
 policy_to_string(policy_t policy);

@@ -853,11 +853,9 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 {
 	struct sched_param param;
 	policy_t policy;
-#ifdef DLSCHED
 	struct sched_attr sa_params;
 	pid_t tid;
 	unsigned int flags = 0;
-#endif
 	int ret;
 
 	if (sched_data == NULL)
@@ -943,7 +941,6 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
 
-#ifdef DLSCHED
 		case deadline:
 			log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
 					" period %lu", data->ind,
@@ -971,7 +968,6 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				exit(EXIT_FAILURE);
 			}
 		break;
-#endif
 
 		default:
 			log_error("Unknown scheduling policy %d",
