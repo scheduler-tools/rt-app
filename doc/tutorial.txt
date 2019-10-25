@@ -272,6 +272,16 @@ inherit the affinity from the task level):
 	}
 }
 
+*** Utilization Clamping
+
+util_min: Integer. Can be specified at task level or phase level. Sets the min
+utilization value the task can have; which helps boosting the task from
+scheduler point of view.
+
+util_max: Integer. Can be specified at task level or phase level. Sets the max
+utilization value the task can have; which helps capping the task from
+scheduler point of view.
+
 *** taskgroups
 
 * taskgroup: String. Can be specified at task level or phase level. Currently
