@@ -54,11 +54,9 @@ typedef enum policy_t
 	other = SCHED_OTHER,
 	idle = SCHED_IDLE,
 	rr = SCHED_RR,
-	fifo = SCHED_FIFO
-#ifdef DLSCHED
-	, deadline = SCHED_DEADLINE
-#endif
-	, same = -1
+	fifo = SCHED_FIFO,
+	deadline = SCHED_DEADLINE,
+	same = -1
 } policy_t;
 
 typedef enum resource_t
@@ -177,6 +175,8 @@ typedef struct _sched_data_t {
 	unsigned long runtime;
 	unsigned long deadline;
 	unsigned long period;
+	int util_min;
+	int util_max;
 } sched_data_t;
 
 typedef struct _taskgroup_data_t {

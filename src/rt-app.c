@@ -853,11 +853,9 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 {
 	struct sched_param param;
 	policy_t policy;
-#ifdef DLSCHED
-	struct sched_attr dl_params;
+	struct sched_attr sa_params;
 	pid_t tid;
 	unsigned int flags = 0;
-#endif
 	int ret;
 
 	if (sched_data == NULL)
@@ -878,6 +876,11 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		case fifo:
 			log_debug("[%d] setting scheduler %s priority %d", data->ind,
 					policy_to_string(sched_data->policy), sched_data->prio);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=%s prio=%d",
+				   sched_data->policy == rr ? "rr" : "fifo",
+				   sched_data->prio);
+
 			param.sched_priority = sched_data->prio;
 			ret = pthread_setschedparam(pthread_self(),
 					sched_data->policy,
@@ -895,7 +898,10 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		case idle:
 			log_debug("[%d] setting scheduler %s priority %d", data->ind,
 					policy_to_string(sched_data->policy), sched_data->prio);
-
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=%s prio=%d",
+				   sched_data->policy == other ? "other" : "idle",
+				   sched_data->prio);
 
 			if ((sched_data->policy == other) && (sched_data->prio > 19 || sched_data->prio < -20)) {
 				log_critical("[%d] setpriority "
@@ -935,23 +941,26 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			data->lock_pages = 0; /* forced off for SCHED_OTHER */
 			break;
 
-#ifdef DLSCHED
 		case deadline:
 			log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
 					" period %lu", data->ind,
 					policy_to_string(sched_data->policy), sched_data->period,
 					sched_data->runtime, sched_data->deadline);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=policy policy=dl runtime=%lu deadline=%lu period=%lu",
+				   sched_data->prio, sched_data->runtime,
+				   sched_data->deadline, sched_data->period);
 
 			tid = gettid();
-			dl_params.size = sizeof(struct sched_attr);
-			dl_params.sched_flags = 0;
-			dl_params.sched_policy = SCHED_DEADLINE;
-			dl_params.sched_priority = 0;
-			dl_params.sched_runtime = sched_data->runtime;
-			dl_params.sched_deadline = sched_data->deadline;
-			dl_params.sched_period = sched_data->period;
+			sa_params.size = sizeof(struct sched_attr);
+			sa_params.sched_flags = 0;
+			sa_params.sched_policy = SCHED_DEADLINE;
+			sa_params.sched_priority = 0;
+			sa_params.sched_runtime = sched_data->runtime;
+			sa_params.sched_deadline = sched_data->deadline;
+			sa_params.sched_period = sched_data->period;
 
-			ret = sched_setattr(tid, &dl_params, flags);
+			ret = sched_setattr(tid, &sa_params, flags);
 			if (ret != 0) {
 				log_critical("[%d] sched_setattr "
 						"returned %d", data->ind, ret);
@@ -959,13 +968,53 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				exit(EXIT_FAILURE);
 			}
 		break;
-#endif
 
 		default:
 			log_error("Unknown scheduling policy %d",
 					sched_data->policy);
 
 			exit(EXIT_FAILURE);
+	}
+
+	if (sched_data->policy != deadline &&
+	    (sched_data->util_min != -1 || sched_data->util_max != -1)) {
+		sa_params.size = sizeof(struct sched_attr);
+		sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
+		tid = gettid();
+
+		if (sched_data->util_min != -1) {
+			sa_params.sched_util_min = sched_data->util_min;
+			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
+			log_notice("[%d] setting util_min=%d",
+				   data->ind, sched_data->util_min);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=uclamp util_min=%d",
+				   sched_data->util_min);
+		}
+		if (sched_data->util_max != -1) {
+			sa_params.sched_util_max = sched_data->util_max;
+			sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
+			log_notice("[%d] setting util_max=%d",
+				   data->ind, sched_data->util_max);
+			log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+				   "rtapp_attrs: event=uclamp util_max=%d",
+				   sched_data->util_max);
+		}
+
+		/*
+		 * We can't change clamp values without valid policy and
+		 * priority values.
+		 */
+		sa_params.sched_policy = sched_data->policy;
+		sa_params.sched_priority = sched_data->prio;
+
+		ret = sched_setattr(tid, &sa_params, flags);
+		if (ret != 0) {
+			log_critical("[%d] sched_setattr returned %d",
+				     data->ind, ret);
+			perror("sched_setattr: failed to set uclamp value(s)");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	data->curr_sched_data = sched_data;

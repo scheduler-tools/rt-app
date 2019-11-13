@@ -57,6 +57,7 @@ do {									\
 #define FTRACE_LOOP	0x04
 #define FTRACE_EVENT	0x08
 #define FTRACE_STATS	0x10
+#define FTRACE_ATTRS	0x20
 
 #define log_ftrace(mark_fd, level, msg, args...)			\
 do {									\
@@ -125,10 +126,8 @@ log_timing(FILE *handler, timing_point_t *t);
 pid_t
 gettid(void);
 
-#ifdef DLSCHED
 __u64
 timespec_to_nsec(struct timespec *ts);
-#endif
 
 char *
 policy_to_string(policy_t policy);
