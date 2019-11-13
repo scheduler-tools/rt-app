@@ -572,7 +572,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		data->res = i;
 		rdata = &((*resources_table)->resources[data->res]);
-		rdata->res.barrier.waiting += 1;
+		rdata->res.barrier.waiting += tdata->num_instances;
 
 		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
 		snprintf(data->name, sizeof(data->name)-1, "%s:%s",

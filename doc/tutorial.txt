@@ -493,7 +493,9 @@ however, using a pthread_barrier would impose some strict conditions on usage
 around thread cleanups - primarily that you cannot cancel an in-progress barrier
 operation which would mean that we have to restrict cleanup to only be possible
 at the end of a loop cycle (i.e. all phases are complete). This would be too
-restrictive for most uses so here we use an alternative.
+restrictive for most uses so here we use an alternative. Finally, barrier can't
+be used with fork event because we must know how many threads will wait which
+is not possible with fork events.
 
 In this implementation, the barrier event manages its own mutex and uses a
 variable shared between users to track waiting tasks, protected by the mutex.
