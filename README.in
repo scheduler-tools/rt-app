@@ -18,6 +18,7 @@ Code is currently maintained on GitHub:
 
 rt-app runs on GNU/Linux. It needs bash, autoconf, automake, libtool,
 libjson-c, GNU make and a recent compiler (tested on: gcc) for basic features.
+If your system has numactl (libnuma-dev) installed, numa features will be supported.  
 
 
 =================
@@ -41,18 +42,39 @@ cross-compile json-c and build both static and shared libraries for aarch64:
     make
 
 
+=================
+ BUILDING numactl
+=================
+
+If you are not happy using the version installed by your packaging system,
+if it does not provide static libraries and you need them, need to
+cross-compile, build it from source like this:
+
+retrieve source code available here:
+
+    git clone https://github.com/numactl/numactl.git
+
+cross-compile numactl and build static libraries for aarch64:
+
+    ./autogen.sh
+    ./configure --host=aarch64-linux-gnu --disable-shared --enable-static
+    make
+
+
 ================================
  BUILDING AND INSTALLING rt-app
 ================================
 
 VARIANT A)
-cross-compile a static rt-app for aarch64, using your own json-c build
+cross-compile a static rt-app for aarch64, using your own json-c and/or numactl build
 ----------------------------------------------------------------------
 (...that wasn't installed (or not into the standard locations))
 
     export ac_cv_lib_json_c_json_object_from_file=yes
+    export ac_cv_lib_numa_numa_available=yes
+    
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo>" CFLAGS="-I<path to parent of json-c repo>" --with-deadline
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo> -L<absolute path to numactl repo>" CFLAGS="-I<path to parent of json-c repo> -I<path to parent of numactl repo>" --with-deadline
     AM_LDFLAGS="-all-static" make
 
 configure supports the usual flags, like `--help` and `--prefix`, there is an
@@ -63,27 +85,28 @@ SCHED_DEADLINE.
 EXAMPLE: with a directory structure like the following:
 
     $ tree -d -L 2
-    |-- json-c
-    |   |-- autoconf-archive
-    |   |-- autom4te.cache
-    |   |-- cmake
-    |   |-- fuzz
-    |   `-- tests
-    `-- rt-app
-        |-- autom4te.cache
-        |-- build-aux
-        |-- doc
-        |-- libdl
-        |-- m4
-        `-- src
+    .
+    ├── json-c
+    │   ├── autoconf-archive
+    │   ├── cmake
+    │   ├── fuzz
+    │       └── tests
+    ├── numactl
+    │   ├── m4
+    │   └── test
+    └── rt-app
+        ├── doc
+        ├── libdl
+        └── src
 
 
 you would run:
 
     cd rt-app
     export ac_cv_lib_json_c_json_object_from_file=yes
+    export ac_cv_lib_numa_numa_available=yes
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c" CFLAGS="-I$PWD/../" --with-deadline
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c -L$PWD/../numactl" CFLAGS="-I$PWD/../" --with-deadline
     AM_LDFLAGS="-all-static" make
 
 and you should get a static rt-app executable in the src directory.
