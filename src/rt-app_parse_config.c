@@ -832,8 +832,6 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		log_critical(PIN2 "Invalid util_max %d (>1024)", tmp_data.util_max);
 		exit(EXIT_INV_CONFIG);
 	}
-	log_notice(PIN2 "util_min: %d, util_max: %d",
-		   tmp_data.util_min, tmp_data.util_max);
 
 	if (def_policy != -1) {
 		/* Support legacy grammar for thread object */
