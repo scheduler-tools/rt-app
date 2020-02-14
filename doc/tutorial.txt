@@ -282,6 +282,47 @@ util_max: Integer. Can be specified at task level or phase level. Sets the max
 utilization value the task can have; which helps capping the task from
 scheduler point of view.
 
+*** NUMA memory binding
+
+* membind_nodes: Array of Integer. Define the NUMA binding of the thread.
+Default value is all NUMA nodes of the system. 
+An example : "membind_nodes" : [0, 2, 3]
+
+"membind_nodes" Can be specified at task level or phase level. 
+As an example, below creates two threads.
+One thread will run with memory binding to nodes 2 and 3. 
+The second task will run first phase with memory binding to nodes 0 and 1, 
+second phase with memory binding to node 2.
+Please note, that we follow an "event based policy", which means that 
+rt-app changes memory binding when there is a "membind_nodes" event 
+and don't do anything otherwise.
+
+"tasks" : {
+    "thread1" : {
+        "membind_nodes" : [2,3],
+        "phases" : {
+            "phase1" : {
+                "run" : 10,
+                "sleep" : 10
+            }
+        }
+    }
+    "thread2" : {
+        "phases" : {
+            "phase1" : {
+                "membind_nodes" : [0,1],
+                "run" : 10,
+                "sleep" : 10
+            }
+            "phase2" : {
+                "membind_nodes" : [2],
+                "run" : 10,
+                "sleep" : 10
+            }
+        }
+    }
+}
+
 *** taskgroups
 
 * taskgroup: String. Can be specified at task level or phase level. Currently

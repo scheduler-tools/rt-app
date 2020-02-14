@@ -15,6 +15,7 @@ AC_HEADER_STDC
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
 AC_CHECK_LIB([rt], [clock_gettime])
+AC_CHECK_LIB([numa], [numa_available])
 AC_CHECK_LIB([json-c], [json_object_from_file], [], [AC_MSG_ERROR([json-c libraries required])])
 AC_CHECK_FUNCS(sched_setattr, [], [])
 

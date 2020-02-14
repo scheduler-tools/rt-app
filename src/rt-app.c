@@ -849,6 +849,27 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 	}
 }
 
+static void set_thread_membind(thread_data_t *data, numaset_data_t * numa_data)
+{
+#if HAVE_LIBNUMA
+	if (numa_data->numaset == NULL)
+		return;
+
+	if(data->curr_numa_data == numa_data)
+		return;
+
+	if (data->curr_numa_data == NULL ||
+			!numa_bitmask_equal(numa_data->numaset, data->curr_numa_data->numaset))
+	{
+		log_debug("[%d] setting numa_membind to Node (s) %s", data->ind,
+				numa_data->numaset_str);
+		numa_set_membind(numa_data->numaset);
+	}
+	data->curr_numa_data = numa_data;
+#endif
+}
+
+
 static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 {
 	struct sched_param param;
@@ -1116,6 +1137,7 @@ void *thread_body(void *arg)
 			data->ind, policy_to_string(data->sched_data->policy),
 			data->sched_data->prio);
 	set_thread_priority(data, data->sched_data);
+	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
 
 	/*
@@ -1134,6 +1156,7 @@ void *thread_body(void *arg)
 
 		set_thread_affinity(data, &pdata->cpu_data);
 		set_thread_priority(data, pdata->sched_data);
+		set_thread_membind(data, &pdata->numa_data);
 		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
