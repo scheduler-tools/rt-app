@@ -805,6 +805,7 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 			return;
 		}
 
+#if HAVE_LIBNUMA
 		/* Get highest node number available on the current system */
 		max_node = numa_max_node();
 
@@ -824,6 +825,7 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 			numa_bitmask_setbit(data->numaset, node_idx);
 		}
 		log_info(PIN "key: membind_nodes %s", data->numaset_str);
+#endif
 	}
 }
 
