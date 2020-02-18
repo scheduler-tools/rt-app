@@ -1041,6 +1041,8 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 	data->curr_sched_data = sched_data;
 }
 
+void setup_thread_gnuplot(thread_data_t *tdata);
+
 void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
@@ -1262,6 +1264,9 @@ void *thread_body(void *arg)
 	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
 		   "rtapp_task: event=end");
 
+	/* set gnuplot file if enable */
+	setup_thread_gnuplot(data);
+
 	log_notice("[%d] Exiting.", data->ind);
 	if (opts.logsize)
 		fclose(data->log_handler);
@@ -1271,6 +1276,53 @@ void *thread_body(void *arg)
 	free(data);
 
 	pthread_exit(NULL);
+}
+
+void setup_thread_gnuplot(thread_data_t *tdata)
+{
+	FILE *gnuplot_script = NULL;
+	char tmp[PATH_LENGTH];
+
+	if (!opts.gnuplot || !opts.logdir)
+		return;
+
+	snprintf(tmp, PATH_LENGTH, "%s/%s-%s.plot",
+		opts.logdir, opts.logbasename, tdata->name);
+	gnuplot_script = fopen(tmp, "w+");
+	snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
+		opts.logbasename, tdata->name);
+	fprintf(gnuplot_script,
+		"set terminal postscript enhanced color\n"
+		"set output '%s'\n"
+		"set grid\n"
+		"set key outside right\n"
+		"set title \"Measured %s Loop stats\"\n"
+		"set xlabel \"Loop start time [msec]\"\n"
+		"set ylabel \"Period/Run Time [usec]\"\n"
+		"set y2label \"Load [number of 1000 loops executed]\"\n"
+		"set y2tics  \n"
+		"set xtics rotate by -45\n"
+		"plot ", tmp, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):2 w l"
+		" title \"load \" axes x1y2, ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):3 w l"
+		" title \"run \", ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):4 w l"
+		" title \"period \" ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script, "\n");
+
+	fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+	fclose(gnuplot_script);
 }
 
 void setup_thread_logging(thread_data_t *tdata)
@@ -1299,81 +1351,11 @@ void setup_thread_logging(thread_data_t *tdata)
 	}
 }
 
-int main(int argc, char* argv[])
+void initialize_gnuplot(void)
 {
+	int i;
 	FILE *gnuplot_script = NULL;
-	int i, res, nresources;
-	rtapp_resource_t *rdata;
 	char tmp[PATH_LENGTH];
-	static cpu_set_t orig_set;
-	struct stat sb;
-
-	parse_command_line(argc, argv, &opts);
-
-	/* If logdir provided, check if existing */
-	if (opts.logdir && (stat(opts.logdir, &sb) || !S_ISDIR(sb.st_mode))){
-		log_error("Log directory %s not existing!\n", opts.logdir);
-		exit(EXIT_FAILURE);
-	}
-
-	/* allocated threads */
-	nthreads = opts.nthreads;
-	threads = malloc(nthreads * sizeof(pthread_t));
-	if (!threads) {
-		log_error("Cannot allocate threads");
-		exit(EXIT_FAILURE);
-	}
-	pthread_barrier_init(&threads_barrier, NULL, nthreads);
-	pthread_mutex_init(&joining_mutex, NULL);
-	pthread_mutex_init(&fork_mutex, NULL);
-
-	/* install a signal handler for proper shutdown */
-	signal(SIGQUIT, shutdown);
-	signal(SIGTERM, shutdown);
-	signal(SIGHUP, shutdown);
-	signal(SIGINT, shutdown);
-
-	/* If using ftrace, open trace and marker fds */
-	if (ftrace_level != FTRACE_NONE) {
-		log_notice("configuring ftrace");
-		strcpy(tmp, ft_data.debugfs);
-		strcat(tmp, "/tracing/tracing_on");
-		strcpy(tmp, ft_data.debugfs);
-		strcat(tmp, "/tracing/trace_marker");
-		ft_data.marker_fd = open(tmp, O_WRONLY);
-		if (ft_data.marker_fd < 0) {
-			log_error("Cannot open trace_marker file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-	}
-	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
-		   "rtapp_main: event=start");
-
-	/* Init global running_variable */
-	continue_running = 1;
-
-	/* Needs to calibrate 'calib_cpu' core */
-	if (opts.calib_ns_per_loop == 0) {
-		log_notice("Calibrate ns per loop");
-		cpu_set_t calib_set;
-
-		CPU_ZERO(&calib_set);
-		CPU_SET(opts.calib_cpu, &calib_set);
-		sched_getaffinity(0, sizeof(cpu_set_t), &orig_set);
-		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
-		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
-		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
-		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
-	} else {
-		p_load = opts.calib_ns_per_loop;
-		log_notice("pLoad = %dns", p_load);
-	}
-
-	initialize_cgroups();
-	add_cgroups();
-
-	/* Take the beginning time for everything */
-	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
 	/* Prepare gnuplot files before starting the use case */
 	if (opts.logdir && opts.gnuplot) {
@@ -1448,49 +1430,85 @@ int main(int argc, char* argv[])
 
 		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
 		fclose(gnuplot_script);
-
-		/* gnuplot of each task */
-		for (i=0; i<nthreads; i++) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.plot",
-				 opts.logdir, opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind );
-			gnuplot_script = fopen(tmp, "w+");
-			snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
-				opts.logbasename, opts.threads_data[i].name);
-			fprintf(gnuplot_script,
-				"set terminal postscript enhanced color\n"
-				"set output '%s'\n"
-				"set grid\n"
-				"set key outside right\n"
-				"set title \"Measured %s Loop stats\"\n"
-				"set xlabel \"Loop start time [msec]\"\n"
-				"set ylabel \"Period/Run Time [usec]\"\n"
-				"set y2label \"Load [number of 1000 loops executed]\"\n"
-				"set y2tics  \n"
-				"set xtics rotate by -45\n"
-				"plot ", tmp, opts.threads_data[i].name);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):2 w l"
-				" title \"load \" axes x1y2, ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):3 w l"
-				" title \"run \", ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):4 w l"
-				" title \"period \" ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script, "\n");
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-		}
-
 	}
+}
+
+int main(int argc, char* argv[])
+{
+	int i, res, nresources;
+	rtapp_resource_t *rdata;
+	static cpu_set_t orig_set;
+	struct stat sb;
+	char tmp[PATH_LENGTH];
+
+	parse_command_line(argc, argv, &opts);
+
+	/* If logdir provided, check if existing */
+	if (opts.logdir && (stat(opts.logdir, &sb) || !S_ISDIR(sb.st_mode))){
+		log_error("Log directory %s not existing!\n", opts.logdir);
+		exit(EXIT_FAILURE);
+	}
+
+	/* allocated threads */
+	nthreads = opts.nthreads;
+	threads = malloc(nthreads * sizeof(pthread_t));
+	if (!threads) {
+		log_error("Cannot allocate threads");
+		exit(EXIT_FAILURE);
+	}
+	pthread_barrier_init(&threads_barrier, NULL, nthreads);
+	pthread_mutex_init(&joining_mutex, NULL);
+	pthread_mutex_init(&fork_mutex, NULL);
+
+	/* install a signal handler for proper shutdown */
+	signal(SIGQUIT, shutdown);
+	signal(SIGTERM, shutdown);
+	signal(SIGHUP, shutdown);
+	signal(SIGINT, shutdown);
+
+	/* If using ftrace, open trace and marker fds */
+	if (ftrace_level != FTRACE_NONE) {
+		log_notice("configuring ftrace");
+		strcpy(tmp, ft_data.debugfs);
+		strcat(tmp, "/tracing/tracing_on");
+		strcpy(tmp, ft_data.debugfs);
+		strcat(tmp, "/tracing/trace_marker");
+		ft_data.marker_fd = open(tmp, O_WRONLY);
+		if (ft_data.marker_fd < 0) {
+			log_error("Cannot open trace_marker file %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+	}
+	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
+		   "rtapp_main: event=start");
+
+	/* Init global running_variable */
+	continue_running = 1;
+
+	/* Needs to calibrate 'calib_cpu' core */
+	if (opts.calib_ns_per_loop == 0) {
+		log_notice("Calibrate ns per loop");
+		cpu_set_t calib_set;
+
+		CPU_ZERO(&calib_set);
+		CPU_SET(opts.calib_cpu, &calib_set);
+		sched_getaffinity(0, sizeof(cpu_set_t), &orig_set);
+		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
+		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
+		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
+		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+	} else {
+		p_load = opts.calib_ns_per_loop;
+		log_notice("pLoad = %dns", p_load);
+	}
+
+	initialize_cgroups();
+	add_cgroups();
+
+	/* Take the beginning time for everything */
+	clock_gettime(CLOCK_MONOTONIC, &t_start);
+
+	initialize_gnuplot();
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
