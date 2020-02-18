@@ -52,7 +52,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define FORKS_LIMIT		1024
 
 static volatile sig_atomic_t continue_running;
-static pthread_t *threads;
+static pthread_data_t *threads;
 static int nthreads;
 static volatile sig_atomic_t running_threads;
 static int p_load;
@@ -110,6 +110,8 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 		 * and we'll know */
 		tdata->name = strdup(tdata->name);
 	}
+
+	log_notice("thread_data_set_unique_name %d %s", tdata->ind, tdata->name);
 }
 
 /*
@@ -185,7 +187,10 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 
 	setup_thread_logging(tdata);
 
-	if (pthread_create(&threads[index], NULL, thread_body, (void*) tdata)) {
+	/* save a pointer to thread's data */
+	threads[index].data = tdata;
+
+	if (pthread_create(&threads[index].thread, NULL, thread_body, (void*) tdata)) {
 		perror("Failed to create a thread");
 		return -1;
 	}
@@ -670,6 +675,8 @@ static void wakeup_all_threads(void)
 	}
 }
 
+static void setup_main_gnuplot(void);
+
 static void __shutdown(bool force_terminate)
 {
 	int i;
@@ -692,6 +699,7 @@ static void __shutdown(bool force_terminate)
 	if (pthread_mutex_trylock(&joining_mutex))
 		return;
 
+
 	/*
 	 * Wait for all threads to terminate.
 	 *
@@ -704,10 +712,30 @@ static void __shutdown(bool force_terminate)
 	 */
 	for (i = 0; i < running_threads; i++)
 	{
-		int ret = pthread_join(threads[i], NULL);
+		int ret = pthread_join(threads[i].thread, NULL);
 		if (ret)
 			perror("pthread_join() failed");
 	}
+
+	/*
+	 * Set main gnuplot files
+	 *
+	 * We have to access thread's data structure to fill these files so we must
+	 * not free them before.
+	 */
+	setup_main_gnuplot();
+
+	/*
+	 * Now that we don't need the allocated structure anymore, we can safely
+	 * free them
+	 */
+	for (i = 0; i < running_threads; i++)
+	{
+		/* clean up tdata if this was a forked thread */
+		free(threads[i].data->name);
+		free(threads[i].data);
+	}
+
 
 	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
 		   "rtapp_main: event=end");
@@ -1260,7 +1288,6 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, &timings[j]);
 	}
 
-
 	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
 		   "rtapp_task: event=end");
 
@@ -1271,11 +1298,33 @@ void *thread_body(void *arg)
 	if (opts.logsize)
 		fclose(data->log_handler);
 
-	/* clean up tdata if this was a forked thread */
-	free(data->name);
-	free(data);
-
 	pthread_exit(NULL);
+}
+
+void setup_thread_logging(thread_data_t *tdata)
+{
+	char tmp[PATH_LENGTH];
+
+	tdata->duration = opts.duration;
+	tdata->main_app_start = t_start;
+	tdata->lock_pages = opts.lock_pages;
+
+	if (!opts.logsize)
+		return;
+
+	if (opts.logdir) {
+		snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
+			 opts.logdir,
+			 opts.logbasename,
+			 tdata->name);
+		tdata->log_handler = fopen(tmp, "w");
+		if (!tdata->log_handler) {
+			log_error("Cannot open logfile %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		tdata->log_handler = stdout;
+	}
 }
 
 void setup_thread_gnuplot(thread_data_t *tdata)
@@ -1325,33 +1374,7 @@ void setup_thread_gnuplot(thread_data_t *tdata)
 	fclose(gnuplot_script);
 }
 
-void setup_thread_logging(thread_data_t *tdata)
-{
-	char tmp[PATH_LENGTH];
-
-	tdata->duration = opts.duration;
-	tdata->main_app_start = t_start;
-	tdata->lock_pages = opts.lock_pages;
-
-	if (!opts.logsize)
-		return;
-
-	if (opts.logdir) {
-		snprintf(tmp, PATH_LENGTH, "%s/%s-%s.log",
-			 opts.logdir,
-			 opts.logbasename,
-			 tdata->name);
-		tdata->log_handler = fopen(tmp, "w");
-		if (!tdata->log_handler) {
-			log_error("Cannot open logfile %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-	} else {
-		tdata->log_handler = stdout;
-	}
-}
-
-void initialize_gnuplot(void)
+static void setup_main_gnuplot(void)
 {
 	int i;
 	FILE *gnuplot_script = NULL;
@@ -1377,14 +1400,14 @@ void initialize_gnuplot(void)
 			"set key noenhanced\n"
 			"plot ", tmp);
 
-		for (i=0; i<nthreads; i++) {
+		for (i=0; i<running_threads; i++) {
 			fprintf(gnuplot_script,
 				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
 				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->ind,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
 
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -1413,14 +1436,14 @@ void initialize_gnuplot(void)
 			"set key noenhanced\n"
 			"plot ", tmp);
 
-		for (i=0; i<nthreads; i++) {
+		for (i=0; i<running_threads; i++) {
 			fprintf(gnuplot_script,
 				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
 				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->ind,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
 
 			if ( i == nthreads-1)
 				fprintf(gnuplot_script, "\n");
@@ -1451,7 +1474,7 @@ int main(int argc, char* argv[])
 
 	/* allocated threads */
 	nthreads = opts.nthreads;
-	threads = malloc(nthreads * sizeof(pthread_t));
+	threads = malloc(nthreads * sizeof(*threads));
 	if (!threads) {
 		log_error("Cannot allocate threads");
 		exit(EXIT_FAILURE);
@@ -1507,8 +1530,6 @@ int main(int argc, char* argv[])
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	initialize_gnuplot();
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
