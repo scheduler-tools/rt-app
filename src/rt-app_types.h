@@ -238,6 +238,11 @@ typedef struct _thread_data_t {
 	rtapp_resources_t **global_resources;
 } thread_data_t;
 
+typedef struct _pthread_data_t {
+	thread_data_t *data;
+	pthread_t thread;
+} pthread_data_t;
+
 typedef struct _ftrace_data_t {
 	char *debugfs;
 	int trace_fd;

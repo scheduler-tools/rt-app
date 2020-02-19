@@ -52,7 +52,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define FORKS_LIMIT		1024
 
 static volatile sig_atomic_t continue_running;
-static pthread_t *threads;
+static pthread_data_t *threads;
 static int nthreads;
 static volatile sig_atomic_t running_threads;
 static int p_load;
@@ -110,6 +110,8 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 		 * and we'll know */
 		tdata->name = strdup(tdata->name);
 	}
+
+	log_notice("thread_data_set_unique_name %d %s", tdata->ind, tdata->name);
 }
 
 /*
@@ -185,7 +187,10 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 
 	setup_thread_logging(tdata);
 
-	if (pthread_create(&threads[index], NULL, thread_body, (void*) tdata)) {
+	/* save a pointer to thread's data */
+	threads[index].data = tdata;
+
+	if (pthread_create(&threads[index].thread, NULL, thread_body, (void*) tdata)) {
 		perror("Failed to create a thread");
 		return -1;
 	}
@@ -670,6 +675,8 @@ static void wakeup_all_threads(void)
 	}
 }
 
+static void setup_main_gnuplot(void);
+
 static void __shutdown(bool force_terminate)
 {
 	int i;
@@ -692,6 +699,7 @@ static void __shutdown(bool force_terminate)
 	if (pthread_mutex_trylock(&joining_mutex))
 		return;
 
+
 	/*
 	 * Wait for all threads to terminate.
 	 *
@@ -704,10 +712,30 @@ static void __shutdown(bool force_terminate)
 	 */
 	for (i = 0; i < running_threads; i++)
 	{
-		int ret = pthread_join(threads[i], NULL);
+		int ret = pthread_join(threads[i].thread, NULL);
 		if (ret)
 			perror("pthread_join() failed");
 	}
+
+	/*
+	 * Set main gnuplot files
+	 *
+	 * We have to access thread's data structure to fill these files so we must
+	 * not free them before.
+	 */
+	setup_main_gnuplot();
+
+	/*
+	 * Now that we don't need the allocated structure anymore, we can safely
+	 * free them
+	 */
+	for (i = 0; i < running_threads; i++)
+	{
+		/* clean up tdata if this was a forked thread */
+		free(threads[i].data->name);
+		free(threads[i].data);
+	}
+
 
 	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
 		   "rtapp_main: event=end");
@@ -1041,6 +1069,8 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 	data->curr_sched_data = sched_data;
 }
 
+void setup_thread_gnuplot(thread_data_t *tdata);
+
 void *thread_body(void *arg)
 {
 	thread_data_t *data = (thread_data_t*) arg;
@@ -1258,17 +1288,15 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, &timings[j]);
 	}
 
-
 	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
 		   "rtapp_task: event=end");
+
+	/* set gnuplot file if enable */
+	setup_thread_gnuplot(data);
 
 	log_notice("[%d] Exiting.", data->ind);
 	if (opts.logsize)
 		fclose(data->log_handler);
-
-	/* clean up tdata if this was a forked thread */
-	free(data->name);
-	free(data);
 
 	pthread_exit(NULL);
 }
@@ -1299,14 +1327,142 @@ void setup_thread_logging(thread_data_t *tdata)
 	}
 }
 
-int main(int argc, char* argv[])
+void setup_thread_gnuplot(thread_data_t *tdata)
 {
 	FILE *gnuplot_script = NULL;
+	char tmp[PATH_LENGTH];
+
+	if (!opts.gnuplot || !opts.logdir)
+		return;
+
+	snprintf(tmp, PATH_LENGTH, "%s/%s-%s.plot",
+		opts.logdir, opts.logbasename, tdata->name);
+	gnuplot_script = fopen(tmp, "w+");
+	snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
+		opts.logbasename, tdata->name);
+	fprintf(gnuplot_script,
+		"set terminal postscript enhanced color\n"
+		"set output '%s'\n"
+		"set grid\n"
+		"set key outside right\n"
+		"set title \"Measured %s Loop stats\"\n"
+		"set xlabel \"Loop start time [msec]\"\n"
+		"set ylabel \"Period/Run Time [usec]\"\n"
+		"set y2label \"Load [number of 1000 loops executed]\"\n"
+		"set y2tics  \n"
+		"set xtics rotate by -45\n"
+		"plot ", tmp, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):2 w l"
+		" title \"load \" axes x1y2, ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):3 w l"
+		" title \"run \", ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):4 w l"
+		" title \"period \" ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script, "\n");
+
+	fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+	fclose(gnuplot_script);
+}
+
+static void setup_main_gnuplot(void)
+{
+	int i;
+	FILE *gnuplot_script = NULL;
+	char tmp[PATH_LENGTH];
+
+	/* Prepare gnuplot files before starting the use case */
+	if (opts.logdir && opts.gnuplot) {
+		/* gnuplot plot of the period */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-period.plot",
+			 opts.logdir, opts.logbasename);
+		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s-period.eps",
+			 opts.logbasename);
+		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
+			"set grid\n"
+			"set key outside right\n"
+			"set title \"Measured time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Period Time [usec]\"\n"
+			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
+			"plot ", tmp);
+
+		for (i=0; i<running_threads; i++) {
+			fprintf(gnuplot_script,
+				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
+				" title \"thread [%s] (%s)\"",
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->ind,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
+
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+		fclose(gnuplot_script);
+
+		/* gnuplot of the run time */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-run.plot",
+			 opts.logdir, opts.logbasename);
+		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s-run.eps",
+			 opts.logbasename);
+		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
+			"set grid\n"
+			"set key outside right\n"
+			"set title \"Measured run time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Run Time [usec]\"\n"
+			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
+			"plot ", tmp);
+
+		for (i=0; i<running_threads; i++) {
+			fprintf(gnuplot_script,
+				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
+				" title \"thread [%s] (%s)\"",
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->ind,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
+
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+		fclose(gnuplot_script);
+	}
+}
+
+int main(int argc, char* argv[])
+{
 	int i, res, nresources;
 	rtapp_resource_t *rdata;
-	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
 	struct stat sb;
+	char tmp[PATH_LENGTH];
 
 	parse_command_line(argc, argv, &opts);
 
@@ -1318,7 +1474,7 @@ int main(int argc, char* argv[])
 
 	/* allocated threads */
 	nthreads = opts.nthreads;
-	threads = malloc(nthreads * sizeof(pthread_t));
+	threads = malloc(nthreads * sizeof(*threads));
 	if (!threads) {
 		log_error("Cannot allocate threads");
 		exit(EXIT_FAILURE);
@@ -1374,123 +1530,6 @@ int main(int argc, char* argv[])
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	/* Prepare gnuplot files before starting the use case */
-	if (opts.logdir && opts.gnuplot) {
-		/* gnuplot plot of the period */
-		snprintf(tmp, PATH_LENGTH, "%s/%s-period.plot",
-			 opts.logdir, opts.logbasename);
-		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-period.eps",
-			 opts.logbasename);
-		fprintf(gnuplot_script,
-			"set terminal postscript enhanced color\n"
-			"set output '%s'\n"
-			"set grid\n"
-			"set key outside right\n"
-			"set title \"Measured time per loop\"\n"
-			"set xlabel \"Loop start time [usec]\"\n"
-			"set ylabel \"Period Time [usec]\"\n"
-			"set xtics rotate by -45\n"
-			"set key noenhanced\n"
-			"plot ", tmp);
-
-		for (i=0; i<nthreads; i++) {
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
-				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
-
-			if ( i == nthreads-1)
-				fprintf(gnuplot_script, "\n");
-			else
-				fprintf(gnuplot_script, ", ");
-		}
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-
-		/* gnuplot of the run time */
-		snprintf(tmp, PATH_LENGTH, "%s/%s-run.plot",
-			 opts.logdir, opts.logbasename);
-		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-run.eps",
-			 opts.logbasename);
-		fprintf(gnuplot_script,
-			"set terminal postscript enhanced color\n"
-			"set output '%s'\n"
-			"set grid\n"
-			"set key outside right\n"
-			"set title \"Measured run time per loop\"\n"
-			"set xlabel \"Loop start time [usec]\"\n"
-			"set ylabel \"Run Time [usec]\"\n"
-			"set xtics rotate by -45\n"
-			"set key noenhanced\n"
-			"plot ", tmp);
-
-		for (i=0; i<nthreads; i++) {
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
-				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
-
-			if ( i == nthreads-1)
-				fprintf(gnuplot_script, "\n");
-			else
-				fprintf(gnuplot_script, ", ");
-		}
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-
-		/* gnuplot of each task */
-		for (i=0; i<nthreads; i++) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.plot",
-				 opts.logdir, opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind );
-			gnuplot_script = fopen(tmp, "w+");
-			snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
-				opts.logbasename, opts.threads_data[i].name);
-			fprintf(gnuplot_script,
-				"set terminal postscript enhanced color\n"
-				"set output '%s'\n"
-				"set grid\n"
-				"set key outside right\n"
-				"set title \"Measured %s Loop stats\"\n"
-				"set xlabel \"Loop start time [msec]\"\n"
-				"set ylabel \"Period/Run Time [usec]\"\n"
-				"set y2label \"Load [number of 1000 loops executed]\"\n"
-				"set y2tics  \n"
-				"set xtics rotate by -45\n"
-				"plot ", tmp, opts.threads_data[i].name);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):2 w l"
-				" title \"load \" axes x1y2, ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):3 w l"
-				" title \"run \", ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):4 w l"
-				" title \"period \" ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script, "\n");
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-		}
-
-	}
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
