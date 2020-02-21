@@ -743,7 +743,8 @@ obj_is_event(char *name)
 
     for (pos = events; *pos; pos++) {
 	    char *event = *pos;
-	    if (!strncmp(name, event, strlen(event)))
+	    if (strlen(event) == strlen(name) &&
+	    		!strncmp(name, event, strlen(event)))
 		    return 1;
     }
 
