@@ -791,7 +791,7 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 	data->numaset = NULL;
 	data->numaset_str = NULL;
 
-	numaset_obj = get_in_object(obj, "membind_nodes", TRUE);
+	numaset_obj = get_in_object(obj, "nodes_membind", TRUE);
 	if (numaset_obj) {
 		unsigned int i;
 		unsigned int node_idx;
@@ -809,7 +809,7 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 		/* Get highest node number available on the current system */
 		max_node = numa_max_node();
 
-		assure_type_is(numaset_obj, obj, "membind_nodes", json_type_array);
+		assure_type_is(numaset_obj, obj, "nodes_membind", json_type_array);
 		data->numaset_str = strdup(json_object_to_json_string(numaset_obj));
 		data->numaset = numa_allocate_nodemask();
 		numa_bitmask_clearall(data->numaset);
@@ -824,7 +824,7 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 			}
 			numa_bitmask_setbit(data->numaset, node_idx);
 		}
-		log_info(PIN "key: membind_nodes %s", data->numaset_str);
+		log_info(PIN "key: nodes_membind %s", data->numaset_str);
 #endif
 	}
 }
