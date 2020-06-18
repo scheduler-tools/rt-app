@@ -902,7 +902,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 {
 	struct sched_param param;
 	policy_t policy;
-	struct sched_attr sa_params;
+	struct sched_attr sa_params = {0};
 	pid_t tid;
 	unsigned int flags = 0;
 	int ret;
