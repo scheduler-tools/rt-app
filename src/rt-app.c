@@ -1402,10 +1402,9 @@ static void setup_main_gnuplot(void)
 
 		for (i=0; i<running_threads; i++) {
 			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
+				"\"%s-%s.log\" u ($5/1000):4 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, threads[i].data->name,
-				threads[i].data->ind,
 				threads[i].data->name,
 				policy_to_string(threads[i].data->sched_data->policy));
 
@@ -1438,10 +1437,9 @@ static void setup_main_gnuplot(void)
 
 		for (i=0; i<running_threads; i++) {
 			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
+				"\"%s-%s.log\" u ($5/1000):3 w l"
 				" title \"thread [%s] (%s)\"",
 				opts.logbasename, threads[i].data->name,
-				threads[i].data->ind,
 				threads[i].data->name,
 				policy_to_string(threads[i].data->sched_data->policy));
 
