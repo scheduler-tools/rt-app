@@ -881,8 +881,17 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		/* Support legacy grammar for thread object */
 		if (!tmp_data.runtime)
 			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
-		if (!tmp_data.period)
-			tmp_data.period = get_int_value_from(obj, "period", TRUE, tmp_data.runtime);
+
+		if (!tmp_data.period) {
+			struct lh_entry *entry; char *key; struct json_object *val; int idx;
+			foreach(obj, entry, key, val, idx) {
+				if (!strncmp(key, "timer", strlen("timer"))) {
+					tmp_data.period = get_int_value_from(val, "period", TRUE, tmp_data.runtime);
+					break;
+				}
+			}
+		}
+		
 		if (!tmp_data.deadline)
 			tmp_data.deadline = get_int_value_from(obj, "deadline", TRUE, tmp_data.period);
 	}
