@@ -1257,7 +1257,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 			else if (!strcmp(tmp_str, "file"))
 				opts->logsize = -2;
 			else if (!strcmp(tmp_str, "auto"))
-				opts->logsize = -2; /* Automatic buffer size computation is not supported yet so we fall back on file system mode */
+				opts->logsize = -1;
 			log_debug("Log buffer set to %s mode", tmp_str);
 
 			/*
@@ -1333,6 +1333,32 @@ get_opts_from_json_object(struct json_object *root, rtapp_options_t *opts)
 	json_object_put(tasks);
 	log_info(PFX "Free json objects");
 
+	/* 
+	 * In order to compute the log's buffer size is required to find the minimum
+	 * period among all periodic tasks, if there are some. Once the period has
+	 * been found it is possible to compute how many bytes are required for the
+	 * logging buffer of such task, which is the worst case scenario.
+	 */
+	if (opts->logsize == -1) {
+		unsigned long min = __LONG_MAX__;
+		// Find minimum period among all tasks
+		for(size_t i = 0; i < opts->num_tasks; ++i) {
+			unsigned long period = opts->threads_data[i].sched_data->period;
+			min = (period < min) ? period : min;
+		}
+
+		/* If there are not periodic task should be sufficent just one instance
+		 * of timing_point_t */
+		if (!min)
+			opts->logsize = sizeof(timing_point_t);
+		else {
+			unsigned long instances = (unsigned long) opts->duration * 1000000000 / min;
+			unsigned long bytes = instances * sizeof(timing_point_t);
+			opts->logsize = bytes;
+		}
+
+		log_notice("Log buffer size fixed to %fMB per threads", (float) opts->logsize / (1 << 20));
+	}
 }
 
 void
