@@ -949,13 +949,17 @@ static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata
 
 	/*
 	 * Detect policy/taskgroup misconfiguration: a task which specifies a
-	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 * taskgroup should not run in a policy other than SCHED_OTHER or
+	 * SCHED_IDLE.
 	 */
-	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
-	    tdata->curr_taskgroup_data) {
-		log_critical(PIN2 "No taskgroup support for policy %s",
-			     policy_to_string(tdata->curr_sched_data->policy));
-		exit(EXIT_INV_CONFIG);
+	if (tdata->curr_sched_data && tdata->curr_taskgroup_data) {
+		policy_t policy = tdata->curr_sched_data->policy;
+
+		if (policy != other && policy != idle) {
+			log_critical(PIN2 "No taskgroup support for policy %s",
+			             policy_to_string(policy));
+			exit(EXIT_INV_CONFIG);
+		}
 	}
 }
 
