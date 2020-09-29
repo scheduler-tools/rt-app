@@ -898,6 +898,21 @@ static void set_thread_membind(thread_data_t *data, numaset_data_t * numa_data)
 }
 
 
+/*
+ * sched_priority is only meaningful for RT tasks. Otherwise, it must be
+ * set to 0 for the setattr syscall to succeed.
+ */
+static int __sched_priority(sched_data_t *sched_data)
+{
+	switch (sched_data->policy) {
+		case rr:
+		case fifo:
+			return sched_data->prio;
+	}
+
+	 return 0;
+}
+
 static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 {
 	struct sched_param param;
@@ -930,7 +945,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 				   sched_data->policy == rr ? "rr" : "fifo",
 				   sched_data->prio);
 
-			param.sched_priority = sched_data->prio;
+			param.sched_priority = __sched_priority(sched_data);
 			ret = pthread_setschedparam(pthread_self(),
 					sched_data->policy,
 					&param);
@@ -962,7 +977,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 
 			if (!data->curr_sched_data || sched_data->policy != data->curr_sched_data->policy) {
 				/* Set new scheduling class */
-				param.sched_priority = 0;
+				param.sched_priority = __sched_priority(sched_data);
 				ret = pthread_setschedparam(pthread_self(),
 						sched_data->policy,
 						&param);
@@ -1004,7 +1019,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 			sa_params.size = sizeof(struct sched_attr);
 			sa_params.sched_flags = 0;
 			sa_params.sched_policy = SCHED_DEADLINE;
-			sa_params.sched_priority = 0;
+			sa_params.sched_priority = __sched_priority(sched_data);
 			sa_params.sched_runtime = sched_data->runtime;
 			sa_params.sched_deadline = sched_data->deadline;
 			sa_params.sched_period = sched_data->period;
@@ -1055,7 +1070,7 @@ static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
 		 * priority values.
 		 */
 		sa_params.sched_policy = sched_data->policy;
-		sa_params.sched_priority = sched_data->prio;
+		sa_params.sched_priority = __sched_priority(sched_data);
 
 		ret = sched_setattr(tid, &sa_params, flags);
 		if (ret != 0) {
