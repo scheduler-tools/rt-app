@@ -852,7 +852,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 
 	/* Get priority */
 	if (tmp_data.policy == -1)
-		prior_def = -1;
+		prior_def = THREAD_PRIORITY_UNCHANGED;
 	else if (tmp_data.policy == other || tmp_data.policy == idle)
 		prior_def = DEFAULT_THREAD_NICE;
 	else
@@ -893,7 +893,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.deadline *= 1000;
 
 	/* Check if we found at least one meaningful scheduler parameter */
-	if (tmp_data.prio != -1 ||
+	if (tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
 	    tmp_data.runtime || tmp_data.period || tmp_data.deadline ||
 	    tmp_data.util_min != -1 || tmp_data.util_max != -1) {
 		sched_data_t *new_data;
