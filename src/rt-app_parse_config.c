@@ -847,11 +847,11 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 			exit(EXIT_INV_CONFIG);
 		}
 	} else {
-		tmp_data.policy = -1;
+		tmp_data.policy = same;
 	}
 
 	/* Get priority */
-	if (tmp_data.policy == -1)
+	if (tmp_data.policy == same)
 		prior_def = THREAD_PRIORITY_UNCHANGED;
 	else if (tmp_data.policy == other || tmp_data.policy == idle)
 		prior_def = DEFAULT_THREAD_NICE;
@@ -877,7 +877,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		exit(EXIT_INV_CONFIG);
 	}
 
-	if (def_policy != -1) {
+	if (def_policy != same) {
 		/* Support legacy grammar for thread object */
 		if (!tmp_data.runtime)
 			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
@@ -943,7 +943,7 @@ static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata
 	 * Save sched_data as thread's current sched_data in case its policy_t is
 	 * set to a valid scheduler policy.
 	 */
-	if (pdata->sched_data && pdata->sched_data->policy != -1)
+	if (pdata->sched_data && pdata->sched_data->policy != same)
 		tdata->curr_sched_data = pdata->sched_data;
 
 	/* Save taskgroup_data as thread's current taskgroup_data. */
@@ -1007,7 +1007,7 @@ parse_task_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	parse_numa_data(obj, &data->numa_data);
-	data->sched_data = parse_sched_data(obj, -1);
+	data->sched_data = parse_sched_data(obj, same);
 	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
