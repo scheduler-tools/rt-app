@@ -831,10 +831,10 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 
 static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 {
-	sched_data_t tmp_data;
+	sched_data_t tmp_data = { .policy = same };
 	char *def_str_policy;
 	char *policy;
-	int prior_def = -1;
+	int prior_def;
 
 	/* Get default policy */
 	def_str_policy = policy_to_string(def_policy);
@@ -846,17 +846,28 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 			log_critical(PIN2 "Invalid policy %s", policy);
 			exit(EXIT_INV_CONFIG);
 		}
-	} else {
-		tmp_data.policy = same;
 	}
 
 	/* Get priority */
-	if (tmp_data.policy == same)
+	switch (tmp_data.policy) {
+	case same:
 		prior_def = THREAD_PRIORITY_UNCHANGED;
-	else if (tmp_data.policy == other || tmp_data.policy == idle)
+		break;
+	case other:
+	case idle:
 		prior_def = DEFAULT_THREAD_NICE;
-	else
+		break;
+	case fifo:
+	case rr:
 		prior_def = DEFAULT_THREAD_PRIORITY;
+		break;
+	case deadline:
+		prior_def = 0;
+		break;
+	default:
+		/* unreachable due to string_to_policy() above */
+		exit(EXIT_INV_CONFIG);
+	}
 
 	tmp_data.prio = get_int_value_from(obj, "priority", TRUE, prior_def);
 
