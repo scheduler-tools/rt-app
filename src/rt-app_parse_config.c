@@ -939,8 +939,11 @@ static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
 
 static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata)
 {
-	/* Save sched_data as thread's current sched_data. */
-	if (pdata->sched_data)
+	/*
+	 * Save sched_data as thread's current sched_data in case its policy_t is
+	 * set to a valid scheduler policy.
+	 */
+	if (pdata->sched_data && pdata->sched_data->policy != -1)
 		tdata->curr_sched_data = pdata->sched_data;
 
 	/* Save taskgroup_data as thread's current taskgroup_data. */
