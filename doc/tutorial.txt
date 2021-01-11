@@ -326,8 +326,8 @@ and don't do anything otherwise.
 *** taskgroups
 
 * taskgroup: String. Can be specified at task level or phase level. Currently
-only SCHED_OTHER tasks are supported to contain taskgroup data. Tasks with a
-policy other than SCHED_OTHER and without taskgroup data can coexist in the
+only SCHED_OTHER and SCHED_IDLE tasks are supported to contain taskgroup data.
+Tasks with a different policy and without taskgroup data can coexist in the
 setup. An empty taskgroup ("") is allowed and is interpreted as if there is
 no taskgroup data given. Pre-existing parts of a taskgroup are preserved.
 They are not removed during rt-app teardown.

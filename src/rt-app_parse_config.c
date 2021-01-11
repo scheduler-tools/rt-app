@@ -831,10 +831,10 @@ static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
 
 static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 {
-	sched_data_t tmp_data;
+	sched_data_t tmp_data = { .policy = same };
 	char *def_str_policy;
 	char *policy;
-	int prior_def = -1;
+	int prior_def;
 
 	/* Get default policy */
 	def_str_policy = policy_to_string(def_policy);
@@ -846,17 +846,28 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 			log_critical(PIN2 "Invalid policy %s", policy);
 			exit(EXIT_INV_CONFIG);
 		}
-	} else {
-		tmp_data.policy = -1;
 	}
 
 	/* Get priority */
-	if (tmp_data.policy == -1)
+	switch (tmp_data.policy) {
+	case same:
 		prior_def = THREAD_PRIORITY_UNCHANGED;
-	else if (tmp_data.policy == other || tmp_data.policy == idle)
+		break;
+	case other:
+	case idle:
 		prior_def = DEFAULT_THREAD_NICE;
-	else
+		break;
+	case fifo:
+	case rr:
 		prior_def = DEFAULT_THREAD_PRIORITY;
+		break;
+	case deadline:
+		prior_def = 0;
+		break;
+	default:
+		/* unreachable due to string_to_policy() above */
+		exit(EXIT_INV_CONFIG);
+	}
 
 	tmp_data.prio = get_int_value_from(obj, "priority", TRUE, prior_def);
 
@@ -877,7 +888,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		exit(EXIT_INV_CONFIG);
 	}
 
-	if (def_policy != -1) {
+	if (def_policy != same) {
 		/* Support legacy grammar for thread object */
 		if (!tmp_data.runtime)
 			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
@@ -939,8 +950,11 @@ static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
 
 static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata)
 {
-	/* Save sched_data as thread's current sched_data. */
-	if (pdata->sched_data)
+	/*
+	 * Save sched_data as thread's current sched_data in case its policy_t is
+	 * set to a valid scheduler policy.
+	 */
+	if (pdata->sched_data && pdata->sched_data->policy != same)
 		tdata->curr_sched_data = pdata->sched_data;
 
 	/* Save taskgroup_data as thread's current taskgroup_data. */
@@ -949,13 +963,17 @@ static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata
 
 	/*
 	 * Detect policy/taskgroup misconfiguration: a task which specifies a
-	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 * taskgroup should not run in a policy other than SCHED_OTHER or
+	 * SCHED_IDLE.
 	 */
-	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
-	    tdata->curr_taskgroup_data) {
-		log_critical(PIN2 "No taskgroup support for policy %s",
-			     policy_to_string(tdata->curr_sched_data->policy));
-		exit(EXIT_INV_CONFIG);
+	if (tdata->curr_sched_data && tdata->curr_taskgroup_data) {
+		policy_t policy = tdata->curr_sched_data->policy;
+
+		if (policy != other && policy != idle) {
+			log_critical(PIN2 "No taskgroup support for policy %s",
+			             policy_to_string(policy));
+			exit(EXIT_INV_CONFIG);
+		}
 	}
 }
 
@@ -1000,7 +1018,7 @@ parse_task_phase_data(struct json_object *obj,
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
 	parse_numa_data(obj, &data->numa_data);
-	data->sched_data = parse_sched_data(obj, -1);
+	data->sched_data = parse_sched_data(obj, same);
 	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
