@@ -983,37 +983,94 @@ parse_task_phase_data(struct json_object *obj,
 {
 	/* used in the foreach macro */
 	struct lh_entry *entry; char *key; struct json_object *val; int idx;
-	int i;
+	struct json_object *array_val;
+	size_t i;
+	struct json_object *events_array = NULL;
+	bool is_first_entry;
 
 	log_info(PFX "Parsing phase");
+
+	data->nbevents = 0;
+	data->events = NULL;
 
 	/* loop */
 	data->loop = get_int_value_from(obj, "loop", TRUE, 1);
 
-	/* Count number of events */
-	data->nbevents = 0;
 	foreach(obj, entry, key, val, idx) {
-		if (obj_is_event(key))
-				data->nbevents++;
+		if(!strncmp("events", key, 6)) {
+			if(!json_object_is_type(val, json_type_array)) {
+				log_critical(PIN "\"events\" key must be an array");
+				exit(EXIT_INV_CONFIG);
+			}
+			events_array = val;
+			break;
+		}
 	}
+
+	foreach(obj, entry, key, val, idx) {
+		if (obj_is_event(key)) {
+			/* Check that we are not trying to mix old and new styles */
+			if (events_array) {
+				log_critical(PIN "Event key %s cannot be used in conjunction with \"events\" key", key);
+				exit(EXIT_INV_CONFIG);
+			/* Count number of events */
+			} else {
+				data->nbevents++;
+			}
+		}
+	}
+
+	if (events_array)
+		/* Assumes that all item in the array will be valid. If an item
+		 * does not yield an entry in data->events, we must ensure it won't
+		 * be used by exiting
+		 */
+		data->nbevents = json_object_array_length(events_array);
 
 	if (data->nbevents == 0) {
 		log_critical(PIN "No events found. Task must have events or it's useless");
 		exit(EXIT_INV_CONFIG);
-
 	}
 
 	log_info(PIN "Found %d events", data->nbevents);
-
 	data->events = malloc(data->nbevents * sizeof(event_data_t));
 
 	/* Parse events */
-	i = 0;
-	foreach(obj, entry, key, val, idx) {
-		if (obj_is_event(key)) {
-			log_info(PIN "Parsing event %s", key);
-			parse_task_event_data(key, val, &data->events[i], tdata, opts);
-			i++;
+	if (events_array) {
+		for (i=0; i < data->nbevents; i++) {
+			array_val = json_object_array_get_idx(events_array, i);
+			is_first_entry = true;
+			foreach(array_val, entry, key, val, idx) {
+				if (!is_first_entry) {
+					log_critical(PIN "Encountered a second key %s in an \"events\" item", key);
+					exit(EXIT_INV_CONFIG);
+				} else {
+					is_first_entry = false;
+                                }
+
+				if (obj_is_event(key)) {
+					log_info(PIN "Parsing event %s", key);
+					parse_task_event_data(key, val, &data->events[i], tdata, opts);
+				} else {
+					/* We must exit in this branch,
+					 * otherwise we will have a non-initialized
+					 * entry in data->events that would be an
+					 * undefined behavior
+					 */
+					log_critical(PIN "Encountered non-event key %s in \"events\" array", key);
+					exit(EXIT_INV_CONFIG);
+				}
+			}
+
+		}
+	} else {
+		i = 0;
+		foreach(obj, entry, key, val, idx) {
+			if (obj_is_event(key)) {
+				log_info(PIN "Parsing event %s", key);
+				parse_task_event_data(key, val, &data->events[i], tdata, opts);
+				i++;
+			}
 		}
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
