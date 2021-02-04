@@ -709,10 +709,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 	log_error(PIN2 "Please check the resource name or the resource section");
 
 unknown_event:
-	data->duration = 0;
-	data->type = rtapp_run;
-	log_error(PIN2 "Unknown or mismatch %s event type !!!", name);
-
+	log_critical(PIN2 "Unknown or mismatch %s event type !!!", name);
+	exit(EXIT_INV_CONFIG);
 }
 
 static char *events[] = {
