@@ -19,6 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +31,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 int log_level = 50;   // default
 int ftrace_level;     // no ftrace messages by default
+
+#define C(x, v) { #x, LOG_LEVEL_ ## x},
+struct loglevel {
+	char *s;
+	int val;
+};
+
+struct loglevel lls[] = { LLS };
+#undef C
+
 
 unsigned long
 timespec_to_usec(struct timespec *ts)
@@ -344,4 +355,16 @@ void ftrace_write(int mark_fd, const char *fmt, ...)
 		}
 	}
 
+}
+
+int
+str2loglevel(char *s)
+{
+	for (int n=0; lls[n].val != LOG_LEVEL_END; n++) {
+		if (!strcmp(lls[n].s, s)) {
+			return lls[n].val;
+		}
+	}
+
+	return -1;
 }
