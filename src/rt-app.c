@@ -563,7 +563,7 @@ static int run_event(event_data_t *event, int dry_run,
 	case rtapp_yield:
 		{
 			log_debug("yield %d", event->count);
-			pthread_yield();
+			sched_yield();
 		}
 		break;
 	case rtapp_fork:
