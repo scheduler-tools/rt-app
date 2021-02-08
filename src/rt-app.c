@@ -1045,8 +1045,8 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 	pid_t tid;
 	int ret;
 
-	if ((sched_data->util_min == -1 &&
-	     sched_data->util_max == -1))
+	if ((sched_data->util_min == -2 &&
+	     sched_data->util_max == -2))
 		    return;
 
 	sa_params.sched_policy = sched_data->policy;
@@ -1055,7 +1055,7 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 	sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
 	tid = gettid();
 
-	if (sched_data->util_min != -1) {
+	if (sched_data->util_min != -2) {
 		sa_params.sched_util_min = sched_data->util_min;
 		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
 		log_debug("[%d] setting util_min=%d",
@@ -1064,7 +1064,7 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 			   "rtapp_attrs: event=uclamp util_min=%d",
 			   sched_data->util_min);
 	}
-	if (sched_data->util_max != -1) {
+	if (sched_data->util_max != -2) {
 		sa_params.sched_util_max = sched_data->util_max;
 		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
 		log_debug("[%d] setting util_max=%d",
