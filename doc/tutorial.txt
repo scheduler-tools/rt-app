@@ -276,25 +276,25 @@ inherit the affinity from the task level):
 
 util_min: Integer. Can be specified at task level or phase level. Sets the min
 utilization value the task can have; which helps boosting the task from
-scheduler point of view.
+scheduler point of view. Value -1 removes the clamp.
 
 util_max: Integer. Can be specified at task level or phase level. Sets the max
 utilization value the task can have; which helps capping the task from
-scheduler point of view.
+scheduler point of view. Value -1 removes the clamp.
 
 *** NUMA memory binding
 
 * nodes_membind: Array of Integer. Define the NUMA binding of the thread.
-Default value is all NUMA nodes of the system. 
+Default value is all NUMA nodes of the system.
 An example : "nodes_membind" : [0, 2, 3]
 
-"nodes_membind" Can be specified at task level or phase level. 
+"nodes_membind" Can be specified at task level or phase level.
 As an example, below creates two threads.
-One thread will run with memory binding to nodes 2 and 3. 
-The second task will run first phase with memory binding to nodes 0 and 1, 
+One thread will run with memory binding to nodes 2 and 3.
+The second task will run first phase with memory binding to nodes 0 and 1,
 second phase with memory binding to node 2.
-Please note, that we follow an "event based policy", which means that 
-rt-app changes memory binding when there is a "nodes_membind" event 
+Please note, that we follow an "event based policy", which means that
+rt-app changes memory binding when there is a "nodes_membind" event
 and don't do anything otherwise.
 
 "tasks" : {
@@ -650,7 +650,7 @@ The generated events are of these main categories:
 
   - rtapp_loop: event=start thread_loop=0 phase=0 phase_loop=0
   - rtapp_loop: event=end thread_loop=0 phase=0 phase_loop=0
-  
+
   Reporting the start and end of workload's phases and loops.
 
 * Workload's events, for example:
@@ -756,5 +756,3 @@ below)
    20000 ++--+----+---+----+---+---+----+---+----+--++ 494000
        17560556057560556057560656065606756065606756075607
                     Loop start time [msec]
-
-
