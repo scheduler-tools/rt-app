@@ -152,6 +152,7 @@ static int thread_data_create_unique_resources(thread_data_t *tdata, const threa
 static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
 {
 	thread_data_t *tdata;
+	sched_data_t *tsched_data;
 
 	if (!td) {
 		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
@@ -164,14 +165,25 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 		return -1;
 	}
 
+	tsched_data = malloc(sizeof(sched_data_t));
+	if (!tsched_data) {
+		log_error("Failed to duplicate thread sched data: %s", td->name);
+		return -1;
+	}
+
 	/*
 	 * We have one tdata created at config parse, but we
 	 * might spawn multiple threads if we were running in
 	 * a loop, so ensure we duplicate the tdata before
 	 * creating each thread, and we should free it at the
-	 * end of the thread_body()
+	 * end of the thread_body().
+	 *
+	 * Also duplicate the sched_data since it is modified by each thread to
+	 * keep track of current sched state.
 	 */
 	memcpy(tdata, td, sizeof(*tdata));
+	tdata->sched_data = tsched_data;
+	memcpy(tdata->sched_data, td->sched_data, sizeof(*tdata->sched_data));
 
 	/* Mark this thread as forked */
 	tdata->forked = forked;
@@ -733,6 +745,7 @@ static void __shutdown(bool force_terminate)
 	{
 		/* clean up tdata if this was a forked thread */
 		free(threads[i].data->name);
+		free(threads[i].data->sched_data);
 		free(threads[i].data);
 	}
 
