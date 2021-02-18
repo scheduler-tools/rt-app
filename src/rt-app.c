@@ -1136,7 +1136,7 @@ void *thread_body(void *arg)
 	timing_point_t tmp_timing;
 	unsigned int timings_size, timing_loop;
 	struct sched_attr attr;
-	int ret, phase, phase_loop, thread_loop, log_idx;
+	int ret, phase, phase_loop, phase_counter, thread_loop, log_idx;
 
 	/* Set thread name */
 	ret = pthread_setname_np(pthread_self(), data->name);
@@ -1229,7 +1229,7 @@ void *thread_body(void *arg)
 	 *                (corresponds to "loop" at task level
 	 * log_idx      - index of current row in the log buffer
 	 */
-	phase = phase_loop = thread_loop = log_idx = 0;
+	phase = phase_loop = phase_counter = thread_loop = log_idx = 0;
 
 	/* The following is executed for each phase. */
 	while (continue_running && thread_loop != data->loop) {
@@ -1241,11 +1241,11 @@ void *thread_body(void *arg)
 		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
-			   "rtapp_loop: event=start thread_loop=%d phase=%d phase_loop=%d",
-			   thread_loop, phase, phase_loop);
+			   "rtapp_loop: event=start thread_loop=%d phase=%d phase_loop=%d phase_counter=%d",
+			   thread_loop, phase, phase_loop, phase_counter);
 
-		log_debug("[%d] begins thread_loop %d phase %d phase_loop %d",
-			  data->ind, thread_loop, phase, phase_loop);
+		log_debug("[%d] begins thread_loop %d phase %d phase_loop %d phase_counter %d",
+			  data->ind, thread_loop, phase, phase_loop, phase_counter);
 
 		memset(&ldata, 0, sizeof(ldata));
 		clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -1276,8 +1276,8 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, curr_timing);
 
 		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
-			   "rtapp_loop: event=end thread_loop=%d phase=%d phase_loop=%d",
-			   thread_loop, phase, phase_loop);
+			   "rtapp_loop: event=end thread_loop=%d phase=%d phase_loop=%d phase_counter=%d",
+			   thread_loop, phase, phase_loop, phase_counter);
 		log_ftrace(ft_data.marker_fd, FTRACE_STATS,
 			   "rtapp_stats: period=%d run=%d wu_lat=%d slack=%d c_period=%d c_run=%d",
 			   curr_timing->period,
@@ -1292,6 +1292,7 @@ void *thread_body(void *arg)
 		if (phase_loop == pdata->loop) {
 			phase_loop = 0;
 
+			phase_counter++;
 			phase++;
 			if (phase == data->nphases) {
 				/*
