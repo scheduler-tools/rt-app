@@ -874,14 +874,14 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
 	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
 
-	/* clamping params (-1: no changes ) */
-	tmp_data.util_min = get_int_value_from(obj, "util_min", TRUE, -1);
-	if (tmp_data.util_min != -1 && tmp_data.util_min > 1024) {
+	/* clamping params (-2: no changes ) */
+	tmp_data.util_min = get_int_value_from(obj, "util_min", TRUE, -2);
+	if (tmp_data.util_min < -2 || tmp_data.util_min > 1024) {
 		log_critical(PIN2 "Invalid util_min %d (>1024)", tmp_data.util_min);
 		exit(EXIT_INV_CONFIG);
 	}
-	tmp_data.util_max = get_int_value_from(obj, "util_max", TRUE, -1);
-	if (tmp_data.util_max != -1 && tmp_data.util_max > 1024) {
+	tmp_data.util_max = get_int_value_from(obj, "util_max", TRUE, -2);
+	if (tmp_data.util_max < -2 || tmp_data.util_max > 1024) {
 		log_critical(PIN2 "Invalid util_max %d (>1024)", tmp_data.util_max);
 		exit(EXIT_INV_CONFIG);
 	}
@@ -904,7 +904,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	/* Check if we found at least one meaningful scheduler parameter */
 	if (tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
 	    tmp_data.runtime || tmp_data.period || tmp_data.deadline ||
-	    tmp_data.util_min != -1 || tmp_data.util_max != -1) {
+	    tmp_data.util_min != -2 || tmp_data.util_max != -2) {
 		sched_data_t *new_data;
 
 		/* At least 1 parameters has been set in the object */
