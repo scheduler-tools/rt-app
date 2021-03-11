@@ -680,7 +680,6 @@ static void setup_main_gnuplot(void);
 static void __shutdown(bool force_terminate)
 {
 	int i;
-	char tmp[PATH_LENGTH];
 
 	if(!continue_running)
 		return;
@@ -743,18 +742,6 @@ static void __shutdown(bool force_terminate)
 	if (ftrace_level) {
 		log_notice("deconfiguring ftrace");
 		close(ft_data.marker_fd);
-		// turning off ftrace
-		strcpy(tmp, ft_data.debugfs);
-		strcat(tmp, "/tracing/tracing_on");
-		int ftrace_f = open(tmp, O_WRONLY);
-		if (ftrace_f < 0){
-			log_error("Cannot open tracing_on file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
-		if (write(ftrace_f, "0", 1) < 0){
-			log_error("Cannot write into tracing_on file %s", tmp);
-			exit(EXIT_FAILURE);
-		}
 	}
 
 	remove_cgroups();
@@ -1554,18 +1541,21 @@ int main(int argc, char* argv[])
 	/* If using ftrace, open trace and marker fds */
 	if (ftrace_level != FTRACE_NONE) {
 		log_notice("configuring ftrace");
-		// enable tracing
+		// check if tracing is enabled
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/tracing_on");
-		int ftrace_f = open(tmp, O_WRONLY);
+		int ftrace_f = open(tmp, O_RDONLY);
 		if (ftrace_f < 0){
 			log_error("Cannot open tracing_on file %s", tmp);
 			exit(EXIT_FAILURE);
 		}
-		if (write(ftrace_f, "1", 1) < 0){
-			log_error("Cannot write into tracing_on file %s", tmp);
+		char trace_val[10];
+		int ret = read(ftrace_f, trace_val, 10);
+		if ( ret < 0 || trace_val[0] != '1'){
+			log_error("tracing is not enabled in file %s", tmp);
 			exit(EXIT_FAILURE);
 		}
+		close(ftrace_f);
 		// set the marker
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/trace_marker");
