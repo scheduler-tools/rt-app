@@ -830,21 +830,16 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 
 	if (data->def_cpu_data.cpuset == NULL) {
 		/* Get default affinity */
-		cpu_set_t cpuset;
-		unsigned int cpu_count;
+		data->def_cpu_data.cpusetsize = sizeof(cpu_set_t);
+		data->def_cpu_data.cpuset = malloc(sizeof(cpu_set_t));
 
 		ret = pthread_getaffinity_np(pthread_self(),
-						    sizeof(cpu_set_t), &cpuset);
+					     sizeof(cpu_set_t), data->def_cpu_data.cpuset);
 		if (ret != 0) {
 			errno = ret;
 			perror("pthread_get_affinity");
 			exit(EXIT_FAILURE);
 		}
-		cpu_count = CPU_COUNT(&cpuset);
-		data->def_cpu_data.cpusetsize = CPU_ALLOC_SIZE(cpu_count);
-		data->def_cpu_data.cpuset = CPU_ALLOC(cpu_count);
-		memcpy(data->def_cpu_data.cpuset, &cpuset,
-						data->def_cpu_data.cpusetsize);
 		create_cpuset_str(&data->def_cpu_data);
 		data->curr_cpu_data = &data->def_cpu_data;
 	}
