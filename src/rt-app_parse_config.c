@@ -763,7 +763,7 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
 		data->cpusetsize = sizeof(cpu_set_t);
 		data->cpuset = malloc(data->cpusetsize);
-		CPU_ZERO(data->cpuset);
+		CPU_ZERO_S(data->cpusetsize, data->cpuset);
 		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
@@ -773,7 +773,7 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 				free(data->cpuset_str);
 				exit(EXIT_INV_CONFIG);
 			}
-			CPU_SET(cpu_idx, data->cpuset);
+			CPU_SET_S(cpu_idx, data->cpusetsize, data->cpuset);
 		}
 	} else {
 		data->cpuset_str = strdup("-");
