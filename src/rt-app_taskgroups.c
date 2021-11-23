@@ -17,6 +17,7 @@ typedef struct _taskgroup_ctrl_t
 	char *mount_point;
 	taskgroup_data_t *tg_array;
 	unsigned int nr_tgs;
+	unsigned char version;
 } taskgroup_ctrl_t;
 
 static taskgroup_ctrl_t ctrl;
@@ -143,11 +144,12 @@ done:
 	return ret;
 }
 
-static int cgroup_get_cpu_controller_mount_point(void)
+static int cgroup_get_mount_point(void)
 {
 	struct mntent *ent;
 	FILE *mounts;
 	int ret = -1;
+	unsigned char version;
 
 	mounts = setmntent("/proc/mounts", "re");
 
@@ -157,12 +159,23 @@ static int cgroup_get_cpu_controller_mount_point(void)
 	}
 
 	while (ent = getmntent(mounts)) {
-		if (strcmp(ent->mnt_type, "cgroup"))
+		if (strcmp(ent->mnt_type, "cgroup") == 0)
+			version = 1;
+		else if (strcmp(ent->mnt_type, "cgroup2") == 0)
+			version = 2;
+		else
 			continue;
 
-		if (!hasmntopt(ent, "cpu"))
+		/*
+		 * On cgroup v1, we are interested in the mount points that has
+		 * a cpu controller enabled only. In cgroup v2, this becomes
+		 * irrelevant since there is only one hierarchy anyway, so any
+		 * mount point will do
+		 */
+		if (version == 1 && !hasmntopt(ent, "cpu"))
 			continue;
 
+		ctrl.version = version;
 		ctrl.mount_point = malloc(strlen(ent->mnt_dir) + 1);
 		if (!ctrl.mount_point) {
 			perror("malloc");
@@ -171,7 +184,7 @@ static int cgroup_get_cpu_controller_mount_point(void)
 
 		strcpy(ctrl.mount_point, ent->mnt_dir);
 
-		log_debug(PIN "cgroup cpu controller mountpoint [%s] found", ent->mnt_dir);
+		log_debug(PIN "cgroup mountpoint [%s] found", ent->mnt_dir);
 		ret = 0;
 		break;
 	}
@@ -185,13 +198,13 @@ void initialize_cgroups(void)
 	if (!ctrl.nr_tgs)
 		return;
 
-	if (cgroup_check_cpu_controller()) {
-		log_error(PIN "no cgroup cpu controller found");
+	if (cgroup_get_mount_point()) {
+		log_error(PIN "no cgroup mountpoint found");
 		exit(EXIT_FAILURE);
 	}
 
-	if (cgroup_get_cpu_controller_mount_point()) {
-		log_error(PIN "no cgroup cpu controller mountpoint found");
+	if (ctrl.version == 1 && cgroup_check_cpu_controller()) {
+		log_error(PIN "no cgroup cpu controller found");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -373,7 +386,11 @@ static int cgroup_attach_task(char *name)
 	FILE *tasks;
 	size_t size;
 
-	file = strcmp(name, "/") ? "/tasks" : "tasks";
+	if (ctrl.version == 1)
+		file = strcmp(name, "/") ? "/tasks" : "tasks";
+	else
+		file = strcmp(name, "/") ? "/cgroup.threads" : "cgroup.threads";
+
 	size = strlen(ctrl.mount_point) + strlen(name) + strlen(file) + 1;
 	path = malloc(size);
 	if (!path) {
