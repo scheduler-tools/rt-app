@@ -38,6 +38,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <unistd.h>
 #include <errno.h>
 
+/* Core scheduling libraries */
+#include <ctype.h>
+#include <sys/prctl.h>
+#include <linux/version.h>
+#include <semaphore.h>
+#include <sys/ptrace.h>
+#include <linux/ptrace.h>
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(5,16,0)
+
+typedef enum {PIDTYPE_PID,PIDTYPE_TGID,PIDTYPE_PGID,PIDTYPE_SID,PIDTYPE_MAX}pid_type;
+
+#define PR_SCHED_CORE_SCOPE_THREAD		0
+#define PR_SCHED_CORE_SCOPE_THREAD_GROUP	1
+#define PR_SCHED_CORE_SCOPE_PROCESS_GROUP	2
+
+#endif
+
 #include "config.h"
 #include "rt-app_utils.h"
 #include "rt-app_args.h"
@@ -62,6 +80,9 @@ static struct timespec t_start;
 static pthread_barrier_t threads_barrier;
 static pthread_mutex_t joining_mutex;
 static pthread_mutex_t fork_mutex;
+
+static pid_t *core_scheduling_first_threads;
+static pthread_mutex_t core_scheduling_mutex;
 
 static ftrace_data_t ft_data = {
 	.debugfs = "/sys/kernel/debug",
@@ -736,6 +757,7 @@ static void __shutdown(bool force_terminate)
 		free(threads[i].data);
 	}
 
+    	free(core_scheduling_first_threads);
 
 	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
 		   "rtapp_main: event=end");
@@ -745,7 +767,6 @@ static void __shutdown(bool force_terminate)
 	}
 
 	remove_cgroups();
-
 	/*
 	 * If we unlock the joining_mutex here we could risk a late SIGINT
 	 * causing us to re-enter this loop. Since we are calling exit() to
@@ -1144,7 +1165,33 @@ void *thread_body(void *arg)
 		perror("pthread_setname_np thread name over 16 characters");
 	}
 
-	/* Get the 1st phase's data */
+    	/* Set core scheduling family */
+        if (data->core_scheduling_family != 0) {
+		if (opts.core_scheduling_families_count >= data->core_scheduling_family) {
+            		pthread_mutex_lock(&core_scheduling_mutex);
+            		if (core_scheduling_first_threads[data->core_scheduling_family-1] != 0) {
+                		if (prctl(PR_SCHED_CORE, PR_SCHED_CORE_SHARE_FROM, 
+					  core_scheduling_first_threads[data->core_scheduling_family-1], 
+					  PR_SCHED_CORE_SCOPE_THREAD, 0)) {
+                    			perror("Error copying core scheduling cookie");
+                		}
+            		} else {
+                		core_scheduling_first_threads[data->core_scheduling_family-1] = gettid();
+                		if (prctl(PR_SCHED_CORE, PR_SCHED_CORE_CREATE, 
+				    gettid(), PR_SCHED_CORE_SCOPE_THREAD, 0)) {
+                    			perror("Error creating core scheduling cookie");
+                		}
+           	 	}
+            		pthread_mutex_unlock(&core_scheduling_mutex);
+        	}
+
+        	u_long test;
+        	prctl(PR_SCHED_CORE, PR_SCHED_CORE_GET, gettid(), PR_SCHED_CORE_SCOPE_THREAD, &test);
+        	log_notice("[%d] Core scheduling cookie set to %lu, family %d", 
+			   data->ind, test, data->core_scheduling_family);
+    	}
+
+    	/* Get the 1st phase's data */
 	pdata = &data->phases[0];
 
 	/* Init timing buffer */
@@ -1597,6 +1644,13 @@ int main(int argc, char* argv[])
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
+    	/* Setup core scheduling */
+    	core_scheduling_first_threads = malloc(sizeof (pid_t) * opts.core_scheduling_families_count);
+    	for (i = 0; i < opts.core_scheduling_families_count; i++) {
+        	core_scheduling_first_threads[i] = 0;
+    	}
+    	pthread_mutex_init(&core_scheduling_mutex, NULL);
+
 	/* Start the use case */
 	int ind = 0;
 	for (i = 0; i < opts.num_tasks; i++) {
@@ -1619,6 +1673,14 @@ int main(int argc, char* argv[])
 			log_error("Invalid num_instances value: %d", tdata_orig->num_instances);
 			goto exit_err;
 		}
+
+        	if((tdata_orig->core_scheduling_family > 0 && 
+		   tdata_orig->core_scheduling_family > opts.core_scheduling_families_count) || 
+		   tdata_orig->core_scheduling_family < 0) {
+            		log_error("Thread core_scheduling_family (%d) bigger then core_scheduling_families_count (%d)", 
+				  tdata_orig->core_scheduling_family, opts.core_scheduling_families_count);
+            		goto exit_err;
+        	}
 
 		for (j = 0; j < tdata_orig->num_instances; j++) {
 			int ret = create_thread(tdata_orig, ind++, 0, 0);
