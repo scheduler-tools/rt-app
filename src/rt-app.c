@@ -1554,7 +1554,7 @@ static void setup_main_gnuplot(void)
 
 int main(int argc, char* argv[])
 {
-	int i, res, nresources;
+	int i, k, res, nresources;
 	rtapp_resource_t *rdata;
 	static cpu_set_t orig_set;
 	struct stat sb;
@@ -1645,7 +1645,14 @@ int main(int argc, char* argv[])
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
     	/* Setup core scheduling */
-    	core_scheduling_first_threads = malloc(sizeof (pid_t) * opts.core_scheduling_families_count);
+        if (opts.core_scheduling_families_count == -1) {
+            for (k = 0; k < opts.num_tasks; k++) {
+                if (opts.threads_data[k].core_scheduling_family > opts.core_scheduling_families_count) {
+                    opts.core_scheduling_families_count = opts.threads_data[k].core_scheduling_family;
+                }
+            }
+        }
+        core_scheduling_first_threads = malloc(sizeof (pid_t) * opts.core_scheduling_families_count);
     	for (i = 0; i < opts.core_scheduling_families_count; i++) {
         	core_scheduling_first_threads[i] = 0;
     	}

@@ -1215,7 +1215,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
     	opts->core_scheduling_families_count = get_int_value_from(global, "core_scheduling_families_count", 
-								  TRUE, 0);
+								  TRUE, -1);
 	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
 	policy = get_string_value_from(global, "default_policy",
 				       TRUE, "SCHED_OTHER");
