@@ -40,6 +40,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define JSON_FILE_BUF_SIZE 4096
 #define DEFAULT_MEM_BUF_SIZE (4 * 1024 * 1024)
 
+#define DEFAULT_FTRACE_DIR "/sys/kernel/debug"
+
 #ifndef TRUE
 #define TRUE true
 #define FALSE false
@@ -1207,6 +1209,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->io_device = strdup("/dev/null");
 		opts->mem_buffer_size = DEFAULT_MEM_BUF_SIZE;
 		opts->cumulative_slack = 0;
+		opts->ftracedir = strdup(DEFAULT_FTRACE_DIR);
 		return;
 	}
 
@@ -1304,6 +1307,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	    log_critical(PFX "Invalid ftrace categories");
 	    exit(EXIT_INV_CONFIG);
 	}
+	opts->ftracedir = get_string_value_from(global, "ftracedir", TRUE, DEFAULT_FTRACE_DIR);
 
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);

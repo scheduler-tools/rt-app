@@ -289,6 +289,8 @@ typedef struct _rtapp_options_t {
 	char *io_device;
 
 	int cumulative_slack;
+
+	char *ftracedir;
 } rtapp_options_t;
 
 typedef struct _timing_point_t {
