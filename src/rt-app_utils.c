@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
+#include <mntent.h>
 
 #include "rt-app_utils.h"
 
@@ -265,6 +266,60 @@ resource_to_string(resource_t resource, char *resource_name)
 			return 1;
 	}
 	return 0;
+}
+
+/* point directly to the tracing directory */
+#define DEFAULT_FTRACE_DIR "/sys/kernel/debug/tracing"
+
+char *mtab_by_type(const char *type, int typelen)
+{
+	FILE *fd_mntent;
+
+	fd_mntent = setmntent("/etc/mtab", "r");
+	if(fd_mntent)
+	{
+		struct mntent *mntent;
+
+		while(mntent = getmntent(fd_mntent), mntent)
+		{
+			log_debug("mntent->dir=%s type=%s", mntent->mnt_dir, mntent->mnt_type);
+			if(!strncmp(type, mntent->mnt_type, typelen))
+			{
+				char *path = strdup(mntent->mnt_dir);
+				endmntent(fd_mntent);
+				return path;
+			}
+		}
+		endmntent(fd_mntent);
+	}
+	return NULL;
+}
+
+char *ftrace_dir(void)
+{
+	char *path;
+
+	/* tracefs paths point directly to the tracing directory */
+	path = mtab_by_type("tracefs", sizeof("tracefs")-1);
+	if(path)
+		return path;
+
+	/* debugfs paths point one level above the tracing directory */
+	path = mtab_by_type("debugfs", sizeof("debugfs")-1);
+	if(path)
+	{
+		char *tmp;
+		int len = strlen(path) + sizeof("/tracing");
+		tmp = malloc(len);
+		if(!tmp)
+			return NULL;
+		strcpy(tmp, path);
+		free(path);
+		strcat(tmp, "/tracing");
+		return tmp;
+	}
+
+	return strdup(DEFAULT_FTRACE_DIR);
 }
 
 int ftrace_setup(char *categories)

@@ -92,9 +92,8 @@ The category names currently supported are:
 
 Default value is "none".
 
-* ftracedir : String. Prefix used to find tracefs. Defaults to
-"/sys/kernel/debug" if not specified. In that case, we expect to find tracing
-controls inside "/sys/kernel/debug/tracing/". Has no effect if ftrace is not
+* ftracedir : String. Mountpoint of tracefs. Defaults to
+"/sys/kernel/debug/tracing" if not specified. Has no effect if ftrace is not
 enabled.
 
 * gnuplot : Boolean. If True, it will create a gnu plot compatible file for

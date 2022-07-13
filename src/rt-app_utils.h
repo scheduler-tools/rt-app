@@ -141,6 +141,10 @@ string_to_resource(const char *name, resource_t *resource);
 int
 resource_to_string(resource_t resource, char *name);
 
+/* ftrace_dir always returns a string on the heap */
+char *
+ftrace_dir(void);
+
 int
 ftrace_setup(char *categories);
 

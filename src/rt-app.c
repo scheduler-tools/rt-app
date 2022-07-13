@@ -1542,7 +1542,7 @@ int main(int argc, char* argv[])
 		log_notice("configuring ftrace");
 		// check if tracing is enabled
 		strcpy(tmp, opts.ftracedir);
-		strcat(tmp, "/tracing/tracing_on");
+		strcat(tmp, "/tracing_on");
 		int ftrace_f = open(tmp, O_RDONLY);
 		if (ftrace_f < 0){
 			log_error("Cannot open tracing_on file %s", tmp);
@@ -1557,7 +1557,7 @@ int main(int argc, char* argv[])
 		close(ftrace_f);
 		// set the marker
 		strcpy(tmp, opts.ftracedir);
-		strcat(tmp, "/tracing/trace_marker");
+		strcat(tmp, "/trace_marker");
 		ft_data.marker_fd = open(tmp, O_WRONLY);
 		if (ft_data.marker_fd < 0) {
 			log_error("Cannot open trace_marker file %s", tmp);
