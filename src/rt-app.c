@@ -51,6 +51,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #define FORKS_LIMIT		1024
 
+
+/*
+ * Maximum number of CPUs rt-app will be able to detect.
+ */
+#define MAX_CPUS		1024
+
 static volatile sig_atomic_t continue_running;
 static pthread_data_t *threads;
 static int nthreads;
@@ -733,6 +739,9 @@ static void __shutdown(bool force_terminate)
 	{
 		/* clean up tdata if this was a forked thread */
 		free(threads[i].data->name);
+		if (threads[i].data->def_cpu_data.cpuset)
+			CPU_FREE(threads[i].data->def_cpu_data.cpuset);
+
 		free(threads[i].data);
 	}
 
@@ -830,11 +839,15 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 
 	if (data->def_cpu_data.cpuset == NULL) {
 		/* Get default affinity */
-		data->def_cpu_data.cpusetsize = sizeof(cpu_set_t);
-		data->def_cpu_data.cpuset = malloc(sizeof(cpu_set_t));
+		data->def_cpu_data.cpusetsize = CPU_ALLOC_SIZE(MAX_CPUS);
+		data->def_cpu_data.cpuset = CPU_ALLOC(MAX_CPUS);
+		if (!data->def_cpu_data.cpuset) {
+			perror("cpu_set_t malloc");
+			exit(EXIT_FAILURE);
+		}
 
 		ret = pthread_getaffinity_np(pthread_self(),
-					     sizeof(cpu_set_t), data->def_cpu_data.cpuset);
+					     data->def_cpu_data.cpusetsize, data->def_cpu_data.cpuset);
 		if (ret != 0) {
 			errno = ret;
 			perror("pthread_get_affinity");

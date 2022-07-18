@@ -770,7 +770,7 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 			cpu_idx = json_object_get_int(cpu);
 			if (cpu_idx > max_cpu) {
 				log_critical(PIN2 "Invalid cpu %u in cpuset %s", cpu_idx, data->cpuset_str);
-				free(data->cpuset);
+				CPU_FREE(data->cpuset);
 				free(data->cpuset_str);
 				exit(EXIT_INV_CONFIG);
 			}
