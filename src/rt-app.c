@@ -742,6 +742,9 @@ static void __shutdown(bool force_terminate)
 		if (threads[i].data->def_cpu_data.cpuset)
 			CPU_FREE(threads[i].data->def_cpu_data.cpuset);
 
+		if (threads[i].data->def_cpu_data.cpuset_str)
+			free(threads[i].data->def_cpu_data.cpuset_str);
+
 		free(threads[i].data);
 	}
 
