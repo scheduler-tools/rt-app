@@ -74,12 +74,11 @@ cross-compile a static rt-app for aarch64, using your own json-c and/or numactl 
     export ac_cv_lib_numa_numa_available=yes
     
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo> -L<absolute path to numactl repo>" CFLAGS="-I<path to parent of json-c repo> -I<path to parent of numactl repo>" --with-deadline
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo> -L<absolute path to numactl repo>" CFLAGS="-I<path to parent of json-c repo> -I<path to parent of numactl repo>"
     AM_LDFLAGS="-all-static" make
 
 configure supports the usual flags, like `--help` and `--prefix`, there is an
-install target in the Makefile as well. `--with-deadline` enables support for
-SCHED_DEADLINE.
+install target in the Makefile as well.
 
 
 EXAMPLE: with a directory structure like the following:
@@ -106,7 +105,7 @@ you would run:
     export ac_cv_lib_json_c_json_object_from_file=yes
     export ac_cv_lib_numa_numa_available=yes
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c -L$PWD/../numactl" CFLAGS="-I$PWD/../" --with-deadline
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c -L$PWD/../numactl" CFLAGS="-I$PWD/../"
     AM_LDFLAGS="-all-static" make
 
 and you should get a static rt-app executable in the src directory.
@@ -118,7 +117,7 @@ regular build of rt-app for your host against json-c in canonical locations
 (and installation with PREFIX=/usr/local)
 
     ./autogen.sh
-    ./configure --with-deadline
+    ./configure
     make
     make install
 
