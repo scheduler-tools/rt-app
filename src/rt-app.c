@@ -152,6 +152,7 @@ static int thread_data_create_unique_resources(thread_data_t *tdata, const threa
 static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
 {
 	thread_data_t *tdata;
+	sched_data_t *tsched_data;
 
 	if (!td) {
 		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
@@ -164,14 +165,25 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 		return -1;
 	}
 
+	tsched_data = malloc(sizeof(sched_data_t));
+	if (!tsched_data) {
+		log_error("Failed to duplicate thread sched data: %s", td->name);
+		return -1;
+	}
+
 	/*
 	 * We have one tdata created at config parse, but we
 	 * might spawn multiple threads if we were running in
 	 * a loop, so ensure we duplicate the tdata before
 	 * creating each thread, and we should free it at the
-	 * end of the thread_body()
+	 * end of the thread_body().
+	 *
+	 * Also duplicate the sched_data since it is modified by each thread to
+	 * keep track of current sched state.
 	 */
 	memcpy(tdata, td, sizeof(*tdata));
+	tdata->sched_data = tsched_data;
+	memcpy(tdata->sched_data, td->sched_data, sizeof(*tdata->sched_data));
 
 	/* Mark this thread as forked */
 	tdata->forked = forked;
@@ -733,6 +745,7 @@ static void __shutdown(bool force_terminate)
 	{
 		/* clean up tdata if this was a forked thread */
 		free(threads[i].data->name);
+		free(threads[i].data->sched_data);
 		free(threads[i].data);
 	}
 
@@ -901,12 +914,17 @@ static void set_thread_membind(thread_data_t *data, numaset_data_t * numa_data)
  * sched_priority is only meaningful for RT tasks. Otherwise, it must be
  * set to 0 for the setattr syscall to succeed.
  */
-static int __sched_priority(thread_data_t *data, sched_data_t *sched_data)
+static int __sched_priority(thread_data_t *data, sched_data_t *sched_data, int curr_prio)
 {
+	int prio = sched_data->prio;
+
+	if (prio == THREAD_PRIORITY_UNCHANGED)
+		prio = curr_prio;
+
 	switch (sched_data->policy) {
 		case rr:
 		case fifo:
-			return sched_data->prio;
+			return prio;
 	}
 
 	 return 0;
@@ -932,7 +950,13 @@ static bool __set_thread_policy_priority(thread_data_t *data,
 	struct sched_param param;
 	int ret;
 
-	param.sched_priority = __sched_priority(data, sched_data);
+	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED) {
+		log_error("Cannot resolve the priority of the thread %s",
+			  data->name);
+		exit(EXIT_FAILURE);
+	}
+
+	param.sched_priority = __sched_priority(data, sched_data, sched_data->prio);
 
 	ret = pthread_setschedparam(pthread_self(),
 				    sched_data->policy,
@@ -1000,12 +1024,20 @@ static void _set_thread_rt(thread_data_t *data, sched_data_t *sched_data)
 }
 
 /* deadline can't rely on the default __set_thread_policy_priority */
-static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
+static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data,
+				 sched_data_t *curr_sched_data)
 {
 	struct sched_attr sa_params = {0};
 	unsigned int flags = 0;
 	pid_t tid;
 	int ret;
+	int curr_prio;
+
+	if (curr_sched_data)
+		curr_prio = curr_sched_data->prio;
+	else
+		/* The value does not matter as it will not be used */
+		curr_prio = THREAD_PRIORITY_UNCHANGED;
 
 	log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
 		  " period %lu",
@@ -1023,7 +1055,7 @@ static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
 	sa_params.size = sizeof(struct sched_attr);
 	sa_params.sched_flags = 0;
 	sa_params.sched_policy = SCHED_DEADLINE;
-	sa_params.sched_priority = __sched_priority(data, sched_data);
+	sa_params.sched_priority = __sched_priority(data, sched_data, curr_prio);
 	sa_params.sched_runtime = sched_data->runtime;
 	sa_params.sched_deadline = sched_data->deadline;
 	sa_params.sched_period = sched_data->period;
@@ -1038,24 +1070,44 @@ static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
 	}
 }
 
-static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
+static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data, sched_data_t *curr_sched_data)
 {
 	struct sched_attr sa_params = {0};
 	unsigned int flags = 0;
 	pid_t tid;
 	int ret;
+	policy_t policy;
+	int curr_prio;
 
-	if ((sched_data->util_min == -1 &&
-	     sched_data->util_max == -1))
+	if ((sched_data->util_min == -2 &&
+	     sched_data->util_max == -2))
 		    return;
 
-	sa_params.sched_policy = sched_data->policy;
-	sa_params.sched_priority = __sched_priority(data, sched_data);
+	if (curr_sched_data) {
+		if (sched_data->policy == same)
+			policy = curr_sched_data->policy;
+		else
+			policy = sched_data->policy;
+
+		curr_prio = curr_sched_data->prio;
+	} else {
+		curr_prio = THREAD_PRIORITY_UNCHANGED;
+	}
+
+
+	if (policy == same) {
+		log_error("Cannot resolve the policy of the thread %s",
+			  data->name);
+		exit(EXIT_FAILURE);
+	}
+
+	sa_params.sched_policy = policy;
+	sa_params.sched_priority = __sched_priority(data, sched_data, curr_prio);
 	sa_params.size = sizeof(struct sched_attr);
 	sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
 	tid = gettid();
 
-	if (sched_data->util_min != -1) {
+	if (sched_data->util_min != -2) {
 		sa_params.sched_util_min = sched_data->util_min;
 		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
 		log_debug("[%d] setting util_min=%d",
@@ -1064,7 +1116,7 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 			   "rtapp_attrs: event=uclamp util_min=%d",
 			   sched_data->util_min);
 	}
-	if (sched_data->util_max != -1) {
+	if (sched_data->util_max != -2) {
 		sa_params.sched_util_max = sched_data->util_max;
 		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
 		log_debug("[%d] setting util_max=%d",
@@ -1086,36 +1138,50 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 
 static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 {
+	sched_data_t *curr_sched_data = data->curr_sched_data;
+
 	if (!sched_data)
 		return;
 
-	if (data->curr_sched_data == sched_data)
-		return;
+	if (curr_sched_data) {
+		if (curr_sched_data == sched_data)
+			return;
 
-	/* if no policy is specified, reuse the previous one */
-	if ((sched_data->policy == same) && data->curr_sched_data)
-		sched_data->policy = data->curr_sched_data->policy;
+		if (sched_data->prio == curr_sched_data->prio)
+			sched_data->prio = THREAD_PRIORITY_UNCHANGED;
+
+		/* if no policy is specified, reuse the previous one */
+		if (sched_data->policy == same)
+			sched_data->policy = curr_sched_data->policy;
+        }
 
 	switch (sched_data->policy) {
 		case rr:
 		case fifo:
 			_set_thread_rt(data, sched_data);
-			_set_thread_uclamp(data, sched_data);
+			_set_thread_uclamp(data, sched_data, curr_sched_data);
 			break;
 		case other:
 		case idle:
 			_set_thread_cfs(data, sched_data);
-			_set_thread_uclamp(data, sched_data);
+			_set_thread_uclamp(data, sched_data, curr_sched_data);
 			data->lock_pages = 0; /* forced off */
 			break;
 		case deadline:
-			_set_thread_deadline(data, sched_data);
+			_set_thread_deadline(data, sched_data, curr_sched_data);
 			break;
 		default:
 			log_error("Unknown scheduling policy %d",
 				  sched_data->policy);
 			exit(EXIT_FAILURE);
 	}
+
+	/* Ensure we have an actual valid priority in curr_sched_data at all
+	 * time, since it could be needed in a later phase for sched_setattr()
+	 * syscall
+	 */
+	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED)
+		sched_data->prio = curr_sched_data->prio;
 
 	data->curr_sched_data = sched_data;
 }
