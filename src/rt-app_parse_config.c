@@ -48,14 +48,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 /* redefine foreach as in <json/json_object.h> but to be ANSI
  * compatible */
 #define foreach(obj, entry, key, val, idx)				\
-	for ( ({ idx = 0; entry = json_object_get_object(obj)->head;});	\
-		({ if (entry) { key = (char*)entry->k;			\
-				val = (struct json_object*)entry->v;	\
-			      };					\
-		   entry;						\
+	for ( ({ idx = 0; entry = json_object_iter_begin(obj);});	\
+		({ if (entry.opaque_) {					\
+			key = (char *)json_object_iter_peek_name(&entry); \
+			val = json_object_iter_peek_value(&entry);	\
+			};						\
+		   entry.opaque_ != NULL;				\
 		 }							\
 		);							\
-		({ entry = entry->next; idx++; })			\
+		({ json_object_iter_next(&entry); idx++; })		\
 	    )
 /* this macro set a default if key not present, or give an error and exit
  * if key is present but does not have a default */
@@ -351,7 +352,7 @@ add_resource_data(const char *name, int type, rtapp_resources_t **resources_tabl
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 	int size;
 
 	log_info(PFX "Parsing resource section");
@@ -980,7 +981,7 @@ parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 	int i;
 
 	log_info(PFX "Parsing phase");
@@ -1087,7 +1088,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
 		/* used in the foreach macro */
-		struct lh_entry *entry; char *key; struct json_object *val; int idx;
+		struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 
 		assure_type_is(phases_obj, obj, "phases",
 					json_type_object);
@@ -1157,12 +1158,13 @@ static void
 parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 
 	int i = 0;
 	int instance;
 
 	log_info(PFX "Parsing tasks section");
+
 	opts->nthreads = 0;
 	opts->num_tasks = 0;
 	foreach(tasks, entry, key, val, idx) {
@@ -1174,6 +1176,8 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 
 	log_info(PFX "Found %d threads of %d tasks", opts->nthreads, opts->num_tasks);
 
+	if (!opts->num_tasks)
+		return;
 	/*
 	 * Parse thread data of defined tasks so that we can use them later
 	 * when creating the tasks at main() and fork event.
