@@ -1211,6 +1211,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 		opts->io_device = strdup("/dev/null");
 		opts->mem_buffer_size = DEFAULT_MEM_BUF_SIZE;
 		opts->cumulative_slack = 0;
+		opts->ftracedir = ftrace_dir();
 		return;
 	}
 
@@ -1308,6 +1309,7 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	    log_critical(PFX "Invalid ftrace categories");
 	    exit(EXIT_INV_CONFIG);
 	}
+	opts->ftracedir = get_string_value_from(global, "ftracedir", TRUE, ftrace_dir());
 
 	opts->lock_pages = get_bool_value_from(global, "lock_pages", TRUE, 1);
 	opts->pi_enabled = get_bool_value_from(global, "pi_enabled", TRUE, 0);

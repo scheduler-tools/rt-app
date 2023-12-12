@@ -92,6 +92,10 @@ The category names currently supported are:
 
 Default value is "none".
 
+* ftracedir : String. Mountpoint of tracefs. Defaults to
+"/sys/kernel/debug/tracing" if not specified. Has no effect if ftrace is not
+enabled.
+
 * gnuplot : Boolean. If True, it will create a gnu plot compatible file for
 each threads (see gnuplot section for more details). Default value is False.
 
