@@ -1030,9 +1030,10 @@ static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
-		log_critical("[%d] sched_setattr returned %d",
-			     data->ind, ret);
-		errno = ret;
+		int tmp = errno;
+		log_critical("[%d] sched_setattr returned %d (%d - %s)",
+			     data->ind, ret, errno, strerror(errno));
+		errno = tmp;
 		perror("sched_setattr: failed to set deadline attributes");
 		exit(EXIT_FAILURE);
 	}
@@ -1076,9 +1077,10 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
-		log_critical("[%d] sched_setattr returned %d",
-			     data->ind, ret);
-		errno = ret;
+		int tmp = errno;
+		log_critical("[%d] sched_setattr returned %d (errno %d: %s)",
+			     data->ind, ret, tmp, sterror(tmp));
+		errno = tmp;
 		perror("sched_setattr: failed to set uclamp value(s)");
 		exit(EXIT_FAILURE);
 	}
