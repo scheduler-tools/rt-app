@@ -1585,6 +1585,10 @@ int main(int argc, char* argv[])
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
 		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+		if (p_load == 0) {
+			log_error("Did not get a good calibration value (p_load=%d)", p_load);
+			exit(EXIT_FAILURE);
+		}
 	} else {
 		p_load = opts.calib_ns_per_loop;
 		log_notice("pLoad = %dns", p_load);
