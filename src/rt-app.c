@@ -457,9 +457,9 @@ static int run_event(event_data_t *event, int dry_run,
 		break;
 	case rtapp_sleep:
 		{
-		struct timespec sleep = usec_to_timespec(event->duration);
-		log_debug("sleep %d ", event->duration);
-		nanosleep(&sleep, NULL);
+			struct timespec sleep = usec_to_timespec(event->duration);
+			log_debug("sleep %d ", event->duration);
+			nanosleep(&sleep, NULL);
 		}
 		break;
 	case rtapp_run:
