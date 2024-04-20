@@ -48,14 +48,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 /* redefine foreach as in <json/json_object.h> but to be ANSI
  * compatible */
 #define foreach(obj, entry, key, val, idx)				\
-	for ( ({ idx = 0; entry = json_object_get_object(obj)->head;});	\
-		({ if (entry) { key = (char*)entry->k;			\
-				val = (struct json_object*)entry->v;	\
-			      };					\
-		   entry;						\
+	for ( ({ idx = 0; entry = json_object_iter_begin(obj);});	\
+		({ if (entry.opaque_) {					\
+			key = (char *)json_object_iter_peek_name(&entry); \
+			val = json_object_iter_peek_value(&entry);	\
+			};						\
+		   entry.opaque_ != NULL;				\
 		 }							\
 		);							\
-		({ entry = entry->next; idx++; })			\
+		({ json_object_iter_next(&entry); idx++; })		\
 	    )
 /* this macro set a default if key not present, or give an error and exit
  * if key is present but does not have a default */
@@ -351,7 +352,7 @@ add_resource_data(const char *name, int type, rtapp_resources_t **resources_tabl
 static void
 parse_resources(struct json_object *resources, rtapp_options_t *opts)
 {
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 	int size;
 
 	log_info(PFX "Parsing resource section");
@@ -572,7 +573,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		data->res = i;
 		rdata = &((*resources_table)->resources[data->res]);
-		rdata->res.barrier.waiting += 1;
+		rdata->res.barrier.waiting += tdata->num_instances;
 
 		log_info(PIN2 "type %d target %s [%d] %d users so far", data->type, rdata->name, rdata->index, rdata->res.barrier.waiting);
 		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
@@ -709,10 +710,8 @@ parse_task_event_data(char *name, struct json_object *obj,
 	log_error(PIN2 "Please check the resource name or the resource section");
 
 unknown_event:
-	data->duration = 0;
-	data->type = rtapp_run;
-	log_error(PIN2 "Unknown or mismatch %s event type !!!", name);
-
+	log_critical(PIN2 "Unknown or mismatch %s event type !!!", name);
+	exit(EXIT_INV_CONFIG);
 }
 
 static char *events[] = {
@@ -785,12 +784,56 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 	log_info(PIN "key: cpus %s", data->cpuset_str);
 }
 
+static void parse_numa_data(struct json_object *obj, numaset_data_t *data)
+{
+	struct json_object *numaset_obj, *node;
+	data->numaset = NULL;
+	data->numaset_str = NULL;
+
+	numaset_obj = get_in_object(obj, "nodes_membind", TRUE);
+	if (numaset_obj) {
+		unsigned int i;
+		unsigned int node_idx;
+		unsigned int max_node;
+
+#if HAVE_LIBNUMA
+		if(numa_available() == -1)
+#endif
+		{
+			log_error(PIN2 "NUMA is not available");
+			return;
+		}
+
+#if HAVE_LIBNUMA
+		/* Get highest node number available on the current system */
+		max_node = numa_max_node();
+
+		assure_type_is(numaset_obj, obj, "nodes_membind", json_type_array);
+		data->numaset_str = strdup(json_object_to_json_string(numaset_obj));
+		data->numaset = numa_allocate_nodemask();
+		numa_bitmask_clearall(data->numaset);
+		for (i = 0; i < json_object_array_length(numaset_obj); i++) {
+			node = json_object_array_get_idx(numaset_obj, i);
+			node_idx = json_object_get_int(node);
+			if (node_idx > max_node) {
+				numa_bitmask_free(data->numaset);
+				log_critical(PIN2 "Invalid node %u in numaset %s", node_idx, data->numaset_str);
+				free(data->numaset_str);
+				exit(EXIT_INV_CONFIG);
+			}
+			numa_bitmask_setbit(data->numaset, node_idx);
+		}
+		log_info(PIN "key: nodes_membind %s", data->numaset_str);
+#endif
+	}
+}
+
 static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 {
-	sched_data_t tmp_data;
+	sched_data_t tmp_data = { .policy = same };
 	char *def_str_policy;
 	char *policy;
-	int prior_def = -1;
+	int prior_def;
 
 	/* Get default policy */
 	def_str_policy = policy_to_string(def_policy);
@@ -802,17 +845,28 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 			log_critical(PIN2 "Invalid policy %s", policy);
 			exit(EXIT_INV_CONFIG);
 		}
-	} else {
-		tmp_data.policy = -1;
 	}
 
 	/* Get priority */
-	if (tmp_data.policy == -1)
-		prior_def = -1;
-	else if (tmp_data.policy == other || tmp_data.policy == idle)
+	switch (tmp_data.policy) {
+	case same:
+		prior_def = THREAD_PRIORITY_UNCHANGED;
+		break;
+	case other:
+	case idle:
 		prior_def = DEFAULT_THREAD_NICE;
-	else
+		break;
+	case fifo:
+	case rr:
 		prior_def = DEFAULT_THREAD_PRIORITY;
+		break;
+	case deadline:
+		prior_def = 0;
+		break;
+	default:
+		/* unreachable due to string_to_policy() above */
+		exit(EXIT_INV_CONFIG);
+	}
 
 	tmp_data.prio = get_int_value_from(obj, "priority", TRUE, prior_def);
 
@@ -821,8 +875,19 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
 	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
 
+	/* clamping params (-1: no changes ) */
+	tmp_data.util_min = get_int_value_from(obj, "util_min", TRUE, -1);
+	if (tmp_data.util_min != -1 && tmp_data.util_min > 1024) {
+		log_critical(PIN2 "Invalid util_min %d (>1024)", tmp_data.util_min);
+		exit(EXIT_INV_CONFIG);
+	}
+	tmp_data.util_max = get_int_value_from(obj, "util_max", TRUE, -1);
+	if (tmp_data.util_max != -1 && tmp_data.util_max > 1024) {
+		log_critical(PIN2 "Invalid util_max %d (>1024)", tmp_data.util_max);
+		exit(EXIT_INV_CONFIG);
+	}
 
-	if (def_policy != -1) {
+	if (def_policy != same) {
 		/* Support legacy grammar for thread object */
 		if (!tmp_data.runtime)
 			tmp_data.runtime = get_int_value_from(obj, "runtime", TRUE, 0);
@@ -838,7 +903,9 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.deadline *= 1000;
 
 	/* Check if we found at least one meaningful scheduler parameter */
-	if (tmp_data.prio != -1 || tmp_data.runtime || tmp_data.period || tmp_data.period) {
+	if (tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
+	    tmp_data.runtime || tmp_data.period || tmp_data.deadline ||
+	    tmp_data.util_min != -1 || tmp_data.util_max != -1) {
 		sched_data_t *new_data;
 
 		/* At least 1 parameters has been set in the object */
@@ -882,8 +949,11 @@ static taskgroup_data_t *parse_taskgroup_data(struct json_object *obj)
 
 static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata)
 {
-	/* Save sched_data as thread's current sched_data. */
-	if (pdata->sched_data)
+	/*
+	 * Save sched_data as thread's current sched_data in case its policy_t is
+	 * set to a valid scheduler policy.
+	 */
+	if (pdata->sched_data && pdata->sched_data->policy != same)
 		tdata->curr_sched_data = pdata->sched_data;
 
 	/* Save taskgroup_data as thread's current taskgroup_data. */
@@ -892,13 +962,17 @@ static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata
 
 	/*
 	 * Detect policy/taskgroup misconfiguration: a task which specifies a
-	 * taskgroup should not run in a policy other than SCHED_OTHER.
+	 * taskgroup should not run in a policy other than SCHED_OTHER or
+	 * SCHED_IDLE.
 	 */
-	if (tdata->curr_sched_data && tdata->curr_sched_data->policy != other &&
-	    tdata->curr_taskgroup_data) {
-		log_critical(PIN2 "No taskgroup support for policy %s",
-			     policy_to_string(tdata->curr_sched_data->policy));
-		exit(EXIT_INV_CONFIG);
+	if (tdata->curr_sched_data && tdata->curr_taskgroup_data) {
+		policy_t policy = tdata->curr_sched_data->policy;
+
+		if (policy != other && policy != idle) {
+			log_critical(PIN2 "No taskgroup support for policy %s",
+			             policy_to_string(policy));
+			exit(EXIT_INV_CONFIG);
+		}
 	}
 }
 
@@ -907,7 +981,7 @@ parse_task_phase_data(struct json_object *obj,
 		  phase_data_t *data, thread_data_t *tdata, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 	int i;
 
 	log_info(PFX "Parsing phase");
@@ -942,7 +1016,8 @@ parse_task_phase_data(struct json_object *obj,
 		}
 	}
 	parse_cpuset_data(obj, &data->cpu_data);
-	data->sched_data = parse_sched_data(obj, -1);
+	parse_numa_data(obj, &data->numa_data);
+	data->sched_data = parse_sched_data(obj, same);
 	data->taskgroup_data = parse_taskgroup_data(obj);
 }
 
@@ -982,8 +1057,14 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->def_cpu_data.cpuset = NULL;
 	data->def_cpu_data.cpuset_str = NULL;
 
+	data->numa_data.numaset = NULL;
+	data->numa_data.numaset_str = NULL;
+	data->curr_numa_data = NULL;
+
 	/* cpuset */
 	parse_cpuset_data(obj, &data->cpu_data);
+	/* numa */
+	parse_numa_data(obj, &data->numa_data);
 	/* Scheduling policy */
 	data->sched_data = parse_sched_data(obj, opts->policy);
 	/* Taskgroup */
@@ -1007,7 +1088,7 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
 		/* used in the foreach macro */
-		struct lh_entry *entry; char *key; struct json_object *val; int idx;
+		struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 
 		assure_type_is(phases_obj, obj, "phases",
 					json_type_object);
@@ -1077,12 +1158,13 @@ static void
 parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 {
 	/* used in the foreach macro */
-	struct lh_entry *entry; char *key; struct json_object *val; int idx;
+	struct json_object_iterator entry; char *key; struct json_object *val; int idx;
 
 	int i = 0;
 	int instance;
 
 	log_info(PFX "Parsing tasks section");
+
 	opts->nthreads = 0;
 	opts->num_tasks = 0;
 	foreach(tasks, entry, key, val, idx) {
@@ -1094,6 +1176,8 @@ parse_tasks(struct json_object *tasks, rtapp_options_t *opts)
 
 	log_info(PFX "Found %d threads of %d tasks", opts->nthreads, opts->num_tasks);
 
+	if (!opts->num_tasks)
+		return;
 	/*
 	 * Parse thread data of defined tasks so that we can use them later
 	 * when creating the tasks at main() and fork event.

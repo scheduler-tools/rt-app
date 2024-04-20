@@ -191,7 +191,7 @@ void initialize_cgroups(void)
 	}
 
 	if (cgroup_get_cpu_controller_mount_point()) {
-		log_error(PIN "no cgroup cpu controller mointpoint found");
+		log_error(PIN "no cgroup cpu controller mountpoint found");
 		exit(EXIT_FAILURE);
 	}
 }

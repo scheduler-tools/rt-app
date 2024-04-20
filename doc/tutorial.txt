@@ -272,11 +272,62 @@ inherit the affinity from the task level):
 	}
 }
 
+*** Utilization Clamping
+
+util_min: Integer. Can be specified at task level or phase level. Sets the min
+utilization value the task can have; which helps boosting the task from
+scheduler point of view.
+
+util_max: Integer. Can be specified at task level or phase level. Sets the max
+utilization value the task can have; which helps capping the task from
+scheduler point of view.
+
+*** NUMA memory binding
+
+* nodes_membind: Array of Integer. Define the NUMA binding of the thread.
+Default value is all NUMA nodes of the system. 
+An example : "nodes_membind" : [0, 2, 3]
+
+"nodes_membind" Can be specified at task level or phase level. 
+As an example, below creates two threads.
+One thread will run with memory binding to nodes 2 and 3. 
+The second task will run first phase with memory binding to nodes 0 and 1, 
+second phase with memory binding to node 2.
+Please note, that we follow an "event based policy", which means that 
+rt-app changes memory binding when there is a "nodes_membind" event 
+and don't do anything otherwise.
+
+"tasks" : {
+    "thread1" : {
+        "nodes_membind" : [2,3],
+        "phases" : {
+            "phase1" : {
+                "run" : 10,
+                "sleep" : 10
+            }
+        }
+    }
+    "thread2" : {
+        "phases" : {
+            "phase1" : {
+                "nodes_membind" : [0,1],
+                "run" : 10,
+                "sleep" : 10
+            }
+            "phase2" : {
+                "nodes_membind" : [2],
+                "run" : 10,
+                "sleep" : 10
+            }
+        }
+    }
+}
+
 *** taskgroups
 
 * taskgroup: String. Can be specified at task level or phase level. Currently
-only SCHED_OTHER tasks are supported to contain taskgroup data. Tasks with a
-policy other than SCHED_OTHER and without taskgroup data can coexist in the
+only SCHED_OTHER and SCHED_IDLE tasks are supported to contain taskgroup data.
+Tasks with a different policy and without taskgroup data can coexist in the
 setup. An empty taskgroup ("") is allowed and is interpreted as if there is
 no taskgroup data given. Pre-existing parts of a taskgroup are preserved.
 They are not removed during rt-app teardown.
@@ -483,7 +534,9 @@ however, using a pthread_barrier would impose some strict conditions on usage
 around thread cleanups - primarily that you cannot cancel an in-progress barrier
 operation which would mean that we have to restrict cleanup to only be possible
 at the end of a loop cycle (i.e. all phases are complete). This would be too
-restrictive for most uses so here we use an alternative.
+restrictive for most uses so here we use an alternative. Finally, barrier can't
+be used with fork event because we must know how many threads will wait which
+is not possible with fork events.
 
 In this implementation, the barrier event manages its own mutex and uses a
 variable shared between users to track waiting tasks, protected by the mutex.

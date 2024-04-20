@@ -36,6 +36,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "config.h"
 #include "rt-app_utils.h"
@@ -50,9 +51,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #define FORKS_LIMIT		1024
 
-static int errno;
 static volatile sig_atomic_t continue_running;
-static pthread_t *threads;
+static pthread_data_t *threads;
 static int nthreads;
 static volatile sig_atomic_t running_threads;
 static long p_load;
@@ -110,6 +110,8 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 		 * and we'll know */
 		tdata->name = strdup(tdata->name);
 	}
+
+	log_notice("thread_data_set_unique_name %d %s", tdata->ind, tdata->name);
 }
 
 /*
@@ -185,7 +187,10 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 
 	setup_thread_logging(tdata);
 
-	if (pthread_create(&threads[index], NULL, thread_body, (void*) tdata)) {
+	/* save a pointer to thread's data */
+	threads[index].data = tdata;
+
+	if (pthread_create(&threads[index].thread, NULL, thread_body, (void*) tdata)) {
 		perror("Failed to create a thread");
 		return -1;
 	}
@@ -558,7 +563,7 @@ static int run_event(event_data_t *event, int dry_run,
 	case rtapp_yield:
 		{
 			log_debug("yield %d", event->count);
-			pthread_yield();
+			sched_yield();
 		}
 		break;
 	case rtapp_fork:
@@ -670,6 +675,8 @@ static void wakeup_all_threads(void)
 	}
 }
 
+static void setup_main_gnuplot(void);
+
 static void __shutdown(bool force_terminate)
 {
 	int i;
@@ -692,6 +699,7 @@ static void __shutdown(bool force_terminate)
 	if (pthread_mutex_trylock(&joining_mutex))
 		return;
 
+
 	/*
 	 * Wait for all threads to terminate.
 	 *
@@ -704,10 +712,30 @@ static void __shutdown(bool force_terminate)
 	 */
 	for (i = 0; i < running_threads; i++)
 	{
-		int ret = pthread_join(threads[i], NULL);
+		int ret = pthread_join(threads[i].thread, NULL);
 		if (ret)
 			perror("pthread_join() failed");
 	}
+
+	/*
+	 * Set main gnuplot files
+	 *
+	 * We have to access thread's data structure to fill these files so we must
+	 * not free them before.
+	 */
+	setup_main_gnuplot();
+
+	/*
+	 * Now that we don't need the allocated structure anymore, we can safely
+	 * free them
+	 */
+	for (i = 0; i < running_threads; i++)
+	{
+		/* clean up tdata if this was a forked thread */
+		free(threads[i].data->name);
+		free(threads[i].data);
+	}
+
 
 	log_ftrace(ft_data.marker_fd, FTRACE_MAIN,
 		   "rtapp_main: event=end");
@@ -849,129 +877,250 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 	}
 }
 
-static void set_thread_priority(thread_data_t *data, sched_data_t *sched_data)
+static void set_thread_membind(thread_data_t *data, numaset_data_t * numa_data)
+{
+#if HAVE_LIBNUMA
+	if (numa_data->numaset == NULL)
+		return;
+
+	if(data->curr_numa_data == numa_data)
+		return;
+
+	if (data->curr_numa_data == NULL ||
+			!numa_bitmask_equal(numa_data->numaset, data->curr_numa_data->numaset))
+	{
+		log_debug("[%d] setting numa_membind to Node (s) %s", data->ind,
+				numa_data->numaset_str);
+		numa_set_membind(numa_data->numaset);
+	}
+	data->curr_numa_data = numa_data;
+#endif
+}
+
+/*
+ * sched_priority is only meaningful for RT tasks. Otherwise, it must be
+ * set to 0 for the setattr syscall to succeed.
+ */
+static int __sched_priority(thread_data_t *data, sched_data_t *sched_data)
+{
+	switch (sched_data->policy) {
+		case rr:
+		case fifo:
+			return sched_data->prio;
+	}
+
+	 return 0;
+}
+
+
+static void __log_policy_priority_change(thread_data_t *data,
+					 sched_data_t *sched_data)
+{
+	log_debug("[%d] setting scheduler %s priority %d", data->ind,
+		  policy_to_string(sched_data->policy),
+		  sched_data->prio);
+
+	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+		   "rtapp_attrs: event=policy policy=%s prio=%d",
+		   policy_to_string(sched_data->policy),
+		   sched_data->prio);
+}
+
+static bool __set_thread_policy_priority(thread_data_t *data,
+					 sched_data_t *sched_data)
 {
 	struct sched_param param;
-	policy_t policy;
-#ifdef DLSCHED
-	struct sched_attr dl_params;
-	pid_t tid;
-	unsigned int flags = 0;
-#endif
 	int ret;
 
-	if (sched_data == NULL)
+	param.sched_priority = __sched_priority(data, sched_data);
+
+	ret = pthread_setschedparam(pthread_self(),
+				    sched_data->policy,
+				    &param);
+	if (ret) {
+		log_critical("[%d] pthread_setschedparam returned %d",
+			     data->ind, ret);
+		errno = ret;
+		perror("pthread_setschedparam");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void __set_thread_nice(thread_data_t *data, sched_data_t *sched_data)
+{
+	int ret;
+
+	if (sched_data->prio > 19 || sched_data->prio < -20) {
+		log_critical("[%d] setpriority %d nice invalid. "
+			     "Valid between -20 and 19",
+			     data->ind, sched_data->prio);
+		exit(EXIT_FAILURE);
+	}
+
+	ret = setpriority(PRIO_PROCESS, 0, sched_data->prio);
+	if (ret) {
+		log_critical("[%d] setpriority returned %d", data->ind, ret);
+		errno = ret;
+		perror("setpriority");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
+{
+	/* Priority unchanged => Policy unchanged */
+	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED)
+		return;
+	/*
+	 * In the CFS case, sched_data->prio is the NICE value. As long as the
+	 * policy hasn't changed, there's no need to call
+	 * __set_thread_policy_priority()
+	 *
+	 * We can't rely on policy == same as it is overwritten in
+	 * set_thread_param()
+	 */
+	if (!data->curr_sched_data ||
+	    (sched_data->policy != data->curr_sched_data->policy))
+		__set_thread_policy_priority(data, sched_data);
+
+	if (sched_data->policy == other)
+		__set_thread_nice(data, sched_data);
+
+	__log_policy_priority_change(data, sched_data);
+}
+
+static void _set_thread_rt(thread_data_t *data, sched_data_t *sched_data)
+{
+	/* Priority unchanged => Policy unchanged */
+	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED)
+		return;
+
+	__set_thread_policy_priority(data, sched_data);
+	__log_policy_priority_change(data, sched_data);
+}
+
+/* deadline can't rely on the default __set_thread_policy_priority */
+static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
+{
+	struct sched_attr sa_params = {0};
+	unsigned int flags = 0;
+	pid_t tid;
+	int ret;
+
+	log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
+		  " period %lu",
+		  data->ind,
+		  policy_to_string(sched_data->policy),
+		  sched_data->runtime, sched_data->deadline,
+		  sched_data->period);
+	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+		   "rtapp_attrs: event=policy policy=dl runtime=%lu "
+		   "deadline=%lu period=%lu",
+		   sched_data->runtime, sched_data->deadline,
+		   sched_data->period);
+
+	tid = gettid();
+	sa_params.size = sizeof(struct sched_attr);
+	sa_params.sched_flags = 0;
+	sa_params.sched_policy = SCHED_DEADLINE;
+	sa_params.sched_priority = __sched_priority(data, sched_data);
+	sa_params.sched_runtime = sched_data->runtime;
+	sa_params.sched_deadline = sched_data->deadline;
+	sa_params.sched_period = sched_data->period;
+
+	ret = sched_setattr(tid, &sa_params, flags);
+	if (ret) {
+		log_critical("[%d] sched_setattr returned %d",
+			     data->ind, ret);
+		errno = ret;
+		perror("sched_setattr: failed to set deadline attributes");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
+{
+	struct sched_attr sa_params = {0};
+	unsigned int flags = 0;
+	pid_t tid;
+	int ret;
+
+	if ((sched_data->util_min == -1 &&
+	     sched_data->util_max == -1))
+		    return;
+
+	sa_params.sched_policy = sched_data->policy;
+	sa_params.sched_priority = __sched_priority(data, sched_data);
+	sa_params.size = sizeof(struct sched_attr);
+	sa_params.sched_flags = SCHED_FLAG_KEEP_ALL;
+	tid = gettid();
+
+	if (sched_data->util_min != -1) {
+		sa_params.sched_util_min = sched_data->util_min;
+		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MIN;
+		log_debug("[%d] setting util_min=%d",
+			   data->ind, sched_data->util_min);
+		log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+			   "rtapp_attrs: event=uclamp util_min=%d",
+			   sched_data->util_min);
+	}
+	if (sched_data->util_max != -1) {
+		sa_params.sched_util_max = sched_data->util_max;
+		sa_params.sched_flags |= SCHED_FLAG_UTIL_CLAMP_MAX;
+		log_debug("[%d] setting util_max=%d",
+			   data->ind, sched_data->util_max);
+		log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+			   "rtapp_attrs: event=uclamp util_max=%d",
+			   sched_data->util_max);
+	}
+
+	ret = sched_setattr(tid, &sa_params, flags);
+	if (ret) {
+		log_critical("[%d] sched_setattr returned %d",
+			     data->ind, ret);
+		errno = ret;
+		perror("sched_setattr: failed to set uclamp value(s)");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
+{
+	if (!sched_data)
 		return;
 
 	if (data->curr_sched_data == sched_data)
 		return;
 
-	if ((sched_data->policy == same) &&  (data->curr_sched_data)){
-		/* if policy not specificed, reuse previous policy */
+	/* if no policy is specified, reuse the previous one */
+	if ((sched_data->policy == same) && data->curr_sched_data)
 		sched_data->policy = data->curr_sched_data->policy;
-	}
 
-
-	switch (sched_data->policy)
-	{
+	switch (sched_data->policy) {
 		case rr:
 		case fifo:
-			log_debug("[%d] setting scheduler %s priority %d", data->ind,
-					policy_to_string(sched_data->policy), sched_data->prio);
-			param.sched_priority = sched_data->prio;
-			ret = pthread_setschedparam(pthread_self(),
-					sched_data->policy,
-					&param);
-			if (ret != 0) {
-				log_critical("[%d] pthread_setschedparam"
-				     "returned %d", data->ind, ret);
-				errno = ret;
-				perror("pthread_setschedparam");
-				exit(EXIT_FAILURE);
-			}
+			_set_thread_rt(data, sched_data);
+			_set_thread_uclamp(data, sched_data);
 			break;
-
 		case other:
 		case idle:
-			log_debug("[%d] setting scheduler %s priority %d", data->ind,
-					policy_to_string(sched_data->policy), sched_data->prio);
-
-
-			if ((sched_data->policy == other) && (sched_data->prio > 19 || sched_data->prio < -20)) {
-				log_critical("[%d] setpriority "
-					"%d nice invalid. "
-					"Valid between -20 and 19",
-					data->ind, sched_data->prio);
-				exit(EXIT_FAILURE);
-			}
-
-			if (!data->curr_sched_data || sched_data->policy != data->curr_sched_data->policy) {
-				/* Set new scheduling class */
-				param.sched_priority = 0;
-				ret = pthread_setschedparam(pthread_self(),
-						sched_data->policy,
-						&param);
-				if (ret != 0) {
-					log_critical("[%d] pthread_setschedparam "
-					     "returned %d", data->ind, ret);
-					errno = ret;
-					perror("pthread_setschedparam");
-					exit(EXIT_FAILURE);
-				}
-			}
-
-			if (sched_data->policy == other) {
-				/* Set nice priority */
-				ret = setpriority(PRIO_PROCESS, 0,
-						sched_data->prio);
-				if (ret != 0) {
-					log_critical("[%d] setpriority "
-					     "returned %d", data->ind, ret);
-					errno = ret;
-					perror("setpriority");
-					exit(EXIT_FAILURE);
-				}
-			}
-
-			data->lock_pages = 0; /* forced off for SCHED_OTHER */
+			_set_thread_cfs(data, sched_data);
+			_set_thread_uclamp(data, sched_data);
+			data->lock_pages = 0; /* forced off */
 			break;
-
-#ifdef DLSCHED
 		case deadline:
-			log_debug("[%d] setting scheduler %s exec %lu, deadline %lu"
-					" period %lu", data->ind,
-					policy_to_string(sched_data->policy), sched_data->period,
-					sched_data->runtime, sched_data->deadline);
-
-			tid = gettid();
-			dl_params.size = sizeof(struct sched_attr);
-			dl_params.sched_flags = 0;
-			dl_params.sched_policy = SCHED_DEADLINE;
-			dl_params.sched_priority = 0;
-			dl_params.sched_runtime = sched_data->runtime;
-			dl_params.sched_deadline = sched_data->deadline;
-			dl_params.sched_period = sched_data->period;
-
-			ret = sched_setattr(tid, &dl_params, flags);
-			if (ret != 0) {
-				log_critical("[%d] sched_setattr "
-						"returned %d", data->ind, ret);
-				errno = ret;
-				perror("sched_setattr");
-				exit(EXIT_FAILURE);
-			}
-		break;
-#endif
-
+			_set_thread_deadline(data, sched_data);
+			break;
 		default:
 			log_error("Unknown scheduling policy %d",
-					sched_data->policy);
-
+				  sched_data->policy);
 			exit(EXIT_FAILURE);
 	}
 
 	data->curr_sched_data = sched_data;
 }
+
+void setup_thread_gnuplot(thread_data_t *tdata);
 
 void *thread_body(void *arg)
 {
@@ -1017,8 +1166,7 @@ void *thread_body(void *arg)
 	{
 		log_notice("[%d] Locking pages in memory", data->ind);
 		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret < 0) {
-			errno = ret;
+		if (ret != 0) {
 			perror("mlockall");
 			exit(EXIT_FAILURE);
 		}
@@ -1069,7 +1217,8 @@ void *thread_body(void *arg)
 	log_notice("[%d] Starting with %s policy with priority %d",
 			data->ind, policy_to_string(data->sched_data->policy),
 			data->sched_data->prio);
-	set_thread_priority(data, data->sched_data);
+	set_thread_param(data, data->sched_data);
+	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
 
 	/*
@@ -1087,7 +1236,8 @@ void *thread_body(void *arg)
 		struct timespec t_diff, t_rel_start;
 
 		set_thread_affinity(data, &pdata->cpu_data);
-		set_thread_priority(data, pdata->sched_data);
+		set_thread_param(data, pdata->sched_data);
+		set_thread_membind(data, &pdata->numa_data);
 		set_thread_taskgroup(data, pdata->taskgroup_data);
 
 		log_ftrace(ft_data.marker_fd, FTRACE_LOOP,
@@ -1189,17 +1339,15 @@ void *thread_body(void *arg)
 			log_timing(data->log_handler, &timings[j]);
 	}
 
-
 	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
 		   "rtapp_task: event=end");
+
+	/* set gnuplot file if enable */
+	setup_thread_gnuplot(data);
 
 	log_notice("[%d] Exiting.", data->ind);
 	if (opts.logsize)
 		fclose(data->log_handler);
-
-	/* clean up tdata if this was a forked thread */
-	free(data->name);
-	free(data);
 
 	pthread_exit(NULL);
 }
@@ -1230,14 +1378,140 @@ void setup_thread_logging(thread_data_t *tdata)
 	}
 }
 
-int main(int argc, char* argv[])
+void setup_thread_gnuplot(thread_data_t *tdata)
 {
 	FILE *gnuplot_script = NULL;
+	char tmp[PATH_LENGTH];
+
+	if (!opts.gnuplot || !opts.logdir)
+		return;
+
+	snprintf(tmp, PATH_LENGTH, "%s/%s-%s.plot",
+		opts.logdir, opts.logbasename, tdata->name);
+	gnuplot_script = fopen(tmp, "w+");
+	snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
+		opts.logbasename, tdata->name);
+	fprintf(gnuplot_script,
+		"set terminal postscript enhanced color\n"
+		"set output '%s'\n"
+		"set grid\n"
+		"set key outside right\n"
+		"set title \"Measured %s Loop stats\"\n"
+		"set xlabel \"Loop start time [msec]\"\n"
+		"set ylabel \"Period/Run Time [usec]\"\n"
+		"set y2label \"Load [number of 1000 loops executed]\"\n"
+		"set y2tics  \n"
+		"set xtics rotate by -45\n"
+		"plot ", tmp, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):2 w l"
+		" title \"load \" axes x1y2, ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):3 w l"
+		" title \"run \", ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script,
+		"\"%s-%s.log\" u ($5/1000000):4 w l"
+		" title \"period \" ",
+		opts.logbasename, tdata->name);
+
+	fprintf(gnuplot_script, "\n");
+
+	fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+	fclose(gnuplot_script);
+}
+
+static void setup_main_gnuplot(void)
+{
+	int i;
+	FILE *gnuplot_script = NULL;
+	char tmp[PATH_LENGTH];
+
+	/* Prepare gnuplot files before starting the use case */
+	if (opts.logdir && opts.gnuplot) {
+		/* gnuplot plot of the period */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-period.plot",
+			 opts.logdir, opts.logbasename);
+		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s-period.eps",
+			 opts.logbasename);
+		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
+			"set grid\n"
+			"set key outside right\n"
+			"set title \"Measured time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Period Time [usec]\"\n"
+			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
+			"plot ", tmp);
+
+		for (i=0; i<running_threads; i++) {
+			fprintf(gnuplot_script,
+				"\"%s-%s.log\" u ($5/1000):4 w l"
+				" title \"thread [%s] (%s)\"",
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
+
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+		fclose(gnuplot_script);
+
+		/* gnuplot of the run time */
+		snprintf(tmp, PATH_LENGTH, "%s/%s-run.plot",
+			 opts.logdir, opts.logbasename);
+		gnuplot_script = fopen(tmp, "w+");
+		snprintf(tmp, PATH_LENGTH, "%s-run.eps",
+			 opts.logbasename);
+		fprintf(gnuplot_script,
+			"set terminal postscript enhanced color\n"
+			"set output '%s'\n"
+			"set grid\n"
+			"set key outside right\n"
+			"set title \"Measured run time per loop\"\n"
+			"set xlabel \"Loop start time [usec]\"\n"
+			"set ylabel \"Run Time [usec]\"\n"
+			"set xtics rotate by -45\n"
+			"set key noenhanced\n"
+			"plot ", tmp);
+
+		for (i=0; i<running_threads; i++) {
+			fprintf(gnuplot_script,
+				"\"%s-%s.log\" u ($5/1000):3 w l"
+				" title \"thread [%s] (%s)\"",
+				opts.logbasename, threads[i].data->name,
+				threads[i].data->name,
+				policy_to_string(threads[i].data->sched_data->policy));
+
+			if ( i == nthreads-1)
+				fprintf(gnuplot_script, "\n");
+			else
+				fprintf(gnuplot_script, ", ");
+		}
+
+		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
+		fclose(gnuplot_script);
+	}
+}
+
+int main(int argc, char* argv[])
+{
 	int i, res, nresources;
 	rtapp_resource_t *rdata;
-	char tmp[PATH_LENGTH];
 	static cpu_set_t orig_set;
 	struct stat sb;
+	char tmp[PATH_LENGTH];
 
 	parse_command_line(argc, argv, &opts);
 
@@ -1249,7 +1523,7 @@ int main(int argc, char* argv[])
 
 	/* allocated threads */
 	nthreads = opts.nthreads;
-	threads = malloc(nthreads * sizeof(pthread_t));
+	threads = malloc(nthreads * sizeof(*threads));
 	if (!threads) {
 		log_error("Cannot allocate threads");
 		exit(EXIT_FAILURE);
@@ -1267,8 +1541,22 @@ int main(int argc, char* argv[])
 	/* If using ftrace, open trace and marker fds */
 	if (ftrace_level != FTRACE_NONE) {
 		log_notice("configuring ftrace");
+		// check if tracing is enabled
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/tracing_on");
+		int ftrace_f = open(tmp, O_RDONLY);
+		if (ftrace_f < 0){
+			log_error("Cannot open tracing_on file %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+		char trace_val[10];
+		int ret = read(ftrace_f, trace_val, 10);
+		if ( ret < 0 || trace_val[0] != '1'){
+			log_error("tracing is not enabled in file %s", tmp);
+			exit(EXIT_FAILURE);
+		}
+		close(ftrace_f);
+		// set the marker
 		strcpy(tmp, ft_data.debugfs);
 		strcat(tmp, "/tracing/trace_marker");
 		ft_data.marker_fd = open(tmp, O_WRONLY);
@@ -1305,123 +1593,6 @@ int main(int argc, char* argv[])
 
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
-	/* Prepare gnuplot files before starting the use case */
-	if (opts.logdir && opts.gnuplot) {
-		/* gnuplot plot of the period */
-		snprintf(tmp, PATH_LENGTH, "%s/%s-period.plot",
-			 opts.logdir, opts.logbasename);
-		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-period.eps",
-			 opts.logbasename);
-		fprintf(gnuplot_script,
-			"set terminal postscript enhanced color\n"
-			"set output '%s'\n"
-			"set grid\n"
-			"set key outside right\n"
-			"set title \"Measured time per loop\"\n"
-			"set xlabel \"Loop start time [usec]\"\n"
-			"set ylabel \"Period Time [usec]\"\n"
-			"set xtics rotate by -45\n"
-			"set key noenhanced\n"
-			"plot ", tmp);
-
-		for (i=0; i<nthreads; i++) {
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):4 w l"
-				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
-
-			if ( i == nthreads-1)
-				fprintf(gnuplot_script, "\n");
-			else
-				fprintf(gnuplot_script, ", ");
-		}
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-
-		/* gnuplot of the run time */
-		snprintf(tmp, PATH_LENGTH, "%s/%s-run.plot",
-			 opts.logdir, opts.logbasename);
-		gnuplot_script = fopen(tmp, "w+");
-		snprintf(tmp, PATH_LENGTH, "%s-run.eps",
-			 opts.logbasename);
-		fprintf(gnuplot_script,
-			"set terminal postscript enhanced color\n"
-			"set output '%s'\n"
-			"set grid\n"
-			"set key outside right\n"
-			"set title \"Measured run time per loop\"\n"
-			"set xlabel \"Loop start time [usec]\"\n"
-			"set ylabel \"Run Time [usec]\"\n"
-			"set xtics rotate by -45\n"
-			"set key noenhanced\n"
-			"plot ", tmp);
-
-		for (i=0; i<nthreads; i++) {
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000):3 w l"
-				" title \"thread [%s] (%s)\"",
-				opts.logbasename, opts.threads_data[i].name,
-				opts.threads_data[i].ind,
-				opts.threads_data[i].name,
-				policy_to_string(opts.threads_data[i].sched_data->policy));
-
-			if ( i == nthreads-1)
-				fprintf(gnuplot_script, "\n");
-			else
-				fprintf(gnuplot_script, ", ");
-		}
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-
-		/* gnuplot of each task */
-		for (i=0; i<nthreads; i++) {
-			snprintf(tmp, PATH_LENGTH, "%s/%s-%s-%d.plot",
-				 opts.logdir, opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind );
-			gnuplot_script = fopen(tmp, "w+");
-			snprintf(tmp, PATH_LENGTH, "%s-%s.eps",
-				opts.logbasename, opts.threads_data[i].name);
-			fprintf(gnuplot_script,
-				"set terminal postscript enhanced color\n"
-				"set output '%s'\n"
-				"set grid\n"
-				"set key outside right\n"
-				"set title \"Measured %s Loop stats\"\n"
-				"set xlabel \"Loop start time [msec]\"\n"
-				"set ylabel \"Period/Run Time [usec]\"\n"
-				"set y2label \"Load [number of 1000 loops executed]\"\n"
-				"set y2tics  \n"
-				"set xtics rotate by -45\n"
-				"plot ", tmp, opts.threads_data[i].name);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):2 w l"
-				" title \"load \" axes x1y2, ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):3 w l"
-				" title \"run \", ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script,
-				"\"%s-%s-%d.log\" u ($5/1000000):4 w l"
-				" title \"period \" ",
-				opts.logbasename, opts.threads_data[i].name, opts.threads_data[i].ind);
-
-			fprintf(gnuplot_script, "\n");
-
-		fprintf(gnuplot_script, "set terminal wxt\nreplot\n");
-		fclose(gnuplot_script);
-		}
-
-	}
 
 	/* Sync timer resources with start time */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);

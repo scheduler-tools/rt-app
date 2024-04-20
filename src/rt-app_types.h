@@ -22,10 +22,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #ifndef _RTAPP_TYPES_H_
 #define _RTAPP_TYPES_H_
 
-#include <pthread.h>
+/* For cpu_set_t type */
+#define _GNU_SOURCE
+#include <sched.h>
 
+#include <pthread.h>
+#include <limits.h>
 #include "config.h"
 #include "dl_syscalls.h"
+
+#if HAVE_LIBNUMA
+#include <numa.h>
+#endif
 
 #define RTAPP_POLICY_DESCR_LENGTH 16
 #define RTAPP_RESOURCE_DESCR_LENGTH 16
@@ -33,6 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #define DEFAULT_THREAD_PRIORITY 10
 #define DEFAULT_THREAD_NICE 0
+#define THREAD_PRIORITY_UNCHANGED INT_MAX
 
 #define PATH_LENGTH 256
 
@@ -54,11 +63,9 @@ typedef enum policy_t
 	other = SCHED_OTHER,
 	idle = SCHED_IDLE,
 	rr = SCHED_RR,
-	fifo = SCHED_FIFO
-#ifdef DLSCHED
-	, deadline = SCHED_DEADLINE
-#endif
-	, same = -1
+	fifo = SCHED_FIFO,
+	deadline = SCHED_DEADLINE,
+	same = -1
 } policy_t;
 
 typedef enum resource_t
@@ -171,12 +178,19 @@ typedef struct _cpuset_data_t {
 	size_t cpusetsize;
 } cpuset_data_t;
 
+typedef struct _numaset_data_t {
+	struct bitmask * numaset;
+	char *numaset_str;
+} numaset_data_t;
+
 typedef struct _sched_data_t {
 	policy_t policy;
 	int prio;
 	unsigned long runtime;
 	unsigned long deadline;
 	unsigned long period;
+	int util_min;
+	int util_max;
 } sched_data_t;
 
 typedef struct _taskgroup_data_t {
@@ -189,6 +203,7 @@ typedef struct _phase_data_t {
 	event_data_t *events;
 	int nbevents;
 	cpuset_data_t cpu_data;
+	numaset_data_t numa_data;
 	sched_data_t *sched_data;
 	taskgroup_data_t *taskgroup_data;
 } phase_data_t;
@@ -202,6 +217,9 @@ typedef struct _thread_data_t {
 	cpuset_data_t cpu_data; /* cpu set information */
 	cpuset_data_t *curr_cpu_data; /* Current cpu set being used */
 	cpuset_data_t def_cpu_data; /* Default cpu set for task */
+
+	numaset_data_t numa_data; /* numa bind set mask */
+	numaset_data_t *curr_numa_data; /* Current numa bind set being used */
 
 	sched_data_t *sched_data; /* scheduler policy information */
 	sched_data_t *curr_sched_data; /* current scheduler policy */
@@ -225,6 +243,11 @@ typedef struct _thread_data_t {
 	rtapp_resources_t *local_resources;
 	rtapp_resources_t **global_resources;
 } thread_data_t;
+
+typedef struct _pthread_data_t {
+	thread_data_t *data;
+	pthread_t thread;
+} pthread_data_t;
 
 typedef struct _ftrace_data_t {
 	char *debugfs;
