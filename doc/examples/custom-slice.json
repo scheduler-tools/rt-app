@@ -1,0 +1,33 @@
+{
+	/*
+	 * Simple use case setting the custom slice value on a SCHED_OTHER
+	 * task (thread0) via the runtime parameter. This runs alongside a
+	 * SCHED_DEADLINE task with its own sched_runtime value.
+	 * The workload runs for 2s until the use case is stopped with Ctrl+C
+	 */
+	"tasks" : {
+		"thread0" : {
+			"loop" : -1,
+			"run" :   20000,
+			"policy" : "SCHED_OTHER",
+			"priority" : -19, /* This is actually the NICE value */
+			"dl-runtime" : 100000
+		},
+		"thread1" : {
+			"loop" : -1,
+			"run" :   20000,
+			"policy" : "SCHED_DEADLINE",
+			"dl-runtime" : 200000
+		}
+	},
+	"global" : {
+		"duration" : 2,
+		"calibration" : "CPU0",
+		"pi_enabled" : false,
+		"lock_pages" : false,
+		"logdir" : "./",
+		"log_basename" : "rt-app1",
+		"ftrace" : "main,task,loop,event",
+		"gnuplot" : true,
+	}
+}
