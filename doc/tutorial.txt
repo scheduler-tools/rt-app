@@ -222,6 +222,9 @@ Default value is 0. The unit is usec.  For backward compatibility, the
 key "runtime" will also be checked in thread object but special must be taken
 as this can conflict with runtime event.
 
+Since Linux 6.12 this parameter also applies to the SCHED_OTHER scheduling
+class. It is used to request a custom slice length for the thread.
+
 * dl-period : Integer. Define the period duration for deadline scheduling class.
 Default value is runtime. The unit is usec. For backward compatibility, the
 key "period" will also be checked in thread object.
