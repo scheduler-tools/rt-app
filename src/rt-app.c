@@ -946,22 +946,48 @@ static bool __set_thread_policy_priority(thread_data_t *data,
 	}
 }
 
-static void __set_thread_nice(thread_data_t *data, sched_data_t *sched_data)
+static void __set_thread_sched_other_attrs(thread_data_t *data,
+					   sched_data_t *sched_data)
 {
 	int ret;
+	struct sched_attr sa_params = {0};
+	unsigned int flags = 0;
+	pid_t tid;
 
 	if (sched_data->prio > 19 || sched_data->prio < -20) {
-		log_critical("[%d] setpriority %d nice invalid. "
+		log_critical("[%d] sched_setattr %d nice invalid. "
 			     "Valid between -20 and 19",
 			     data->ind, sched_data->prio);
 		exit(EXIT_FAILURE);
 	}
 
-	ret = setpriority(PRIO_PROCESS, 0, sched_data->prio);
+	log_debug("[%d] setting scheduler %s nice=%d runtime=%lu",
+		  data->ind, policy_to_string(sched_data->policy),
+		  sched_data->prio, sched_data->runtime);
+	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+		   "rtapp_attrs: event=policy policy=%s nice=%d runtime=%lu",
+		   policy_to_string(sched_data->policy), sched_data->prio,
+		   sched_data->runtime);
+
+	tid = gettid();
+	sa_params.size = sizeof(struct sched_attr);
+	sa_params.sched_policy = SCHED_OTHER;
+	sa_params.sched_priority = __sched_priority(data, sched_data);
+	/* In the CFS case, sched_data->prio is the NICE value. */
+	sa_params.sched_nice = sched_data->prio;
+	/*
+	 * Since Linux v6.12 it is possible to request a custom slice length
+	 * for tasks using a fair.c policy (other than SCHED_IDLE) via
+	 * sched_attr::sched_runtime.
+	 */
+	sa_params.sched_runtime = sched_data->runtime;
+
+	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
-		log_critical("[%d] setpriority returned %d", data->ind, ret);
+		log_critical("[%d] sched_setattr returned %d",
+			     data->ind, ret);
 		errno = ret;
-		perror("setpriority");
+		perror("sched_setattr: failed to set SCHED_OTHER attributes");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -984,7 +1010,7 @@ static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
 		__set_thread_policy_priority(data, sched_data);
 
 	if (sched_data->policy == other)
-		__set_thread_nice(data, sched_data);
+		__set_thread_sched_other_attrs(data, sched_data);
 
 	__log_policy_priority_change(data, sched_data);
 }
@@ -1021,7 +1047,6 @@ static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
 
 	tid = gettid();
 	sa_params.size = sizeof(struct sched_attr);
-	sa_params.sched_flags = 0;
 	sa_params.sched_policy = SCHED_DEADLINE;
 	sa_params.sched_priority = __sched_priority(data, sched_data);
 	sa_params.sched_runtime = sched_data->runtime;
