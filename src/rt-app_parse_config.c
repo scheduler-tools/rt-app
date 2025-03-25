@@ -765,17 +765,17 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 		data->cpuset_str = strdup(json_object_to_json_string(cpuset_obj));
 		data->cpusetsize = sizeof(cpu_set_t);
 		data->cpuset = malloc(data->cpusetsize);
-		CPU_ZERO(data->cpuset);
+		CPU_ZERO_S(data->cpusetsize, data->cpuset);
 		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
 			if (cpu_idx > max_cpu) {
 				log_critical(PIN2 "Invalid cpu %u in cpuset %s", cpu_idx, data->cpuset_str);
-				free(data->cpuset);
+				CPU_FREE(data->cpuset);
 				free(data->cpuset_str);
 				exit(EXIT_INV_CONFIG);
 			}
-			CPU_SET(cpu_idx, data->cpuset);
+			CPU_SET_S(cpu_idx, data->cpusetsize, data->cpuset);
 		}
 	} else {
 		data->cpuset_str = strdup("-");
@@ -876,14 +876,14 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.period = get_int_value_from(obj, "dl-period", TRUE, tmp_data.runtime);
 	tmp_data.deadline = get_int_value_from(obj, "dl-deadline", TRUE, tmp_data.period);
 
-	/* clamping params (-1: no changes ) */
-	tmp_data.util_min = get_int_value_from(obj, "util_min", TRUE, -1);
-	if (tmp_data.util_min != -1 && tmp_data.util_min > 1024) {
+	/* clamping params (-2: no changes ) */
+	tmp_data.util_min = get_int_value_from(obj, "util_min", TRUE, -2);
+	if (tmp_data.util_min < -2 || tmp_data.util_min > 1024) {
 		log_critical(PIN2 "Invalid util_min %d (>1024)", tmp_data.util_min);
 		exit(EXIT_INV_CONFIG);
 	}
-	tmp_data.util_max = get_int_value_from(obj, "util_max", TRUE, -1);
-	if (tmp_data.util_max != -1 && tmp_data.util_max > 1024) {
+	tmp_data.util_max = get_int_value_from(obj, "util_max", TRUE, -2);
+	if (tmp_data.util_max < -2 || tmp_data.util_max > 1024) {
 		log_critical(PIN2 "Invalid util_max %d (>1024)", tmp_data.util_max);
 		exit(EXIT_INV_CONFIG);
 	}
@@ -906,7 +906,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	/* Check if we found at least one meaningful scheduler parameter */
 	if (tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
 	    tmp_data.runtime || tmp_data.period || tmp_data.deadline ||
-	    tmp_data.util_min != -1 || tmp_data.util_max != -1) {
+	    tmp_data.util_min != -2 || tmp_data.util_max != -2) {
 		sched_data_t *new_data;
 
 		/* At least 1 parameters has been set in the object */
