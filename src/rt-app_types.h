@@ -29,7 +29,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <pthread.h>
 #include <limits.h>
 #include "config.h"
+
+#ifndef HAVE_SCHED_SETATTR
 #include "dl_syscalls.h"
+#endif
 
 #if HAVE_LIBNUMA
 #include <numa.h>
