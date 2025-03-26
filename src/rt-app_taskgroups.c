@@ -11,12 +11,16 @@
 #include "rt-app_taskgroups.h"
 
 #define PIN "[tg] "
+#define SUBTREE_CONTROL "cgroup.subtree_control"
+#define TYPE "cgroup.type"
+#define CONTROLLERS "cgroup.controllers"
 
 typedef struct _taskgroup_ctrl_t
 {
 	char *mount_point;
 	taskgroup_data_t *tg_array;
 	unsigned int nr_tgs;
+	char version;
 } taskgroup_ctrl_t;
 
 static taskgroup_ctrl_t ctrl;
@@ -143,6 +147,31 @@ done:
 	return ret;
 }
 
+static int cgroup_check_cpu_controller_v2(char* mnt_dir)
+{
+	size_t size = strlen(mnt_dir) + strlen(CONTROLLERS) + 2;
+	char* path = malloc(size);
+	char buf[256];
+	FILE *file;
+	snprintf(path, size, "%s/%s", mnt_dir, CONTROLLERS);
+	file = fopen(path, "r");
+	if (!file) {
+		perror("fopen");
+		goto error;
+	}
+	while (fscanf(file, "%s", buf) != EOF) {
+		if (!strcmp(buf, "cpu")) {
+			return 0;
+		}
+	}
+	if (fclose(file)) {
+		perror("fclose");
+		goto error;
+	}
+error:
+	return -1;
+} 
+
 static int cgroup_get_cpu_controller_mount_point(void)
 {
 	struct mntent *ent;
@@ -157,23 +186,38 @@ static int cgroup_get_cpu_controller_mount_point(void)
 	}
 
 	while (ent = getmntent(mounts)) {
-		if (strcmp(ent->mnt_type, "cgroup"))
-			continue;
+		if (!strcmp(ent->mnt_type, "cgroup")) {
+			if (!hasmntopt(ent, "cpu"))
+				continue;
 
-		if (!hasmntopt(ent, "cpu"))
-			continue;
+			ctrl.mount_point = malloc(strlen(ent->mnt_dir) + 1);
+			if (!ctrl.mount_point) {
+				perror("malloc");
+				break;
+			}
+			ctrl.version = 1;
 
-		ctrl.mount_point = malloc(strlen(ent->mnt_dir) + 1);
-		if (!ctrl.mount_point) {
-			perror("malloc");
+			strcpy(ctrl.mount_point, ent->mnt_dir);
+			log_debug(PIN "cgroup cpu controller mountpoint [%s] found", ent->mnt_dir);
+			ret = 0;
+			break;
+		} else if (!strcmp(ent->mnt_type, "cgroup2")) {
+			if (cgroup_check_cpu_controller_v2(ent->mnt_dir) == -1) {
+				continue;
+			}
+
+			ctrl.mount_point = malloc(strlen(ent->mnt_dir) + 1);
+			if (!ctrl.mount_point) {
+				perror("malloc");
+				break;
+			}
+			ctrl.version = 2;
+
+			strcpy(ctrl.mount_point, ent->mnt_dir);
+			log_debug(PIN "cgroup cpu controller mountpoint [%s] found", ent->mnt_dir);
+			ret = 0;
 			break;
 		}
-
-		strcpy(ctrl.mount_point, ent->mnt_dir);
-
-		log_debug(PIN "cgroup cpu controller mountpoint [%s] found", ent->mnt_dir);
-		ret = 0;
-		break;
 	}
 
 	endmntent(mounts);
@@ -252,6 +296,24 @@ static int cgroup_mkdir(const char *name, int *offset)
 			}
 		} else if (*offset == -1) {
 			*offset = y;
+		}
+
+		if (ctrl.version == 2) {
+			size_t path_size = strlen(path) + strlen(SUBTREE_CONTROL) + 2;
+			char* cgroup_path = malloc(path_size);
+			FILE *cgroup_file;
+			snprintf(cgroup_path, path_size, "%s/%s", path, SUBTREE_CONTROL);	
+			cgroup_file = fopen(cgroup_path, "we");
+			if (!cgroup_file) {
+				perror("fopen");
+				goto error;
+			}
+			fprintf(cgroup_file, "+cpu");
+			if (fclose(cgroup_file)) {
+				perror("fclose");
+				goto error;
+			}
+			free(cgroup_path);
 		}
 next:
 		dir[i] = del;
@@ -373,7 +435,35 @@ static int cgroup_attach_task(char *name)
 	FILE *tasks;
 	size_t size;
 
-	file = strcmp(name, "/") ? "/tasks" : "tasks";
+	if (ctrl.version == 1) {
+		file = strcmp(name, "/") ? "/tasks" : "tasks";
+	}
+
+	if (ctrl.version == 2) {
+		if (strcmp(name, "/")) {
+			size_t path_size = strlen(ctrl.mount_point) + strlen(name) + strlen(TYPE) + 3;
+			char* cgroup_path = malloc(path_size);
+			FILE* cgroup_file;
+
+			snprintf(cgroup_path, path_size, "%s/%s/%s", ctrl.mount_point, name, TYPE);
+			cgroup_file = fopen(cgroup_path, "we");
+			if (!cgroup_file) {
+				perror("open");
+				goto error;
+			}	
+			if (fprintf(cgroup_file, "threaded") < 0) {
+				perror("fprintf");
+				goto error;
+			}
+			if (fclose(cgroup_file)) {
+				perror("fclose");
+				goto error;
+			}
+			free(cgroup_path);
+		}
+		file = strcmp(name, "/") ? "/cgroup.threads" : "cgroup.threads";
+	}
+	
 	size = strlen(ctrl.mount_point) + strlen(name) + strlen(file) + 1;
 	path = malloc(size);
 	if (!path) {
@@ -393,9 +483,11 @@ static int cgroup_attach_task(char *name)
 		goto error;
 	}
 
-	if (fclose(tasks)) {
-		perror("fclose");
-		goto error;
+	if (ctrl.version == 1) {
+		if (fclose(tasks)) {
+			perror("fclose");
+			goto error;
+		}
 	}
 
 	ret = 0;
