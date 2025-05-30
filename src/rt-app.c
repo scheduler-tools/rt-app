@@ -1343,14 +1343,9 @@ void *thread_body(void *arg)
 	}
 
 	param.sched_priority = 0;
-	ret = pthread_setschedparam(pthread_self(),
-				    SCHED_OTHER,
-				    &param);
-	if (ret != 0) {
-		errno = ret;
-		perror("pthread_setschedparam");
-		exit(EXIT_FAILURE);
-	}
+	pthread_setschedparam(pthread_self(),
+			      SCHED_OTHER,
+			      &param);
 
 	/* Force thread into root taskgroup. */
 	reset_thread_taskgroup();
