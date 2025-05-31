@@ -564,8 +564,7 @@ generates the following sequence:
 }
 
 * suspend : String. Block the calling thread until another thread wakes it up
-with resume. The String can be let empty as it will be filled by workgen with
-the right thread's name before starting the use case.
+with resume. String is ignored.
 
 * resume : String. Wake up the thread defined by the string.
 

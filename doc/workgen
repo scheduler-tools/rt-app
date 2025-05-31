@@ -72,72 +72,6 @@ def check_unikid_json(infile, outfile, verbose=0):
 
     return
 
-def check_suspend_json(infile, outfile, verbose=0):
-    if not os.path.exists(infile):
-        print "WARN: %s does not exist", infile
-
-    try:
-        fi = open(infile, "r")
-    except IOError:
-        print "WARN: Unable to open %s", infile
-        sys.exit(2)
-
-    lines = fi.readlines()
-    fi.close()
-
-    try:
-        fo = open(outfile, "w+")
-    except IOError:
-        print "WARN: Unable to open %s", f
-        sys.exit(2)
-
-
-    taskobj = 0
-    curid = ""
-    for myline in lines:
-
-        exception = 0
-        key_id = "exception"
-
-        try:
-            key_id, value = myline.split(":", 1)
-        except ValueError:
-            if "suspend" in myline:
-                key_id = "suspend"
-                exception = 1
-        
-        key_id = key_id.strip('\"\t\n\r ')
-        
-        if not "tasks" in key_id and \
-           taskobj == 0:
-            fo.write(myline)
-            continue
-
-        if "{" in myline:
-            taskobj += 1
-            if taskobj == 2:
-                curid = key_id
-
-        if "}" in myline:
-            taskobj -= 1
-
-        if "suspend" in key_id and \
-           exception == 1:
-      
-            if verbose:
-                print "value ", curid, " added to suspend key"
-
-            if "," in myline:
-                myline = myline.replace(",", " : " + "\"" + curid + "\",", 1)
-            else:
-                myline = myline.replace("\n", " : " + "\"" + curid + "\"\n", 1)
-
-        fo.write(myline)
-
-    fo.close()
-
-    return
-
 
 if __name__ == '__main__':
 
@@ -172,16 +106,7 @@ if __name__ == '__main__':
         if selfupdate:
             outfile = f
 
-        check_suspend_json(f, outfile)
         check_unikid_json(outfile, outfile)
 
         if not dry_run:
             subprocess.call(["rt-app", outfile])
-
-
-
-
-
-
-
-
