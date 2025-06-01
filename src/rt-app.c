@@ -453,6 +453,7 @@ static int run_event(event_data_t *event, int dry_run,
 		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
 		break;
 	case rtapp_broadcast:
+		log_debug("broadcast %s ", rdata->name);
 		pthread_cond_broadcast(&(rdata->res.cond.obj));
 		break;
 	case rtapp_sleep:
