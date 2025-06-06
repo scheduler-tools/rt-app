@@ -1187,17 +1187,6 @@ void *thread_body(void *arg)
 	}
 	timing_loop = 0;
 
-	/* Lock pages */
-	if (data->lock_pages == 1)
-	{
-		log_notice("[%d] Locking pages in memory", data->ind);
-		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret != 0) {
-			perror("mlockall");
-			exit(EXIT_FAILURE);
-		}
-	}
-
 	if (data->ind == 0) {
 		/*
 		 * Only first thread sets t_zero. Other threads sync with this
@@ -1246,6 +1235,17 @@ void *thread_body(void *arg)
 	set_thread_param(data, data->sched_data);
 	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
+
+	/* Lock pages */
+	if (data->lock_pages == 1)
+	{
+		log_notice("[%d] Locking pages in memory", data->ind);
+		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (ret != 0) {
+			perror("mlockall");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	/*
 	 * phase        - index of current phase in data->phases array
