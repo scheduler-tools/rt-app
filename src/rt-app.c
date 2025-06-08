@@ -152,6 +152,9 @@ static int thread_data_create_unique_resources(thread_data_t *tdata, const threa
 static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
 {
 	thread_data_t *tdata;
+	pthread_attr_t attr;
+	sigset_t sigset;
+	int ret = 0;
 
 	if (!td) {
 		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
@@ -190,12 +193,22 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 	/* save a pointer to thread's data */
 	threads[index].data = tdata;
 
-	if (pthread_create(&threads[index].thread, NULL, thread_body, (void*) tdata)) {
+	pthread_attr_init(&attr);
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGQUIT);
+	sigaddset(&sigset, SIGTERM);
+	sigaddset(&sigset, SIGHUP);
+	sigaddset(&sigset, SIGINT);
+	pthread_attr_setsigmask_np(&attr, &sigset);
+
+	if (pthread_create(&threads[index].thread, &attr, thread_body, (void*) tdata)) {
 		perror("Failed to create a thread");
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	pthread_attr_destroy(&attr);
+
+	return ret;
 }
 
 /*
