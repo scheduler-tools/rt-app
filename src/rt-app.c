@@ -668,27 +668,6 @@ int run(thread_data_t *tdata,
 	return perf;
 }
 
-static void wakeup_all_threads(void)
-{
-	int i;
-	int nresources = opts.resources->nresources;
-	rtapp_resource_t *resources = opts.resources->resources;
-
-	/*
-	 * Force wake up of all waiting threads.
-	 * At now we don't need to look into local resources because rtapp_wait
-	 * and rtapp_barrier are always global
-	 */
-	for (i = 0; i <  nresources; i++) {
-		if (resources[i].type == rtapp_wait) {
-			pthread_cond_broadcast(&resources[i].res.cond.obj);
-		}
-		if (resources[i].type == rtapp_barrier) {
-			pthread_cond_broadcast(&resources[i].res.barrier.c_obj);
-		}
-	}
-}
-
 static void setup_main_gnuplot(void);
 
 static void __shutdown(bool force_terminate)
@@ -700,7 +679,13 @@ static void __shutdown(bool force_terminate)
 
 	if (force_terminate) {
 		continue_running = 0;
-		wakeup_all_threads();
+
+		pthread_mutex_lock(&fork_mutex);
+
+		for (i = 0; i < running_threads; i++)
+			pthread_cancel(threads[i].thread);
+
+		pthread_mutex_unlock(&fork_mutex);
 	}
 
 	/*
