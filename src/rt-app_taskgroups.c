@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "rt-app_utils.h"
