@@ -3,7 +3,7 @@ HOW-TO use rt-app and workgen to emulate a workload ?
 **** rt-app and workgen ****
 rt-app/workgen is a tool that can be used to emulate a use case. Not only the
 sleep and run pattern can be emulated but also the dependency between tasks
-like accessing same critical resources, creating sequencial wake up or syncing
+like accessing same critical resources, creating sequential wake up or syncing
 the wake up of threads. The use case is described in a json like file which is
 first parsed by workgen then rt-app.
 
@@ -47,7 +47,7 @@ step and uses the integer value as ns per loop.
 * default_policy : String. Default scheduling policy of threads. Default
 value is SCHED_OTHER.
 
-* pi_enabled: Boolean. Enable the prority inheritance of mutex. Default value
+* pi_enabled: Boolean. Enable the priority inheritance of mutex. Default value
 is False.
 
 * lock_pages : Boolean. Lock the mem page in RAM. Locking the page in RAM
@@ -63,12 +63,12 @@ the current directory (./). Directory must be already existing.
 
 * log_size : String or Integer. A Integer defines a fix size in MB of the
 temporary buffer (size per thread) that will be used to store the log data
-before saving them in a file. This temporary buffer is used as a cicular
+before saving them in a file. This temporary buffer is used as a circular
 buffer so the oldest data will be lost in case of overflow. A string is used
-to set a predifined behavior:
+to set a predefined behavior:
   - "file" will be used to store the log data directly in the file without
 	using a temporary buffer.
-  - "Disable" will disable the log mecahnism.
+  - "Disable" will disable the log mechanism.
   - "Auto" will let rt-app compute the buffer size to not overflow the latter
 	during the use case.
 The use of a temporary buffer prevents the threads of unexpected wait during
@@ -203,7 +203,7 @@ is set after the thread creation if nothing has been defined. Then, the
 scheduling properties can be changed at the beginning of each phase if it has
 been defined in the phase object. The behavior is quite similar to an event as
 a update happens only if one of the scheduling parameters has been set
-otherwise the scheduling paraleters will stay unchanged
+otherwise the scheduling parameters will stay unchanged
 
 * policy : String. Define the scheduling policy of the thread. default_policy
 is used if not defined. Accepted value are:
@@ -397,7 +397,7 @@ We can see that task B period stays to 19 even if the run event is delayed
 because of scheduling preemption whereas the period of task A starts at 15 but
 increases to 19 because of the scheduling delay.
 
-"unique" timer device: When a thread that uses a timer is instanciated, the
+"unique" timer device: When a thread that uses a timer is instantiated, the
 timer will be shared across the thread instance which disturbs the original
 sequence. In order to have 1 timer per instance, you can use the "unique"
 prefix so a new timer will be created for each instance. Uniqueness
@@ -433,7 +433,7 @@ below:
 	}
 
 Timers can work with a "relative" or an "absolute" reference. By default they
-work in "relative" mode, but this mode can also be explicity specified as the
+work in "relative" mode, but this mode can also be explicitly specified as the
 following:
 
 	"phases" : {
@@ -547,7 +547,7 @@ variable shared between users to track waiting tasks, protected by the mutex.
 You must use a unique name for each sync event since the number of users is
 taken from the number of references to the name in the input json. i.e. each
 name must represent a single sync point, and be shared amongst all threads
-which wish to syncronise at that point.
+which wish to synchronize at that point.
 
 The barrier event "barrier" : "SyncPointA"
 generates the following sequence:
@@ -564,8 +564,7 @@ generates the following sequence:
 }
 
 * suspend : String. Block the calling thread until another thread wakes it up
-with resume. The String can be let empty as it will be filled by workgen with
-the right thread's name before starting the use case.
+with resume. String is ignored.
 
 * resume : String. Wake up the thread defined by the string.
 
@@ -674,7 +673,7 @@ The generated events are of these main categories:
 
 You can log some metrics for each phase that is executed by a thread. These
 metrics are:
-- perf: fixed amount of work perfomed during a phase (c_duration/calibration)
+- perf: fixed amount of work performed during a phase (c_duration/calibration)
   (see events/run above) [number of 1000 loops, each pLoad]
 - run: time spent by the thread to execute the run events [us]
 - period: duration to execute the complete phase [us]

@@ -562,7 +562,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
-    if (!strncmp(name, "barrier", strlen("barrier"))) {
+	if (!strncmp(name, "barrier", strlen("barrier"))) {
 
 		if (!json_object_is_type(obj, json_type_string))
 			goto unknown_event;
@@ -648,10 +648,7 @@ parse_task_event_data(char *name, struct json_object *obj,
 
 		data->type = rtapp_suspend;
 
-		if (!json_object_is_type(obj, json_type_string))
-			goto unknown_event;
-
-		ref = json_object_get_string(obj);
+		ref = tdata->name;
 
 		i = get_resource_index(ref, rtapp_wait, resources_table, opts);
 

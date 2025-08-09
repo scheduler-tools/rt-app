@@ -152,6 +152,9 @@ static int thread_data_create_unique_resources(thread_data_t *tdata, const threa
 static int create_thread(const thread_data_t *td, int index, int forked, int nforks)
 {
 	thread_data_t *tdata;
+	pthread_attr_t attr;
+	sigset_t sigset;
+	int ret = 0;
 
 	if (!td) {
 		log_error("Failed to create new thread, passed NULL thread_data_t: %s", td->name);
@@ -190,12 +193,22 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 	/* save a pointer to thread's data */
 	threads[index].data = tdata;
 
-	if (pthread_create(&threads[index].thread, NULL, thread_body, (void*) tdata)) {
+	pthread_attr_init(&attr);
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGQUIT);
+	sigaddset(&sigset, SIGTERM);
+	sigaddset(&sigset, SIGHUP);
+	sigaddset(&sigset, SIGINT);
+	pthread_attr_setsigmask_np(&attr, &sigset);
+
+	if (pthread_create(&threads[index].thread, &attr, thread_body, (void*) tdata)) {
 		perror("Failed to create a thread");
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	pthread_attr_destroy(&attr);
+
+	return ret;
 }
 
 /*
@@ -453,6 +466,7 @@ static int run_event(event_data_t *event, int dry_run,
 		pthread_cond_wait(&(rdata->res.cond.obj), &(ddata->res.mtx.obj));
 		break;
 	case rtapp_broadcast:
+		log_debug("broadcast %s ", rdata->name);
 		pthread_cond_broadcast(&(rdata->res.cond.obj));
 		break;
 	case rtapp_sleep:
@@ -654,27 +668,6 @@ int run(thread_data_t *tdata,
 	return perf;
 }
 
-static void wakeup_all_threads(void)
-{
-	int i;
-	int nresources = opts.resources->nresources;
-	rtapp_resource_t *resources = opts.resources->resources;
-
-	/*
-	 * Force wake up of all waiting threads.
-	 * At now we don't need to look into local resources because rtapp_wait
-	 * and rtapp_barrier are always global
-	 */
-	for (i = 0; i <  nresources; i++) {
-		if (resources[i].type == rtapp_wait) {
-			pthread_cond_broadcast(&resources[i].res.cond.obj);
-		}
-		if (resources[i].type == rtapp_barrier) {
-			pthread_cond_broadcast(&resources[i].res.barrier.c_obj);
-		}
-	}
-}
-
 static void setup_main_gnuplot(void);
 
 static void __shutdown(bool force_terminate)
@@ -686,7 +679,13 @@ static void __shutdown(bool force_terminate)
 
 	if (force_terminate) {
 		continue_running = 0;
-		wakeup_all_threads();
+
+		pthread_mutex_lock(&fork_mutex);
+
+		for (i = 0; i < running_threads; i++)
+			pthread_cancel(threads[i].thread);
+
+		pthread_mutex_unlock(&fork_mutex);
 	}
 
 	/*
@@ -1186,17 +1185,6 @@ void *thread_body(void *arg)
 	}
 	timing_loop = 0;
 
-	/* Lock pages */
-	if (data->lock_pages == 1)
-	{
-		log_notice("[%d] Locking pages in memory", data->ind);
-		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret != 0) {
-			perror("mlockall");
-			exit(EXIT_FAILURE);
-		}
-	}
-
 	if (data->ind == 0) {
 		/*
 		 * Only first thread sets t_zero. Other threads sync with this
@@ -1245,6 +1233,17 @@ void *thread_body(void *arg)
 	set_thread_param(data, data->sched_data);
 	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
+
+	/* Lock pages */
+	if (data->lock_pages == 1)
+	{
+		log_notice("[%d] Locking pages in memory", data->ind);
+		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (ret != 0) {
+			perror("mlockall");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	/*
 	 * phase        - index of current phase in data->phases array
@@ -1343,14 +1342,9 @@ void *thread_body(void *arg)
 	}
 
 	param.sched_priority = 0;
-	ret = pthread_setschedparam(pthread_self(),
-				    SCHED_OTHER,
-				    &param);
-	if (ret != 0) {
-		errno = ret;
-		perror("pthread_setschedparam");
-		exit(EXIT_FAILURE);
-	}
+	pthread_setschedparam(pthread_self(),
+			      SCHED_OTHER,
+			      &param);
 
 	/* Force thread into root taskgroup. */
 	reset_thread_taskgroup();
