@@ -51,6 +51,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #define FORKS_LIMIT		1024
 
+
+/*
+ * Maximum number of CPUs rt-app will be able to detect.
+ */
+#define MAX_CPUS		1024
+
 static volatile sig_atomic_t continue_running;
 static pthread_data_t *threads;
 static int nthreads;
@@ -732,6 +738,12 @@ static void __shutdown(bool force_terminate)
 	{
 		/* clean up tdata if this was a forked thread */
 		free(threads[i].data->name);
+		if (threads[i].data->def_cpu_data.cpuset)
+			CPU_FREE(threads[i].data->def_cpu_data.cpuset);
+
+		if (threads[i].data->def_cpu_data.cpuset_str)
+			free(threads[i].data->def_cpu_data.cpuset_str);
+
 		free(threads[i].data);
 	}
 
@@ -792,7 +804,7 @@ static int create_cpuset_str(cpuset_data_t *cpu_data)
 	for (i = 0; i < 10000 && cpu_count; ++i) {
 		unsigned int n;
 
-		if (CPU_ISSET(i, cpu_data->cpuset)) {
+		if (CPU_ISSET_S(cpu_data->cpusetsize, i, cpu_data->cpuset)) {
 			--cpu_count;
 			if (size_needed <= (idx + 1)) {
 				log_error("Not enough memory for array");
@@ -829,21 +841,20 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 
 	if (data->def_cpu_data.cpuset == NULL) {
 		/* Get default affinity */
-		cpu_set_t cpuset;
-		unsigned int cpu_count;
+		data->def_cpu_data.cpusetsize = CPU_ALLOC_SIZE(MAX_CPUS);
+		data->def_cpu_data.cpuset = CPU_ALLOC(MAX_CPUS);
+		if (!data->def_cpu_data.cpuset) {
+			perror("cpu_set_t malloc");
+			exit(EXIT_FAILURE);
+		}
 
 		ret = pthread_getaffinity_np(pthread_self(),
-						    sizeof(cpu_set_t), &cpuset);
+					     data->def_cpu_data.cpusetsize, data->def_cpu_data.cpuset);
 		if (ret != 0) {
 			errno = ret;
 			perror("pthread_get_affinity");
 			exit(EXIT_FAILURE);
 		}
-		cpu_count = CPU_COUNT(&cpuset);
-		data->def_cpu_data.cpusetsize = CPU_ALLOC_SIZE(cpu_count);
-		data->def_cpu_data.cpuset = CPU_ALLOC(cpu_count);
-		memcpy(data->def_cpu_data.cpuset, &cpuset,
-						data->def_cpu_data.cpusetsize);
 		create_cpuset_str(&data->def_cpu_data);
 		data->curr_cpu_data = &data->def_cpu_data;
 	}
@@ -860,8 +871,12 @@ static void set_thread_affinity(thread_data_t *data, cpuset_data_t *cpu_data)
 	if (actual_cpu_data->cpuset == NULL)
 		actual_cpu_data = &data->def_cpu_data;
 
-	if (!CPU_EQUAL(actual_cpu_data->cpuset, data->curr_cpu_data->cpuset))
-	{
+	if (
+	    actual_cpu_data->cpusetsize != data->curr_cpu_data->cpusetsize ||
+	    !CPU_EQUAL_S(
+			 actual_cpu_data->cpusetsize,
+			 actual_cpu_data->cpuset, data->curr_cpu_data->cpuset))
+	  {
 		log_debug("[%d] setting cpu affinity to CPU(s) %s", data->ind,
 			actual_cpu_data->cpuset_str);
 		ret = pthread_setaffinity_np(pthread_self(),
