@@ -1082,7 +1082,10 @@ parse_task_data(char *name, struct json_object *obj, int index,
 	data->forked = 0;
 	data->num_instances = get_int_value_from(obj, "instance", TRUE, 1);
 
-	/* Get phases */
+    	/* Get core scheduling cookie if set */
+    	data->core_scheduling_family = get_int_value_from(obj, "core_scheduling_family", TRUE, 0);
+
+    	/* Get phases */
 	phases_obj = get_in_object(obj, "phases", TRUE);
 	if (phases_obj) {
 		/* used in the foreach macro */
@@ -1213,6 +1216,8 @@ parse_global(struct json_object *global, rtapp_options_t *opts)
 	}
 
 	opts->duration = get_int_value_from(global, "duration", TRUE, -1);
+    	opts->core_scheduling_families_count = get_int_value_from(global, "core_scheduling_families_count", 
+								  TRUE, -1);
 	opts->gnuplot = get_bool_value_from(global, "gnuplot", TRUE, 0);
 	policy = get_string_value_from(global, "default_policy",
 				       TRUE, "SCHED_OTHER");

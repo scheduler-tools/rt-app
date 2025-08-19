@@ -246,6 +246,8 @@ typedef struct _thread_data_t {
 
 	rtapp_resources_t *local_resources;
 	rtapp_resources_t **global_resources;
+
+    	int core_scheduling_family;
 } thread_data_t;
 
 typedef struct _pthread_data_t {
@@ -293,6 +295,8 @@ typedef struct _rtapp_options_t {
 	char *io_device;
 
 	int cumulative_slack;
+
+    	int core_scheduling_families_count;
 } rtapp_options_t;
 
 typedef struct _timing_point_t {

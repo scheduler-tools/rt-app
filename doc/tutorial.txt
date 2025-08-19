@@ -275,6 +275,38 @@ inherit the affinity from the task level):
 	}
 }
 
+*** Core Scheduling
+
+* core_scheduling_family: Integer. If two or more tasks have the same family, they will share their Core Scheduling Cookie.
+* core_scheduling_families_count: Integer. Number of core scheduling families to be created.
+
+"core_scheduling_family" can only be specified at task level.
+"core_scheduling_families_count" is a global parameter.
+In the example below it creates 2 threads with different core scheduling cookie.
+"tasks" : {
+	"thread1" : {
+		"core_scheduling_family" : 1,
+		"phases" : {
+			"phase1" : {
+				"run" : 10,
+				"sleep" : 10
+			}
+		}
+	}
+	"thread2" : {
+		"core_scheduling_family" : 2,
+		"phases" : {
+            "phase1" : {
+                "run" : 10,
+                "sleep" : 10
+            }
+        }
+	}
+},
+"global":{
+    "core_scheduling_families_count": 2
+}
+
 *** Utilization Clamping
 
 util_min: Integer. Can be specified at task level or phase level. Sets the min
