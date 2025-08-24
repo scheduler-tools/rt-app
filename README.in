@@ -37,8 +37,7 @@ cross-compile json-c and build both static and shared libraries for aarch64:
 
     export ac_cv_func_malloc_0_nonnull=yes
     export ac_cv_func_realloc_0_nonnull=yes
-    ./autogen.sh
-    ./configure --host=aarch64-linux-gnu --enable-shared --enable-static
+    cmake -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc .
     make
 
 
@@ -52,7 +51,7 @@ cross-compile, build it from source like this:
 
 retrieve source code available here:
 
-    git clone https://github.com/numactl/numactl.git
+    https://github.com/numactl/numactl.git
 
 cross-compile numactl and build static libraries for aarch64:
 
@@ -74,7 +73,7 @@ cross-compile a static rt-app for aarch64, using your own json-c and/or numactl 
     export ac_cv_lib_numa_numa_available=yes
     
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo> -L<absolute path to numactl repo>" CFLAGS="-I<path to parent of json-c repo> -I<path to parent of numactl repo>"
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L<absolute path to json repo> -L<absolute path to numactl repo>" CFLAGS="-I<path to parent of json-c repo> -I<path to numactl repo>"
     AM_LDFLAGS="-all-static" make
 
 configure supports the usual flags, like `--help` and `--prefix`, there is an
@@ -105,7 +104,7 @@ you would run:
     export ac_cv_lib_json_c_json_object_from_file=yes
     export ac_cv_lib_numa_numa_available=yes
     ./autogen.sh
-    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c -L$PWD/../numactl" CFLAGS="-I$PWD/../"
+    ./configure --host=aarch64-linux-gnu LDFLAGS="-L$PWD/../json-c -L$PWD/../numactl" CFLAGS="-I$PWD/../ -I$PWD/../numactl/"
     AM_LDFLAGS="-all-static" make
 
 and you should get a static rt-app executable in the src directory.
