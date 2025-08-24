@@ -750,7 +750,6 @@ obj_is_event(char *name)
 static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 {
 	struct json_object *cpuset_obj, *cpu;
-	unsigned int max_cpu = sysconf(_SC_NPROCESSORS_CONF) - 1;
 
 	/* cpuset */
 	cpuset_obj = get_in_object(obj, "cpus", TRUE);
@@ -766,12 +765,6 @@ static void parse_cpuset_data(struct json_object *obj, cpuset_data_t *data)
 		for (i = 0; i < json_object_array_length(cpuset_obj); i++) {
 			cpu = json_object_array_get_idx(cpuset_obj, i);
 			cpu_idx = json_object_get_int(cpu);
-			if (cpu_idx > max_cpu) {
-				log_critical(PIN2 "Invalid cpu %u in cpuset %s", cpu_idx, data->cpuset_str);
-				free(data->cpuset);
-				free(data->cpuset_str);
-				exit(EXIT_INV_CONFIG);
-			}
 			CPU_SET(cpu_idx, data->cpuset);
 		}
 	} else {
