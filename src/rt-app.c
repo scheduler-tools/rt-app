@@ -55,7 +55,7 @@ static volatile sig_atomic_t continue_running;
 static pthread_data_t *threads;
 static int nthreads;
 static volatile sig_atomic_t running_threads;
-static int p_load;
+static long p_load;
 rtapp_options_t opts;
 static struct timespec t_zero;
 static struct timespec t_start;
@@ -238,12 +238,12 @@ void waste_cpu_cycles(unsigned long long load_loops)
 * We alternate idle period and run period in order to not trig some hw
 * protection mechanism like thermal mitgation
 */
-int calibrate_cpu_cycles_1(int clock)
+long calibrate_cpu_cycles_1(int clock)
 {
 	struct timespec start, stop, sleep;
 	int max_load_loop = 10000;
-	unsigned int diff;
-	int nsec_per_loop, avg_per_loop = 0;
+	ulong diff;
+	long psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -257,12 +257,12 @@ int calibrate_cpu_cycles_1(int clock)
 		waste_cpu_cycles(max_load_loop);
 		clock_gettime(clock, &stop);
 
-		diff = (int)timespec_sub_to_ns(&stop, &start);
-		nsec_per_loop = diff / max_load_loop;
-		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+		diff = (ulong)timespec_sub_to_ns(&stop, &start);
+		psec_per_loop = diff * 1000 / max_load_loop;
+		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
 		/* collect a critical mass of samples.*/
-		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+		if ((abs(psec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
 			return avg_per_loop;
 
 		/*
@@ -283,12 +283,12 @@ int calibrate_cpu_cycles_1(int clock)
 * We continously runs something to ensure that CPU is set to max freq by the
 * governor
 */
-int calibrate_cpu_cycles_2(int clock)
+long calibrate_cpu_cycles_2(int clock)
 {
 	struct timespec start, stop;
 	int max_load_loop = 10000;
-	unsigned int diff;
-	int nsec_per_loop, avg_per_loop = 0;
+	ulong diff;
+	long psec_per_loop, avg_per_loop = 0;
 	int cal_trial = 1000;
 
 	while (cal_trial) {
@@ -298,12 +298,12 @@ int calibrate_cpu_cycles_2(int clock)
 		waste_cpu_cycles(max_load_loop);
 		clock_gettime(clock, &stop);
 
-		diff = (int)timespec_sub_to_ns(&stop, &start);
-		nsec_per_loop = diff / max_load_loop;
-		avg_per_loop = (avg_per_loop + nsec_per_loop) >> 1;
+		diff = (ulong)timespec_sub_to_ns(&stop, &start);
+		psec_per_loop = diff * 1000 / max_load_loop;
+		avg_per_loop = (avg_per_loop + psec_per_loop) >> 1;
 
 		/* collect a critical mass of samples.*/
-		if ((abs(nsec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
+		if ((abs(psec_per_loop - avg_per_loop) * 50)  < avg_per_loop)
 			return avg_per_loop;
 
 		/*
@@ -323,9 +323,9 @@ int calibrate_cpu_cycles_2(int clock)
 * Use several methods to calibrate the ns per loop and get the min value which
 * correspond to the highest achievable compute capacity.
 */
-int calibrate_cpu_cycles(int clock)
+long calibrate_cpu_cycles(int clock)
 {
-	int calib1, calib2;
+	long calib1, calib2;
 
 	/* Run 1st method */
 	calib1 = calibrate_cpu_cycles_1(clock);
@@ -350,7 +350,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	 * phase. We need to compute it here because both load_count and exec
 	 * might be modified below.
 	 */
-	perf = exec / p_load;
+	perf = exec * 1000 / p_load;
 
 	/*
 	 * If exec is still too big, let's run it in bursts
@@ -359,7 +359,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	secs = exec / 1000000;
 
 	for (i = 0; i < secs; i++) {
-		load_count = 1000000000/p_load;
+		load_count = 1000000000000/p_load;
 		waste_cpu_cycles(load_count);
 		exec -= 1000000;
 	}
@@ -367,7 +367,7 @@ static inline unsigned long loadwait(unsigned long exec)
 	/*
 	 * Run for the remainig exec (if any).
 	 */
-	load_count = (exec * 1000)/p_load;
+	load_count = (exec * 1000000)/p_load;
 	waste_cpu_cycles(load_count);
 
 	return perf;
@@ -1591,7 +1591,7 @@ int main(int argc, char* argv[])
 	continue_running = 1;
 
 	/* Needs to calibrate 'calib_cpu' core */
-	if (opts.calib_ns_per_loop == 0) {
+	if (opts.calib_ps_per_loop == 0) {
 		log_notice("Calibrate ns per loop");
 		cpu_set_t calib_set;
 
@@ -1601,10 +1601,10 @@ int main(int argc, char* argv[])
 		sched_setaffinity(0, sizeof(cpu_set_t), &calib_set);
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
-		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+		log_notice("pLoad = %ld.%03ldns : calib_cpu %d", p_load / 1000, p_load % 1000, opts.calib_cpu);
 	} else {
-		p_load = opts.calib_ns_per_loop;
-		log_notice("pLoad = %dns", p_load);
+		p_load = opts.calib_ps_per_loop;
+		log_notice("pLoad = %ld.%03ldns", p_load / 1000, p_load % 1000 );
 	}
 
 	initialize_cgroups();
