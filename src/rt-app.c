@@ -471,9 +471,9 @@ static int run_event(event_data_t *event, int dry_run,
 		break;
 	case rtapp_sleep:
 		{
-		struct timespec sleep = usec_to_timespec(event->duration);
-		log_debug("sleep %d ", event->duration);
-		nanosleep(&sleep, NULL);
+			struct timespec sleep = usec_to_timespec(event->duration);
+			log_debug("sleep %d ", event->duration);
+			nanosleep(&sleep, NULL);
 		}
 		break;
 	case rtapp_run:
@@ -1054,9 +1054,10 @@ static void _set_thread_deadline(thread_data_t *data, sched_data_t *sched_data)
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
-		log_critical("[%d] sched_setattr returned %d",
-			     data->ind, ret);
-		errno = ret;
+		int tmp = errno;
+		log_critical("[%d] sched_setattr returned %d (%d - %s)",
+			     data->ind, ret, errno, strerror(errno));
+		errno = tmp;
 		perror("sched_setattr: failed to set deadline attributes");
 		exit(EXIT_FAILURE);
 	}
@@ -1100,9 +1101,10 @@ static void _set_thread_uclamp(thread_data_t *data, sched_data_t *sched_data)
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
-		log_critical("[%d] sched_setattr returned %d",
-			     data->ind, ret);
-		errno = ret;
+		int tmp = errno;
+		log_critical("[%d] sched_setattr returned %d (errno %d: %s)",
+			     data->ind, ret, tmp, strerror(tmp));
+		errno = tmp;
 		perror("sched_setattr: failed to set uclamp value(s)");
 		exit(EXIT_FAILURE);
 	}
@@ -1602,6 +1604,10 @@ int main(int argc, char* argv[])
 		p_load = calibrate_cpu_cycles(CLOCK_MONOTONIC);
 		sched_setaffinity(0, sizeof(cpu_set_t), &orig_set);
 		log_notice("pLoad = %dns : calib_cpu %d", p_load, opts.calib_cpu);
+		if (p_load == 0) {
+			log_error("Did not get a good calibration value (p_load=%d)", p_load);
+			exit(EXIT_FAILURE);
+		}
 	} else {
 		p_load = opts.calib_ns_per_loop;
 		log_notice("pLoad = %dns", p_load);
