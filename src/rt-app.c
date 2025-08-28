@@ -1242,6 +1242,8 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 
+	clock_gettime(CLOCK_MONOTONIC, &t_first);
+
 	/* Set scheduling policy and print pretty info on stdout */
 	log_notice("[%d] Starting with %s policy with priority %d",
 			data->ind, policy_to_string(data->sched_data->policy),
