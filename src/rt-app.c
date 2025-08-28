@@ -1141,6 +1141,10 @@ static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 	}
 
 	data->curr_sched_data = sched_data;
+
+	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+		   "rtapp_task: event=setparam policy=%s",
+		   policy_to_string(sched_data->policy));
 }
 
 void setup_thread_gnuplot(thread_data_t *tdata);
@@ -1207,6 +1211,8 @@ void *thread_body(void *arg)
 			perror("mlockall");
 			exit(EXIT_FAILURE);
 		}
+		log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+			   "rtapp_task: event=mlockall");
 	}
 
 	t_first = t_zero;
