@@ -1130,7 +1130,6 @@ static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 		case idle:
 			_set_thread_cfs(data, sched_data);
 			_set_thread_uclamp(data, sched_data);
-			data->lock_pages = 0; /* forced off */
 			break;
 		case deadline:
 			_set_thread_deadline(data, sched_data);
@@ -1221,6 +1220,17 @@ void *thread_body(void *arg)
 				NULL);
 	}
 
+	/* Lock pages */
+	if (data->lock_pages == 1)
+	{
+		log_notice("[%d] Locking pages in memory", data->ind);
+		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (ret != 0) {
+			perror("mlockall");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	/* TODO find a better way to handle that constraint:
 	 * Set the task to SCHED_DEADLINE as far as possible touching its
 	 * budget as little as possible for the first iteration.
@@ -1233,17 +1243,6 @@ void *thread_body(void *arg)
 	set_thread_param(data, data->sched_data);
 	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
-
-	/* Lock pages */
-	if (data->lock_pages == 1)
-	{
-		log_notice("[%d] Locking pages in memory", data->ind);
-		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret != 0) {
-			perror("mlockall");
-			exit(EXIT_FAILURE);
-		}
-	}
 
 	/*
 	 * phase        - index of current phase in data->phases array
