@@ -283,7 +283,7 @@ typedef struct _rtapp_options_t {
 	int logsize;
 	int gnuplot;
 	int calib_cpu;
-	int calib_ns_per_loop;
+	long calib_ps_per_loop; // option b
 
 	rtapp_resources_t *resources;
 	int pi_enabled;
