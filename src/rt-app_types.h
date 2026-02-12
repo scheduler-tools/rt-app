@@ -55,8 +55,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define EXIT_INV_CONFIG 2
 #define EXIT_INV_COMMANDLINE 3
 
-/* SCHED_IDLE is not available if __USE_GNU is not defined */
+/* SCHED_BATCH and SCHED_IDLE are not available if __USE_GNU is not defined */
 #ifndef __USE_GNU
+#define SCHED_BATCH 3
 #define SCHED_IDLE 5
 #endif
 
@@ -65,6 +66,7 @@ struct _thread_data_t;
 typedef enum policy_t
 {
 	other = SCHED_OTHER,
+	batch = SCHED_BATCH,
 	idle = SCHED_IDLE,
 	rr = SCHED_RR,
 	fifo = SCHED_FIFO,
