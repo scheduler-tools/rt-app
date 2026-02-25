@@ -970,7 +970,7 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 
 	tid = gettid();
 	sa_params.size = sizeof(struct sched_attr);
-	sa_params.sched_policy = SCHED_OTHER;
+	sa_params.sched_policy = sched_data->policy;
 	sa_params.sched_priority = __sched_priority(data, sched_data);
 	/* In the CFS case, sched_data->prio is the NICE value. */
 	sa_params.sched_nice = sched_data->prio;
@@ -1008,7 +1008,7 @@ static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
 	    (sched_data->policy != data->curr_sched_data->policy))
 		__set_thread_policy_priority(data, sched_data);
 
-	if (sched_data->policy == other)
+	if (sched_data->policy == other || sched_data->policy == batch)
 		__set_thread_sched_other_attrs(data, sched_data);
 
 	__log_policy_priority_change(data, sched_data);
@@ -1127,6 +1127,7 @@ static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 			_set_thread_uclamp(data, sched_data);
 			break;
 		case other:
+		case batch:
 		case idle:
 			_set_thread_cfs(data, sched_data);
 			_set_thread_uclamp(data, sched_data);

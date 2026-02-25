@@ -176,6 +176,8 @@ string_to_policy(const char *policy_name, policy_t *policy)
 {
 	if (strcmp(policy_name, "SCHED_OTHER") == 0)
 		*policy = other;
+	else if (strcmp(policy_name, "SCHED_BATCH") == 0)
+		*policy = batch;
 	else if (strcmp(policy_name, "SCHED_IDLE") == 0)
 		*policy = idle;
 	else if (strcmp(policy_name, "SCHED_RR") == 0)
@@ -195,6 +197,8 @@ policy_to_string(policy_t policy)
 	switch (policy) {
 		case other:
 			return "SCHED_OTHER";
+		case batch:
+			return "SCHED_BATCH";
 		case idle:
 			return "SCHED_IDLE";
 		case rr:

@@ -851,6 +851,7 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 		prior_def = THREAD_PRIORITY_UNCHANGED;
 		break;
 	case other:
+	case batch:
 	case idle:
 		prior_def = DEFAULT_THREAD_NICE;
 		break;
@@ -960,13 +961,13 @@ static void check_taskgroup_policy_dep(phase_data_t *pdata, thread_data_t *tdata
 
 	/*
 	 * Detect policy/taskgroup misconfiguration: a task which specifies a
-	 * taskgroup should not run in a policy other than SCHED_OTHER or
-	 * SCHED_IDLE.
+	 * taskgroup should not run in a policy other than SCHED_OTHER,
+	 * SCHED_BATCH, or SCHED_IDLE.
 	 */
 	if (tdata->curr_sched_data && tdata->curr_taskgroup_data) {
 		policy_t policy = tdata->curr_sched_data->policy;
 
-		if (policy != other && policy != idle) {
+		if (policy != other && policy != batch && policy != idle) {
 			log_critical(PIN2 "No taskgroup support for policy %s",
 			             policy_to_string(policy));
 			exit(EXIT_INV_CONFIG);
