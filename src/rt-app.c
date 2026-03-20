@@ -979,7 +979,11 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 	 * for tasks using a fair.c policy (other than SCHED_IDLE) via
 	 * sched_attr::sched_runtime.
 	 */
-	sa_params.sched_runtime = sched_data->runtime;
+
+	if(sched_data->runtime)
+		sa_params.sched_runtime = sched_data->runtime;
+	else
+		sa_params.sched_flags = SCHED_FLAG_KEEP_PARAMS;
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
