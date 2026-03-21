@@ -1135,7 +1135,6 @@ static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 		case idle:
 			_set_thread_cfs(data, sched_data);
 			_set_thread_uclamp(data, sched_data);
-			data->lock_pages = 0; /* forced off */
 			break;
 		case deadline:
 			_set_thread_deadline(data, sched_data);
@@ -1147,6 +1146,10 @@ static void set_thread_param(thread_data_t *data, sched_data_t *sched_data)
 	}
 
 	data->curr_sched_data = sched_data;
+
+	log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+		   "rtapp_task: event=setparam policy=%s",
+		   policy_to_string(sched_data->policy));
 }
 
 void setup_thread_gnuplot(thread_data_t *tdata);
@@ -1204,6 +1207,19 @@ void *thread_body(void *arg)
 	if (!data->forked)
 		pthread_barrier_wait(&threads_barrier);
 
+	/* Lock pages */
+	if (data->lock_pages == 1)
+	{
+		log_notice("[%d] Locking pages in memory", data->ind);
+		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (ret != 0) {
+			perror("mlockall");
+			exit(EXIT_FAILURE);
+		}
+		log_ftrace(ft_data.marker_fd, FTRACE_TASK,
+			   "rtapp_task: event=mlockall");
+	}
+
 	t_first = t_zero;
 
 	log_notice("[%d] starting thread ...\n", data->ind);
@@ -1231,6 +1247,8 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 
+	clock_gettime(CLOCK_MONOTONIC, &t_first);
+
 	/* Set scheduling policy and print pretty info on stdout */
 	log_notice("[%d] Starting with %s policy with priority %d",
 			data->ind, policy_to_string(data->sched_data->policy),
@@ -1238,17 +1256,6 @@ void *thread_body(void *arg)
 	set_thread_param(data, data->sched_data);
 	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);
-
-	/* Lock pages */
-	if (data->lock_pages == 1)
-	{
-		log_notice("[%d] Locking pages in memory", data->ind);
-		ret = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (ret != 0) {
-			perror("mlockall");
-			exit(EXIT_FAILURE);
-		}
-	}
 
 	/*
 	 * phase        - index of current phase in data->phases array
