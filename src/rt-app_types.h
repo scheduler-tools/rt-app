@@ -91,6 +91,9 @@ typedef enum resource_t
 	rtapp_suspend,
 	rtapp_resume,
 	rtapp_mem,
+	rtapp_mem_write,
+	rtapp_mem_read,
+	rtapp_mem_chase,
 	rtapp_iorun,
 	rtapp_runtime,
 	rtapp_yield,
@@ -137,6 +140,13 @@ struct _rtapp_iomem_buf {
 	int size;
 };
 
+struct _rtapp_mem_chase_buf {
+	char *base;		/* aligned buffer */
+	size_t size;		/* buffer size in bytes */
+	size_t stride;		/* bytes between pointer positions */
+	int random;		/* 1 = bit-reversed, 0 = sequential */
+};
+
 struct _rtapp_iodev {
 	int fd;
 };
@@ -155,6 +165,7 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_signal signal;
 		struct _rtapp_timer timer;
 		struct _rtapp_iomem_buf buf;
+		struct _rtapp_mem_chase_buf chase;
 		struct _rtapp_iodev dev;
 		struct _rtapp_barrier_like barrier;
 		struct _rtapp_fork fork;

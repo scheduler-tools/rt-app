@@ -374,6 +374,27 @@ defined by "mem_buffer_size" in "global" object.
 in byte to be write into the IO device specified by "io_device" in "global"
 object.
 
+* memrun : Object. Memory access workloads with finer control than "mem".
+The "type" field selects one of "read", "write", or "chase". All variants
+take a "size" field (per-event buffer allocation in bytes, independent of
+the global "mem_buffer_size") and a "count" field whose meaning depends
+on the type.
+
+memrun "read" and "write" do sequential byte-at-a-time access of "count"
+bytes from the buffer, wrapping to offset 0 if count > size.
+
+memrun "chase" does pointer-chasing through a circular linked list of
+pointers placed every "stride" bytes in the buffer. "count" is the
+number of pointer dereferences (one chain hop each). The chain layout is
+controlled by:
+
+  - "stride" : Integer. Bytes between adjacent chain positions. Default 64.
+  - "pattern" : String. Either "random" (default), which uses bit-reversed
+    pointer ordering to defeat hardware prefetchers, or "sequential",
+    which orders the chain by linear stride.
+
+The legacy "mem" event is unchanged for backward compatibility.
+
 * timer : Object. Emulate the wake up of the thread by a timer. Timer differs
 from sleep event by the start time of the timer duration. Sleep duration starts
 at the beginning of the sleep event whereas timer duration starts at the end of
