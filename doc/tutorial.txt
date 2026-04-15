@@ -594,6 +594,21 @@ with resume. String is ignored.
 taskA ...|run 5|suspend |----------------|run 5|suspend |----------------
 taskB ...-------------------|resume taskA|run 10    |--------------------
 
+* sem_post : String. Increment the POSIX semaphore named by the string.
+Never blocks. If a thread is blocked in sem_wait on the same semaphore,
+one is woken; otherwise the count increments and the post is remembered
+for a later sem_wait. Initial count is 0.
+
+* sem_wait : String. Decrement the POSIX semaphore named by the string,
+or block until count > 0. Unlike suspend/resume and signal/wait, the
+sem_post/sem_wait pair has memory: posts that arrive before any waiter
+is blocked accumulate, so a later wait consumes the count without
+blocking. This is the right primitive when an upstream thread may run
+ahead of the downstream waiter, e.g. pipeline patterns where the poster
+can complete several iterations before a preempted consumer gets to run.
+Both sem_post and sem_wait events using the same name reference the same
+underlying semaphore.
+
 * yield: String. Calls pthread_yield(), freeing the CPU for other tasks. This has a
 special meaning for SCHED_DEADLINE tasks. String can be empty.
 
