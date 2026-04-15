@@ -704,6 +704,18 @@ static int run_event(event_data_t *event, int dry_run,
 			pthread_mutex_unlock(&fork_mutex);
 		}
 		break;
+	case rtapp_sem_post:
+		{
+			log_debug("sem_post %s", rdata->name);
+			sem_post(&rdata->res.sem.obj);
+		}
+		break;
+	case rtapp_sem_wait:
+		{
+			log_debug("sem_wait %s", rdata->name);
+			sem_wait(&rdata->res.sem.obj);
+		}
+		break;
 	default:
 		break;
 	}

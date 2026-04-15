@@ -28,6 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <linux/sched.h>
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <limits.h>
 #include "config.h"
 
@@ -98,7 +99,9 @@ typedef enum resource_t
 	rtapp_runtime,
 	rtapp_yield,
 	rtapp_barrier,
-	rtapp_fork
+	rtapp_fork,
+	rtapp_sem_wait,
+	rtapp_sem_post
 } resource_t;
 
 struct _rtapp_mutex {
@@ -157,6 +160,10 @@ struct _rtapp_fork {
 	int nforks;
 };
 
+struct _rtapp_sem {
+	sem_t obj;
+};
+
 /* Shared resources */
 typedef struct _rtapp_resource_t {
 	union {
@@ -169,6 +176,7 @@ typedef struct _rtapp_resource_t {
 		struct _rtapp_iodev dev;
 		struct _rtapp_barrier_like barrier;
 		struct _rtapp_fork fork;
+		struct _rtapp_sem sem;
 	} res;
 	int index;
 	resource_t type;

@@ -357,6 +357,12 @@ static void init_barrier_resource(rtapp_resource_t *data, const rtapp_options_t 
 	pthread_cond_init(&data->res.barrier.c_obj, NULL);
 }
 
+static void init_sem_resource(rtapp_resource_t *data, const rtapp_options_t *opts)
+{
+	log_info(PIN3 "Init: %s semaphore", data->name);
+	sem_init(&data->res.sem.obj, 0, 0);
+}
+
 static void
 init_resource_data(const char *name, int type, rtapp_resources_t *resources_table,
 		int idx, const rtapp_options_t *opts,
@@ -397,6 +403,10 @@ init_resource_data(const char *name, int type, rtapp_resources_t *resources_tabl
 			break;
 		case rtapp_barrier:
 			init_barrier_resource(data, opts);
+			break;
+		case rtapp_sem_wait:
+		case rtapp_sem_post:
+			init_sem_resource(data, opts);
 			break;
 		default:
 			break;
@@ -883,6 +893,46 @@ parse_task_event_data(char *name, struct json_object *obj,
 		return;
 	}
 
+	if (!strncmp(name, "sem_post", strlen("sem_post"))) {
+
+		data->type = rtapp_sem_post;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+		i = get_resource_index(ref, rtapp_sem_post, NULL, resources_table, opts);
+
+		data->res = i;
+
+		rdata = &((*resources_table)->resources[data->res]);
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
+		return;
+	}
+
+	if (!strncmp(name, "sem_wait", strlen("sem_wait"))) {
+
+		data->type = rtapp_sem_wait;
+
+		if (!json_object_is_type(obj, json_type_string))
+			goto unknown_event;
+
+		ref = json_object_get_string(obj);
+		i = get_resource_index(ref, rtapp_sem_post, NULL, resources_table, opts);
+
+		data->res = i;
+
+		rdata = &((*resources_table)->resources[data->res]);
+
+		log_info(PIN2 "type %d target %s [%d]", data->type, rdata->name, rdata->index);
+		snprintf(data->name, sizeof(data->name)-1, "%s:%s",
+			 name, rdata->name);
+		return;
+	}
+
 	log_error(PIN2 "Resource %s not found in the resource section !!!", ref);
 	log_error(PIN2 "Please check the resource name or the resource section");
 
@@ -910,6 +960,8 @@ static char *events[] = {
 	"yield",
 	"barrier",
 	"fork",
+	"sem_post",
+	"sem_wait",
 	NULL
 };
 
