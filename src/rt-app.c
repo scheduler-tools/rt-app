@@ -949,7 +949,7 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 					   sched_data_t *sched_data)
 {
 	int ret;
-	struct sched_attr sa_params = {0};
+	struct sched_attr sa_params = {0}, current_sa_params;
 	unsigned int flags = 0;
 	pid_t tid;
 
@@ -979,11 +979,21 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 	 * for tasks using a fair.c policy (other than SCHED_IDLE) via
 	 * sched_attr::sched_runtime.
 	 */
-
 	if(sched_data->runtime)
 		sa_params.sched_runtime = sched_data->runtime;
-	else
-		sa_params.sched_flags = SCHED_FLAG_KEEP_PARAMS;
+	else {
+		/* sched_runtime was not requested - keep the current value */
+		ret = sched_getattr(tid, &current_sa_params,
+				    sizeof(struct sched_attr), flags);
+		if (ret) {
+			log_critical("[%d] sched_getattr returned %d",
+				     data->ind, ret);
+			errno = ret;
+			perror("sched_getattr: failed to get SCHED_OTHER attributes");
+			exit(EXIT_FAILURE);
+		}
+		sa_params.sched_runtime = current_sa_params.sched_runtime;
+	}
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
