@@ -948,12 +948,17 @@ static bool __set_thread_policy_priority(thread_data_t *data,
 static void __set_thread_sched_other_attrs(thread_data_t *data,
 					   sched_data_t *sched_data)
 {
-	int ret;
-	struct sched_attr sa_params = {0};
+	int ret, prio_unchanged;
+	struct sched_attr sa_params = {0}, _sa_params = {0};
 	unsigned int flags = 0;
 	pid_t tid;
 
-	if (sched_data->prio > 19 || sched_data->prio < -20) {
+	prio_unchanged = sched_data->prio == THREAD_PRIORITY_UNCHANGED;
+
+	if (prio_unchanged && !sched_data->runtime)
+		return;
+
+	if (!prio_unchanged && (sched_data->prio > 19 || sched_data->prio < -20)) {
 		log_critical("[%d] sched_setattr %d nice invalid. "
 			     "Valid between -20 and 19",
 			     data->ind, sched_data->prio);
@@ -968,22 +973,35 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 		   policy_to_string(sched_data->policy), sched_data->prio,
 		   sched_data->runtime);
 
+	if (prio_unchanged || !sched_data->runtime) {
+		_sa_params.size = sizeof(_sa_params);
+
+		if (sched_getattr(0, &_sa_params, sizeof(_sa_params), 0) == -1) {
+			perror("sched_getattr: failed to get SCHED_OTHER attributes");
+			exit(EXIT_FAILURE);
+		}
+	}
+
 	tid = gettid();
 	sa_params.size = sizeof(struct sched_attr);
 	sa_params.sched_policy = sched_data->policy;
 	sa_params.sched_priority = __sched_priority(data, sched_data);
+
 	/* In the CFS case, sched_data->prio is the NICE value. */
-	sa_params.sched_nice = sched_data->prio;
+	if (!prio_unchanged)
+		sa_params.sched_nice = sched_data->prio;
+	else
+		sa_params.sched_nice = _sa_params.sched_nice;
+
 	/*
 	 * Since Linux v6.12 it is possible to request a custom slice length
 	 * for tasks using a fair.c policy (other than SCHED_IDLE) via
 	 * sched_attr::sched_runtime.
 	 */
-
-	if(sched_data->runtime)
+	if (sched_data->runtime)
 		sa_params.sched_runtime = sched_data->runtime;
 	else
-		sa_params.sched_flags = SCHED_FLAG_KEEP_PARAMS;
+		sa_params.sched_runtime = _sa_params.sched_runtime;
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
@@ -997,9 +1015,6 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 
 static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
 {
-	/* Priority unchanged => Policy unchanged */
-	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED)
-		return;
 	/*
 	 * In the CFS case, sched_data->prio is the NICE value. As long as the
 	 * policy hasn't changed, there's no need to call
