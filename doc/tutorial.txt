@@ -395,6 +395,55 @@ controlled by:
 
 The legacy "mem" event is unchanged for backward compatibility.
 
+Optional "ref" field for cross-thread sharing: similar to the "unique"
+pattern for timer (but inverted), memrun events default to per-thread
+isolated buffers. Adding "ref" : "<name>" to a memrun event opts into
+sharing: the resource lookup uses the user-provided name verbatim, so
+multiple tasks (and their threads) using the same name share one
+underlying buffer.
+
+Sharing decouples the aggregate working set from the thread count,
+which is useful in two main cases:
+
+  - Pinning the working set to a target cache level. If you want N
+    threads to all hit (say) L3, the working set must fit in L3.
+    With per-thread buffers of size B, the aggregate is N*B and easily
+    exceeds L3, producing misses instead of hits. A single shared
+    buffer of size <= L3 keeps the working set bounded regardless of N,
+    so all threads hit L3 after warmup.
+
+  - Avoiding OOM with large per-thread buffers. Many threads each
+    wanting a 32 MB chase buffer to generate cache misses (e.g. 100
+    threads * 32 MB = 3.2 GB) OOMs typical devices. One shared 32 MB
+    buffer still exceeds cache for the aggregate working set, so
+    cache-miss behavior is preserved while memory cost stays constant.
+
+Two memrun events using the same "ref" must agree on size/stride/pattern;
+otherwise rt-app exits with EXIT_INV_CONFIG at parse time.
+
+    "tasks" : {
+        "thread_a" : {
+            "phases" : {
+                "p" : {
+                    "memrun_a" : { "type" : "chase", "size" : 33554432,
+                                   "stride" : 64, "pattern" : "random",
+                                   "count" : 1000,
+                                   "ref" : "shared_chase_r_64_33554432" }
+                }
+            }
+        },
+        "thread_b" : {
+            "phases" : {
+                "p" : {
+                    "memrun_b" : { "type" : "chase", "size" : 33554432,
+                                   "stride" : 64, "pattern" : "random",
+                                   "count" : 1000,
+                                   "ref" : "shared_chase_r_64_33554432" }
+                }
+            }
+        }
+    }
+
 * timer : Object. Emulate the wake up of the thread by a timer. Timer differs
 from sleep event by the start time of the timer duration. Sleep duration starts
 at the beginning of the sleep event whereas timer duration starts at the end of

@@ -522,6 +522,32 @@ parse_resources(struct json_object *resources, rtapp_options_t *opts)
 	}
 }
 
+/*
+ * Verify that a previously-created resource was initialized with the
+ * same params the current caller is asking for. Mismatches happen when
+ * two memrun events share a name (typically via "ref") but disagree on
+ * size/stride/pattern. Returns 1 on match, 0 on mismatch. For
+ * param-free types, or when no args are passed, always matches.
+ */
+static int validate_init_args(const rtapp_resource_t *r,
+		const union init_args *args)
+{
+	if (!args)
+		return 1;
+
+	switch (r->type) {
+	case rtapp_mem_chase:
+		return r->res.chase.size == (size_t)args->chase.size &&
+		       r->res.chase.stride == (size_t)args->chase.stride &&
+		       r->res.chase.random == args->chase.random;
+	case rtapp_mem_read:
+	case rtapp_mem_write:
+		return r->res.buf.size == args->membuf.size;
+	default:
+		return 1;
+	}
+}
+
 static int get_resource_index(const char *name, int type,
 		const union init_args *args,
 		rtapp_resources_t **resources_table, rtapp_options_t *opts)
@@ -535,7 +561,20 @@ static int get_resource_index(const char *name, int type,
 		i++;
 
 	if (i >= nresources)
-		i = add_resource_data(name, type, resources_table, opts, args);
+		return add_resource_data(name, type, resources_table, opts, args);
+
+	/*
+	 * Existing resource: make sure the caller's params match. For
+	 * per-thread memrun the encoded resource name guarantees identical
+	 * params, so this is a defensive no-op. With user-provided "ref",
+	 * this catches accidental param mismatches across threads.
+	 */
+	if (!validate_init_args(&resources[i], args)) {
+		log_critical(PFX "Resource '%s' shared with mismatched params. "
+		             "Multiple memrun events using the same name (or "
+		             "\"ref\") must agree on size/stride/pattern.", name);
+		exit(EXIT_INV_CONFIG);
+	}
 
 	return i;
 }
@@ -585,6 +624,14 @@ parse_task_event_data(char *name, struct json_object *obj,
 		char *mem_type = get_string_value_from(obj, "type", FALSE, NULL);
 		int mem_size = get_int_value_from(obj, "size", FALSE, 0);
 		int mem_count = get_int_value_from(obj, "count", FALSE, 0);
+		/*
+		 * Optional "ref" field: when provided, the resource name is the
+		 * user's ref string verbatim: no per-thread tag, no params
+		 * encoding. Multiple threads (and tasks) using the same ref
+		 * share one underlying buffer. Without "ref", default per-thread
+		 * isolation via encoded params + tag.
+		 */
+		tmp = get_string_value_from(obj, "ref", TRUE, NULL);
 
 		if (!strcmp(mem_type, "chase")) {
 			char *pattern = get_string_value_from(obj, "pattern", TRUE, "random");
@@ -593,14 +640,19 @@ parse_task_event_data(char *name, struct json_object *obj,
 			char encoded[48];
 			union init_args ia = { .chase = { mem_size, stride, is_random } };
 
-			/*
-			 * Encode the chase params into the resource name so that
-			 * different (size, stride, pattern) combinations get
-			 * distinct buffers, while identical configs share one.
-			 */
-			snprintf(encoded, sizeof(encoded), "memrun_%c_%d_%d",
-			         is_random ? 'r' : 's', stride, mem_size);
-			ref = create_unique_name(unique_name, sizeof(unique_name), encoded, tag);
+			if (tmp) {
+				ref = tmp;
+			} else {
+				/*
+				 * Encode chase params into the resource name so distinct
+				 * (size, stride, pattern) combos get distinct buffers
+				 * within one task, while identical configs share one.
+				 */
+				snprintf(encoded, sizeof(encoded), "memrun_%c_%d_%d",
+				         is_random ? 'r' : 's', stride, mem_size);
+				ref = create_unique_name(unique_name, sizeof(unique_name),
+				                         encoded, tag);
+			}
 
 			data->res = get_resource_index(ref, rtapp_mem_chase, &ia,
 			                               resources_table, opts);
@@ -611,8 +663,13 @@ parse_task_event_data(char *name, struct json_object *obj,
 			char encoded[48];
 			union init_args ia = { .membuf = { mem_size } };
 
-			snprintf(encoded, sizeof(encoded), "memrun_read_%d", mem_size);
-			ref = create_unique_name(unique_name, sizeof(unique_name), encoded, tag);
+			if (tmp) {
+				ref = tmp;
+			} else {
+				snprintf(encoded, sizeof(encoded), "memrun_read_%d", mem_size);
+				ref = create_unique_name(unique_name, sizeof(unique_name),
+				                         encoded, tag);
+			}
 			data->res = get_resource_index(ref, rtapp_mem_read, &ia,
 			                               resources_table, opts);
 			data->count = mem_count;
@@ -621,21 +678,26 @@ parse_task_event_data(char *name, struct json_object *obj,
 			char encoded[48];
 			union init_args ia = { .membuf = { mem_size } };
 
-			snprintf(encoded, sizeof(encoded), "memrun_write_%d", mem_size);
-			ref = create_unique_name(unique_name, sizeof(unique_name), encoded, tag);
+			if (tmp) {
+				ref = tmp;
+			} else {
+				snprintf(encoded, sizeof(encoded), "memrun_write_%d", mem_size);
+				ref = create_unique_name(unique_name, sizeof(unique_name),
+				                         encoded, tag);
+			}
 			data->res = get_resource_index(ref, rtapp_mem_write, &ia,
 			                               resources_table, opts);
 			data->count = mem_count;
 			data->type = rtapp_mem_write;
 		} else {
 			log_critical(PIN2 "Unknown memrun type: %s", mem_type);
-			free(mem_type);
 			goto unknown_event;
 		}
 
 		free(mem_type);
 		log_info(PIN2 "type %d count %d", data->type, data->count);
-		strncpy(data->name, unique_name, sizeof(data->name)-1);
+		strncpy(data->name, ref, sizeof(data->name)-1);
+		free(tmp);
 		return;
 	}
 
