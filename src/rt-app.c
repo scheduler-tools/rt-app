@@ -1618,9 +1618,6 @@ int main(int argc, char* argv[])
 	/* Take the beginning time for everything */
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 
-	/* Sync timer resources with start time */
-	clock_gettime(CLOCK_MONOTONIC, &t_start);
-
 	/* Start the use case */
 	int ind = 0;
 	for (i = 0; i < opts.num_tasks; i++) {
