@@ -374,6 +374,76 @@ defined by "mem_buffer_size" in "global" object.
 in byte to be write into the IO device specified by "io_device" in "global"
 object.
 
+* memrun : Object. Memory access workloads with finer control than "mem".
+The "type" field selects one of "read", "write", or "chase". All variants
+take a "size" field (per-event buffer allocation in bytes, independent of
+the global "mem_buffer_size") and a "count" field whose meaning depends
+on the type.
+
+memrun "read" and "write" do sequential byte-at-a-time access of "count"
+bytes from the buffer, wrapping to offset 0 if count > size.
+
+memrun "chase" does pointer-chasing through a circular linked list of
+pointers placed every "stride" bytes in the buffer. "count" is the
+number of pointer dereferences (one chain hop each). The chain layout is
+controlled by:
+
+  - "stride" : Integer. Bytes between adjacent chain positions. Default 64.
+  - "pattern" : String. Either "random" (default), which uses bit-reversed
+    pointer ordering to defeat hardware prefetchers, or "sequential",
+    which orders the chain by linear stride.
+
+The legacy "mem" event is unchanged for backward compatibility.
+
+Optional "ref" field for cross-thread sharing: similar to the "unique"
+pattern for timer (but inverted), memrun events default to per-thread
+isolated buffers. Adding "ref" : "<name>" to a memrun event opts into
+sharing: the resource lookup uses the user-provided name verbatim, so
+multiple tasks (and their threads) using the same name share one
+underlying buffer.
+
+Sharing decouples the aggregate working set from the thread count,
+which is useful in two main cases:
+
+  - Pinning the working set to a target cache level. If you want N
+    threads to all hit (say) L3, the working set must fit in L3.
+    With per-thread buffers of size B, the aggregate is N*B and easily
+    exceeds L3, producing misses instead of hits. A single shared
+    buffer of size <= L3 keeps the working set bounded regardless of N,
+    so all threads hit L3 after warmup.
+
+  - Avoiding OOM with large per-thread buffers. Many threads each
+    wanting a 32 MB chase buffer to generate cache misses (e.g. 100
+    threads * 32 MB = 3.2 GB) OOMs typical devices. One shared 32 MB
+    buffer still exceeds cache for the aggregate working set, so
+    cache-miss behavior is preserved while memory cost stays constant.
+
+Two memrun events using the same "ref" must agree on size/stride/pattern;
+otherwise rt-app exits with EXIT_INV_CONFIG at parse time.
+
+    "tasks" : {
+        "thread_a" : {
+            "phases" : {
+                "p" : {
+                    "memrun_a" : { "type" : "chase", "size" : 33554432,
+                                   "stride" : 64, "pattern" : "random",
+                                   "count" : 1000,
+                                   "ref" : "shared_chase_r_64_33554432" }
+                }
+            }
+        },
+        "thread_b" : {
+            "phases" : {
+                "p" : {
+                    "memrun_b" : { "type" : "chase", "size" : 33554432,
+                                   "stride" : 64, "pattern" : "random",
+                                   "count" : 1000,
+                                   "ref" : "shared_chase_r_64_33554432" }
+                }
+            }
+        }
+    }
+
 * timer : Object. Emulate the wake up of the thread by a timer. Timer differs
 from sleep event by the start time of the timer duration. Sleep duration starts
 at the beginning of the sleep event whereas timer duration starts at the end of
@@ -572,6 +642,21 @@ with resume. String is ignored.
 
 taskA ...|run 5|suspend |----------------|run 5|suspend |----------------
 taskB ...-------------------|resume taskA|run 10    |--------------------
+
+* sem_post : String. Increment the POSIX semaphore named by the string.
+Never blocks. If a thread is blocked in sem_wait on the same semaphore,
+one is woken; otherwise the count increments and the post is remembered
+for a later sem_wait. Initial count is 0.
+
+* sem_wait : String. Decrement the POSIX semaphore named by the string,
+or block until count > 0. Unlike suspend/resume and signal/wait, the
+sem_post/sem_wait pair has memory: posts that arrive before any waiter
+is blocked accumulate, so a later wait consumes the count without
+blocking. This is the right primitive when an upstream thread may run
+ahead of the downstream waiter, e.g. pipeline patterns where the poster
+can complete several iterations before a preempted consumer gets to run.
+Both sem_post and sem_wait events using the same name reference the same
+underlying semaphore.
 
 * yield: String. Calls pthread_yield(), freeing the CPU for other tasks. This has a
 special meaning for SCHED_DEADLINE tasks. String can be empty.
