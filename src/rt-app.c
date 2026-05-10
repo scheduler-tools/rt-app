@@ -214,20 +214,32 @@ static int create_thread(const thread_data_t *td, int index, int forked, int nfo
 /*
  * Function: to do some useless operation.
  * TODO: improve the waste loop with more heavy functions
+ *
+ * This function must be protected against compiler optimizations, as it is
+ * somewhat pure and has not result.
  */
-void waste_cpu_cycles(unsigned long long load_loops)
+void __attribute__((noinline, optimize("O0"))) waste_cpu_cycles(unsigned long long load_loops)
 {
 	double param, result;
 	double n;
 	unsigned long long i;
 
+	/*
+	 * Adjust the number of loops to get calibration values close to what
+	 * they used to be with the previous loop body.
+	 */
+	load_loops *= 10;
+
 	param = 0.95;
 	n = 4;
 	for (i = 0 ; i < load_loops ; i++) {
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
-		result = ldexp(param , (ldexp(param , ldexp(param , n))));
+		/*
+		 * Add a "side-effect" to that function, so compilers will not
+		 * try to remove the call to it altogether. See GCC
+		 * documentation of "noinline" function attribute for details.
+		 */
+		asm("");
+		result = n/i;
 	}
 	return;
 }
