@@ -1,4 +1,4 @@
-AC_INIT([rt-app], [m4_esyscmd_s([git describe --tags HEAD])], [juri.lelli@arm.com, vincent.guittot@linaro.org])
+AC_INIT([rt-app], [1.0], [juri.lelli@arm.com, vincent.guittot@linaro.org])
 AC_COPYRIGHT([Copyright (C) 2009 Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2016 Juri Lelli      <juri.lelli@arm.com>
 Copyright (C) 2016 Vincent Guittot <vincent.guittot@linaro.org>])
