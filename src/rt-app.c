@@ -111,7 +111,7 @@ static void thread_data_set_unique_name(thread_data_t *tdata, int nforks)
 		tdata->name = strdup(tdata->name);
 	}
 
-	log_notice("thread_data_set_unique_name %d %s", tdata->ind, tdata->name);
+	log_notice("[%d] set unique thread name %s", tdata->ind, tdata->name);
 }
 
 /*
@@ -993,20 +993,6 @@ static int __sched_priority(thread_data_t *data, sched_data_t *sched_data)
 	 return 0;
 }
 
-
-static void __log_policy_priority_change(thread_data_t *data,
-					 sched_data_t *sched_data)
-{
-	log_debug("[%d] setting scheduler %s priority %d", data->ind,
-		  policy_to_string(sched_data->policy),
-		  sched_data->prio);
-
-	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
-		   "rtapp_attrs: event=policy policy=%s prio=%d",
-		   policy_to_string(sched_data->policy),
-		   sched_data->prio);
-}
-
 static bool __set_thread_policy_priority(thread_data_t *data,
 					 sched_data_t *sched_data)
 {
@@ -1018,6 +1004,7 @@ static bool __set_thread_policy_priority(thread_data_t *data,
 	ret = pthread_setschedparam(pthread_self(),
 				    sched_data->policy,
 				    &param);
+
 	if (ret) {
 		log_critical("[%d] pthread_setschedparam returned %d",
 			     data->ind, ret);
@@ -1025,47 +1012,64 @@ static bool __set_thread_policy_priority(thread_data_t *data,
 		perror("pthread_setschedparam");
 		exit(EXIT_FAILURE);
 	}
+
+	log_debug("[%d] setting scheduler %s priority %d", data->ind,
+		  policy_to_string(sched_data->policy), param.sched_priority);
+
+	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+		   "rtapp_attrs: event=policy policy=%s prio=%d",
+		   policy_to_string(sched_data->policy), param.sched_priority);
 }
 
 static void __set_thread_sched_other_attrs(thread_data_t *data,
 					   sched_data_t *sched_data)
 {
-	int ret;
-	struct sched_attr sa_params = {0};
+	int ret, prio_unchanged;
+	struct sched_attr sa_params = {0}, _sa_params = {0};
 	unsigned int flags = 0;
 	pid_t tid;
 
-	if (sched_data->prio > 19 || sched_data->prio < -20) {
+	prio_unchanged = sched_data->prio == THREAD_PRIORITY_UNCHANGED;
+
+	if (prio_unchanged && !sched_data->runtime)
+		return;
+
+	if (!prio_unchanged && (sched_data->prio > 19 || sched_data->prio < -20)) {
 		log_critical("[%d] sched_setattr %d nice invalid. "
 			     "Valid between -20 and 19",
 			     data->ind, sched_data->prio);
 		exit(EXIT_FAILURE);
 	}
 
-	log_debug("[%d] setting scheduler %s nice=%d runtime=%lu",
-		  data->ind, policy_to_string(sched_data->policy),
-		  sched_data->prio, sched_data->runtime);
-	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
-		   "rtapp_attrs: event=policy policy=%s nice=%d runtime=%lu",
-		   policy_to_string(sched_data->policy), sched_data->prio,
-		   sched_data->runtime);
+	if (prio_unchanged || !sched_data->runtime) {
+		_sa_params.size = sizeof(_sa_params);
+
+		if (sched_getattr(0, &_sa_params, sizeof(_sa_params), 0) == -1) {
+			perror("sched_getattr: failed to get SCHED_OTHER attributes");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	tid = gettid();
 	sa_params.size = sizeof(struct sched_attr);
 	sa_params.sched_policy = sched_data->policy;
 	sa_params.sched_priority = __sched_priority(data, sched_data);
+
 	/* In the CFS case, sched_data->prio is the NICE value. */
-	sa_params.sched_nice = sched_data->prio;
+	if (!prio_unchanged)
+		sa_params.sched_nice = sched_data->prio;
+	else
+		sa_params.sched_nice = _sa_params.sched_nice;
+
 	/*
 	 * Since Linux v6.12 it is possible to request a custom slice length
 	 * for tasks using a fair.c policy (other than SCHED_IDLE) via
 	 * sched_attr::sched_runtime.
 	 */
-
-	if(sched_data->runtime)
+	if (sched_data->runtime)
 		sa_params.sched_runtime = sched_data->runtime;
 	else
-		sa_params.sched_flags = SCHED_FLAG_KEEP_PARAMS;
+		sa_params.sched_runtime = _sa_params.sched_runtime;
 
 	ret = sched_setattr(tid, &sa_params, flags);
 	if (ret) {
@@ -1075,13 +1079,19 @@ static void __set_thread_sched_other_attrs(thread_data_t *data,
 		perror("sched_setattr: failed to set SCHED_OTHER attributes");
 		exit(EXIT_FAILURE);
 	}
+
+	log_debug("[%d] setting scheduler %s nice=%d runtime=%llu",
+		  data->ind, policy_to_string(sched_data->policy),
+		  sa_params.sched_nice, sa_params.sched_runtime);
+
+	log_ftrace(ft_data.marker_fd, FTRACE_ATTRS,
+		   "rtapp_attrs: event=policy policy=%s nice=%d runtime=%llu",
+		   policy_to_string(sched_data->policy), sa_params.sched_nice,
+		   sa_params.sched_runtime);
 }
 
 static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
 {
-	/* Priority unchanged => Policy unchanged */
-	if (sched_data->prio == THREAD_PRIORITY_UNCHANGED)
-		return;
 	/*
 	 * In the CFS case, sched_data->prio is the NICE value. As long as the
 	 * policy hasn't changed, there's no need to call
@@ -1096,8 +1106,6 @@ static void _set_thread_cfs(thread_data_t *data, sched_data_t *sched_data)
 
 	if (sched_data->policy == other || sched_data->policy == batch)
 		__set_thread_sched_other_attrs(data, sched_data);
-
-	__log_policy_priority_change(data, sched_data);
 }
 
 static void _set_thread_rt(thread_data_t *data, sched_data_t *sched_data)
@@ -1107,7 +1115,6 @@ static void _set_thread_rt(thread_data_t *data, sched_data_t *sched_data)
 		return;
 
 	__set_thread_policy_priority(data, sched_data);
-	__log_policy_priority_change(data, sched_data);
 }
 
 /* deadline can't rely on the default __set_thread_policy_priority */
@@ -1288,7 +1295,7 @@ void *thread_body(void *arg)
 
 	t_first = t_zero;
 
-	log_notice("[%d] starting thread ...\n", data->ind);
+	log_notice("[%d] starting thread %s", data->ind, data->name);
 
 	if (opts.logsize)
 		fprintf(data->log_handler, "%s %8s %8s %8s %15s %15s %15s %10s %10s %10s %10s\n",
@@ -1313,10 +1320,6 @@ void *thread_body(void *arg)
 	 * budget as little as possible for the first iteration.
 	 */
 
-	/* Set scheduling policy and print pretty info on stdout */
-	log_notice("[%d] Starting with %s policy with priority %d",
-			data->ind, policy_to_string(data->sched_data->policy),
-			data->sched_data->prio);
 	set_thread_param(data, data->sched_data);
 	set_thread_membind(data, &data->numa_data);
 	set_thread_taskgroup(data, data->taskgroup_data);

@@ -1142,12 +1142,10 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	/* Get priority */
 	switch (tmp_data.policy) {
 	case same:
-		prior_def = THREAD_PRIORITY_UNCHANGED;
-		break;
 	case other:
 	case batch:
 	case idle:
-		prior_def = DEFAULT_THREAD_NICE;
+		prior_def = THREAD_PRIORITY_UNCHANGED;
 		break;
 	case fifo:
 	case rr:
@@ -1196,14 +1194,14 @@ static sched_data_t *parse_sched_data(struct json_object *obj, int def_policy)
 	tmp_data.deadline *= 1000;
 
 	/* Check if we found at least one meaningful scheduler parameter */
-	if (tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
+	if (def_policy != same || tmp_data.prio != THREAD_PRIORITY_UNCHANGED ||
 	    tmp_data.runtime || tmp_data.period || tmp_data.deadline ||
 	    tmp_data.util_min != -1 || tmp_data.util_max != -1) {
 		sched_data_t *new_data;
 
 		/* At least 1 parameters has been set in the object */
 		new_data = malloc(sizeof(sched_data_t));
-		memcpy( new_data, &tmp_data,sizeof(sched_data_t));
+		memcpy(new_data, &tmp_data, sizeof(sched_data_t));
 
 		log_debug(PIN "key: set scheduler %d with priority %d", new_data->policy, new_data->prio);
 
