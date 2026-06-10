@@ -1,4 +1,4 @@
-AC_INIT([rt-app], [m4_esyscmd_s([git describe --tags HEAD])], [juri.lelli@arm.com, vincent.guittot@linaro.org])
+AC_INIT([rt-app],[m4_esyscmd_s([git describe --tags HEAD])],[juri.lelli@arm.com, vincent.guittot@linaro.org])
 AC_COPYRIGHT([Copyright (C) 2009 Giacomo Bagnoli <g.bagnoli@asidev.com>
 Copyright (C) 2016 Juri Lelli      <juri.lelli@arm.com>
 Copyright (C) 2016 Vincent Guittot <vincent.guittot@linaro.org>])
@@ -7,10 +7,14 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign dist-bzip2])
 m4_pattern_allow([AM_PROG_AR])
 AM_PROG_AR
 AC_PROG_CC
-AC_PROG_LIBTOOL
+LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/rt-app.c])
-AC_HEADER_STDC
+# Autoupdate added the next two lines to ensure that your configure
+# script's behavior did not change.  They are probably safe to remove.
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 
 AC_CHECK_LIB([pthread], [pthread_create])
 AC_CHECK_LIB([m], [round])
